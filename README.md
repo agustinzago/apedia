@@ -13,6 +13,8 @@ Without `DATABASE_URL`, the app uses a local PGlite database in `.pglite/` (Post
 
 Sign-in needs no setup locally: the magic link is printed to the `npm run dev` console instead of being emailed. Open it in the same browser to sign in.
 
+The Teacher needs no setup either: without `ANTHROPIC_API_KEY` a stand-in Teacher echoes the Interview questions and builds the Mission from your answers. Put `ANTHROPIC_API_KEY=…` in `.env.local` to talk to Claude.
+
 ## Check
 
 ```sh
@@ -39,12 +41,17 @@ Magic-link sign-in with Auth.js and Resend (ADR 0003). Learners and sessions liv
 
 Outside production the link is always printed to the console and never emailed.
 
+## Teacher
+
+Every Claude call lives in `src/teacher/` (an ESLint rule keeps the SDK out of every other module). In production set `ANTHROPIC_API_KEY`; it is only read on the server. `APEDIA_FAKE_TEACHER=1` forces the stand-in Teacher, as the e2e smoke test does.
+
 ## Layout
 
-- `src/course/`: the `course` module, the one seam the UI calls. `example-course.json` is the Example course fixture; it doubles as test data.
+- `src/course/`: the `course` module, the one seam the UI calls. `example-course.json` is the Example course fixture; it doubles as test data. `interview.ts` holds the Interview: anonymous until "Write my course", when the Learner claims it and the Course is written.
+- `src/teacher/`: the `teacher` module, which owns every Claude call and prompt, with zod-validated outputs. `fake.ts` is the stand-in tests use, fed with the JSON in `fixtures/`.
 - `src/auth/`: Auth.js settings, the magic-link provider and the age gate.
 - `src/db/`: Drizzle schema and database client.
-- `src/app/`: Next.js routes. They stay thin: call `course`, render. The Course page tabs live in the `(tabs)` route group; the Lesson page (`lessons/[index]`) sits outside it, without the tab bar.
+- `src/app/`: Next.js routes. They stay thin: call `course`, render. The Interview is `/interview`; the browser keeps its id in a cookie so the answers survive sign-in. The Course page tabs live in the `(tabs)` route group; the Lesson page (`lessons/[index]`) sits outside it, without the tab bar.
 - `src/app/globals.css`: the notebook design tokens and shared classes.
 - `e2e/`: the Playwright smoke test.
 - `design/`: prototype HTML and the mascot.

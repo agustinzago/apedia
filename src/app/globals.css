@@ -195,10 +195,12 @@ textarea {
   border: 1.5px dashed var(--ink-faint);
   border-radius: var(--sketch-radius);
   color: var(--ink-secondary);
+  text-decoration: none;
   cursor: pointer;
 }
 
 .chip:hover {
+  color: var(--ink-secondary);
   background: var(--card);
   border-style: solid;
   border-color: var(--ink);

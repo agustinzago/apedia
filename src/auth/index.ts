@@ -3,7 +3,7 @@ import type { Db } from "@/db";
 import { createAuthAdapter } from "./adapter";
 import { createMagicLinkProvider } from "./magic-link";
 
-export { parseSignInRequest, type SignInRequest } from "./sign-in-request";
+export { parseSignInRequest, safeNext, type SignInRequest } from "./sign-in-request";
 
 /** Only for local development, so `npm run dev` works without an AUTH_SECRET. */
 const DEV_SECRET = "apedia-development-secret-not-for-production";

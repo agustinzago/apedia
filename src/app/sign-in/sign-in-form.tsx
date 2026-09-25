@@ -8,13 +8,16 @@ import styles from "./sign-in.module.css";
 
 const idle: SignInState = { status: "idle" };
 
-export function SignInPanel() {
+/** `next` is where the magic link returns to, such as the Interview. */
+export function SignInPanel({ next }: { next: string }) {
   // Remounting the form clears its state after "Go back".
   const [attempt, setAttempt] = useState(0);
-  return <SignInForm key={attempt} onStartOver={() => setAttempt((n) => n + 1)} />;
+  return (
+    <SignInForm key={attempt} next={next} onStartOver={() => setAttempt((n) => n + 1)} />
+  );
 }
 
-function SignInForm({ onStartOver }: { onStartOver: () => void }) {
+function SignInForm({ next, onStartOver }: { next: string; onStartOver: () => void }) {
   const [state, action, pending] = useActionState(requestMagicLink, idle);
 
   if (state.status === "under-13") {
@@ -39,6 +42,7 @@ function SignInForm({ onStartOver }: { onStartOver: () => void }) {
   const email = state.status === "idle" ? "" : state.email;
   return (
     <form action={action} className={styles.form}>
+      <input type="hidden" name="next" value={next} />
       <label htmlFor="email" className={styles.label}>
         Your email
       </label>

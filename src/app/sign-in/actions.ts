@@ -24,10 +24,11 @@ export async function requestMagicLink(
   }
 
   try {
-    // The link brings the Learner back to the home page once opened.
+    // The link brings the Learner back where they came from, such as their
+    // Interview, or else to the home page.
     await signIn("resend", {
       email: request.email,
-      redirectTo: "/",
+      redirectTo: request.next,
       redirect: false,
     });
   } catch (error) {

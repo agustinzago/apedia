@@ -2,6 +2,7 @@ import { cache } from "react";
 import { createCourseModule, type CourseModule } from "@/course";
 import { getDb } from "@/db/client";
 import { getViewer } from "./auth";
+import { createAppTeacher } from "./teacher";
 
 const globalForCourse = globalThis as unknown as {
   apediaCourse?: Promise<CourseModule>;
@@ -10,7 +11,10 @@ const globalForCourse = globalThis as unknown as {
 /** The app's `course` module, with the Example course in place. */
 export function getCourse(): Promise<CourseModule> {
   globalForCourse.apediaCourse ??= (async () => {
-    const course = createCourseModule({ db: await getDb() });
+    const course = createCourseModule({
+      db: await getDb(),
+      teacher: createAppTeacher(),
+    });
     await course.ensureExampleCourse();
     return course;
   })();

@@ -1,19 +1,13 @@
-"use client";
-
-import { useState } from "react";
+import Form from "next/form";
+import Link from "next/link";
 import styles from "./home.module.css";
 
 const SUGGESTIONS = ["Music theory", "Chess", "Astronomy", "Spanish", "Drawing"];
 
+/** Begin, or a suggestion chip, starts the Interview on that subject. */
 export function SubjectForm() {
-  const [subject, setSubject] = useState("");
-
   return (
-    <form
-      className={styles.form}
-      // Starting an Interview arrives with its own ticket; Begin does nothing yet.
-      onSubmit={(event) => event.preventDefault()}
-    >
+    <Form action="/interview" className={styles.form}>
       <div className={styles.inputRow}>
         <label htmlFor="subject" className="visually-hidden">
           What would you like to learn?
@@ -21,8 +15,8 @@ export function SubjectForm() {
         <input
           id="subject"
           name="subject"
-          value={subject}
-          onChange={(event) => setSubject(event.target.value)}
+          required
+          maxLength={120}
           placeholder="music theory, chess, the French revolution…"
           autoComplete="off"
           className={`sketchy ${styles.input}`}
@@ -33,16 +27,15 @@ export function SubjectForm() {
       </div>
       <div className={styles.chips}>
         {SUGGESTIONS.map((label) => (
-          <button
+          <Link
             key={label}
-            type="button"
+            href={`/interview?${new URLSearchParams({ subject: label })}`}
             className="chip"
-            onClick={() => setSubject(label)}
           >
             {label}
-          </button>
+          </Link>
         ))}
       </div>
-    </form>
+    </Form>
   );
 }

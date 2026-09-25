@@ -37,8 +37,14 @@ export default async function PathTab({
               <UpNextItem courseId={course.id} lesson={course.upNext} />
             )}
           </ol>
-          {course.finishedLessons.length === 0 && !course.upNext && (
-            <p className={styles.muted}>No Lessons yet.</p>
+          {course.preparing ? (
+            <p className={`sketchy ${styles.preparing}`} role="status">
+              Your teacher is preparing this Course: finding trustworthy
+              sources and choosing your first Lesson.
+            </p>
+          ) : (
+            course.finishedLessons.length === 0 &&
+            !course.upNext && <p className={styles.muted}>No Lessons yet.</p>
           )}
         </section>
       </div>

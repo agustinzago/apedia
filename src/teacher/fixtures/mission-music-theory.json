@@ -1,0 +1,17 @@
+{
+  "title": "Music theory for the guitar you already play",
+  "why": "Understand the songs I already play on guitar, so they stop feeling like memorised shapes.",
+  "successLooksLike": [
+    "Explain why the chords of a song belong to the same key",
+    "Work out the chords of a key from its major scale"
+  ],
+  "constraints": [
+    "10 minutes per sitting",
+    "Learns on guitar only; no piano at home"
+  ],
+  "outOfScope": [],
+  "priorKnowledge": {
+    "title": "Plays open chords from chord charts",
+    "body": "Said in the Interview they can strum G, C, D, Em and Am from chord charts, and cannot read staff notation."
+  }
+}

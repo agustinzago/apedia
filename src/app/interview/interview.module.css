@@ -1,0 +1,224 @@
+.main {
+  max-width: 780px;
+  margin: 0 auto;
+  padding: 24px var(--gutter) 96px;
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding-bottom: 18px;
+  border-bottom: 2px dashed var(--rule);
+}
+
+.headerText {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.teacher {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 22px;
+}
+
+.subtitle {
+  color: var(--ink-muted);
+  font-size: 17px;
+}
+
+.startOver,
+.startOver:hover {
+  color: var(--ink-muted);
+  font-size: 17px;
+  text-underline-offset: 4px;
+}
+
+.messages {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.row {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.row[data-from="learner"] {
+  justify-content: flex-end;
+}
+
+.bubble {
+  max-width: 78%;
+  padding: 12px 18px;
+  font-size: 21px;
+  color: var(--ink);
+  background: var(--card);
+  border: var(--sketch-border);
+  border-radius: var(--sketch-radius);
+  white-space: pre-line;
+  text-wrap: pretty;
+}
+
+.row[data-from="learner"] .bubble {
+  background: var(--blue-tint);
+  border-color: var(--blue);
+}
+
+.thinking {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  min-height: 56px;
+}
+
+.thinking span {
+  width: 10px;
+  height: 10px;
+  border-radius: var(--circle-radius);
+  background: var(--ink-faint);
+  animation: bob 1.2s ease-in-out infinite;
+}
+
+.thinking span:nth-child(2) {
+  animation-delay: 0.18s;
+}
+
+.thinking span:nth-child(3) {
+  animation-delay: 0.36s;
+}
+
+@keyframes bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .thinking span {
+    animation: none;
+  }
+}
+
+.error {
+  color: var(--red);
+  font-size: 18px;
+}
+
+.answerForm {
+  align-self: flex-end;
+  width: 100%;
+  max-width: 560px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.answerBox {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  padding: 10px 12px 10px 18px;
+  background: var(--blue-tint);
+  border: 2px solid var(--blue);
+  border-radius: var(--sketch-radius-mirror);
+}
+
+.answer {
+  flex: 1;
+  min-width: 0;
+  font-size: 21px;
+  border: none;
+  resize: none;
+  background: transparent;
+  color: var(--blue-deep);
+}
+
+.answer:focus {
+  outline: none;
+}
+
+.send {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 19px;
+  padding: 6px 16px;
+  background: var(--ink);
+  color: var(--paper);
+  border: none;
+  border-radius: var(--sketch-radius-small);
+  cursor: pointer;
+}
+
+.step {
+  align-self: flex-end;
+  color: var(--ink-muted);
+  font-size: 16px;
+}
+
+.sitting {
+  align-self: flex-end;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.sitting .step {
+  flex-basis: 100%;
+  text-align: right;
+}
+
+.sittingChip {
+  font-family: var(--font-heading);
+  font-size: 22px;
+  padding: 8px 22px;
+  color: var(--ink);
+  background: var(--blue-tint);
+  border: 2px solid var(--blue);
+  border-radius: var(--sketch-radius);
+  cursor: pointer;
+}
+
+.sittingChip:hover {
+  background: var(--highlighter);
+}
+
+.write {
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 22px 26px 24px;
+}
+
+.writeTitle {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 24px;
+}
+
+.writeNote {
+  color: var(--ink-secondary);
+  font-size: 19px;
+}
+
+.homeLink {
+  align-self: flex-start;
+  font-size: 19px;
+  text-underline-offset: 4px;
+}
