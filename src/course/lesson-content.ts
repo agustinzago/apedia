@@ -41,3 +41,20 @@ export const LessonContent = z.object({
 });
 
 export type LessonContent = z.infer<typeof LessonContent>;
+export type Question = z.infer<typeof Question>;
+export type Term = z.infer<typeof Term>;
+
+const WORDS_PER_MINUTE = 200;
+
+/** Minutes one sitting takes: reading (words ÷ 200) plus practice, rounded up. */
+export function lessonMinutes(content: LessonContent): number {
+  const prose = [
+    content.hook,
+    ...content.sections.flatMap((s) => [s.heading, s.body]),
+    content.keyIdea,
+    content.practice.title,
+    ...content.practice.steps,
+  ].join(" ");
+  const words = prose.split(/\s+/).filter(Boolean).length;
+  return Math.ceil(words / WORDS_PER_MINUTE + content.practiceMinutes);
+}

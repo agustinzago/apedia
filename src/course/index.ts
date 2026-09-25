@@ -1,8 +1,15 @@
-import { asc, count, desc, eq, inArray } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray } from "drizzle-orm";
 import { schema, type Db } from "@/db";
 import { EXAMPLE_COURSE_ID, seedExampleCourse } from "./example-course";
+import {
+  LessonContent,
+  lessonMinutes,
+  type Question,
+  type Term,
+} from "./lesson-content";
 
 export { EXAMPLE_COURSE_ID };
+export type { Question, Term } from "./lesson-content";
 
 export type Mission = {
   why: string;
@@ -53,6 +60,48 @@ export type CoursePath = {
   learningRecords: LearningRecordEntry[];
 };
 
+export type ResourceKind = (typeof schema.resourceKind.enumValues)[number];
+
+/** A Resource as a Lesson shows it: by its number, never its internal id. */
+export type LessonResource = {
+  /** The Resource's number in its Course, shown as the citation marker [n]. */
+  number: number;
+  kind: ResourceKind;
+  title: string;
+  author: string;
+  url: string;
+  why: string;
+};
+
+export type LessonSection = {
+  heading: string;
+  body: string;
+  citations: LessonResource[];
+};
+
+/** What the Lesson page shows. */
+export type LessonView = {
+  course: { id: string; subject: string; title: string; isExample: boolean };
+  index: number;
+  title: string;
+  goal: string;
+  finishedAt: Date | null;
+  /** Null until the Lesson has been written. */
+  content: {
+    hook: string;
+    sections: LessonSection[];
+    keyIdea: string;
+    practice: { title: string; steps: string[] };
+    /** Reading plus practice, rounded up. */
+    minutes: number;
+    quiz: Question[];
+    readNext: LessonResource | null;
+    newTerms: Term[];
+  } | null;
+  /** Quiz answers already recorded, in question order. */
+  answers: { questionIndex: number; chosenOption: number }[];
+};
+
 /** Who is asking. Null until sign-in exists, or for a visitor. */
 export type Viewer = { learnerId: string | null };
 
@@ -71,6 +120,26 @@ export function createCourseModule({ db }: { db: Db }) {
       return row;
     }
     return null;
+  }
+
+  async function readResources(courseId: string) {
+    const rows = await db
+      .select()
+      .from(schema.resource)
+      .where(eq(schema.resource.courseId, courseId));
+    return new Map<string, LessonResource>(
+      rows.map((r) => [
+        r.ref,
+        {
+          number: resourceNumber(r.ref),
+          kind: r.kind,
+          title: r.title,
+          author: r.author,
+          url: r.url,
+          why: r.why,
+        },
+      ]),
+    );
   }
 
   return {
@@ -183,5 +252,76 @@ export function createCourseModule({ db }: { db: Db }) {
         })),
       };
     },
+
+    /** One Lesson, with its citations resolved to Resources. Null if not found or not the viewer's. */
+    async readLesson(
+      courseId: string,
+      lessonIndex: number,
+      viewer: Viewer,
+    ): Promise<LessonView | null> {
+      const course = await findReadableCourse(courseId, viewer);
+      if (!course) return null;
+
+      const [lesson] = await db
+        .select()
+        .from(schema.lesson)
+        .where(
+          and(
+            eq(schema.lesson.courseId, course.id),
+            eq(schema.lesson.index, lessonIndex),
+          ),
+        );
+      if (!lesson) return null;
+
+      const answers = await db
+        .select({
+          questionIndex: schema.quizAttempt.questionIndex,
+          chosenOption: schema.quizAttempt.chosenOption,
+        })
+        .from(schema.quizAttempt)
+        .where(eq(schema.quizAttempt.lessonId, lesson.id))
+        .orderBy(asc(schema.quizAttempt.questionIndex));
+
+      let content: LessonView["content"] = null;
+      if (lesson.content !== null) {
+        const c = LessonContent.parse(lesson.content);
+        const resources = await readResources(course.id);
+        const cite = (ref: string) => resources.get(ref) ?? [];
+        content = {
+          hook: c.hook,
+          sections: c.sections.map((s) => ({
+            heading: s.heading,
+            body: s.body,
+            citations: s.citations.flatMap(cite),
+          })),
+          keyIdea: c.keyIdea,
+          practice: c.practice,
+          minutes: lessonMinutes(c),
+          quiz: c.quiz,
+          readNext: resources.get(c.readNext) ?? null,
+          newTerms: c.newTerms,
+        };
+      }
+
+      return {
+        course: {
+          id: course.id,
+          subject: course.subject,
+          title: course.title,
+          isExample: course.isExample,
+        },
+        index: lesson.index,
+        title: lesson.title,
+        goal: lesson.goal,
+        finishedAt: lesson.finishedAt,
+        content,
+        answers,
+      };
+    },
   };
+}
+
+/** "r3" → 3. */
+function resourceNumber(ref: string): number {
+  return Number(ref.slice(1));
 }

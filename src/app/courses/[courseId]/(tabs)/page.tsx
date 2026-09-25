@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { CoursePath, FinishedLesson, UpNextLesson } from "@/course";
 import { loadCoursePath } from "@/server/course";
@@ -26,9 +27,15 @@ export default async function PathTab({
           </h2>
           <ol className={styles.lessons}>
             {course.finishedLessons.map((lesson) => (
-              <FinishedLessonItem key={lesson.index} lesson={lesson} />
+              <FinishedLessonItem
+                key={lesson.index}
+                courseId={course.id}
+                lesson={lesson}
+              />
             ))}
-            {course.upNext && <UpNextItem lesson={course.upNext} />}
+            {course.upNext && (
+              <UpNextItem courseId={course.id} lesson={course.upNext} />
+            )}
           </ol>
           {course.finishedLessons.length === 0 && !course.upNext && (
             <p className={styles.muted}>No Lessons yet.</p>
@@ -77,7 +84,17 @@ function List({ items }: { items: string[] }) {
   );
 }
 
-function FinishedLessonItem({ lesson }: { lesson: FinishedLesson }) {
+function lessonHref(courseId: string, index: number) {
+  return `/courses/${courseId}/lessons/${index}`;
+}
+
+function FinishedLessonItem({
+  courseId,
+  lesson,
+}: {
+  courseId: string;
+  lesson: FinishedLesson;
+}) {
   return (
     <li className={styles.lesson}>
       <div className={styles.lessonRail} aria-hidden>
@@ -86,7 +103,10 @@ function FinishedLessonItem({ lesson }: { lesson: FinishedLesson }) {
         </span>
         <span className={styles.lessonLine} />
       </div>
-      <div className={`sketchy ${styles.lessonCard}`}>
+      <Link
+        href={lessonHref(courseId, lesson.index)}
+        className={`sketchy ${styles.lessonCard}`}
+      >
         <span className={styles.lessonMeta}>
           <span>
             Lesson {lesson.index} · finished {shortDate.format(lesson.finishedAt)}
@@ -97,12 +117,18 @@ function FinishedLessonItem({ lesson }: { lesson: FinishedLesson }) {
         </span>
         <span className={styles.lessonTitle}>{lesson.title}</span>
         <span className={styles.lessonGoal}>→ {lesson.goal}</span>
-      </div>
+      </Link>
     </li>
   );
 }
 
-function UpNextItem({ lesson }: { lesson: UpNextLesson }) {
+function UpNextItem({
+  courseId,
+  lesson,
+}: {
+  courseId: string;
+  lesson: UpNextLesson;
+}) {
   return (
     <li className={styles.lesson}>
       <div className={styles.lessonRail} aria-hidden>
@@ -110,7 +136,10 @@ function UpNextItem({ lesson }: { lesson: UpNextLesson }) {
           {lesson.index}
         </span>
       </div>
-      <div className={`sketchy ${styles.lessonCard} ${styles.lessonCardNext}`}>
+      <Link
+        href={lessonHref(courseId, lesson.index)}
+        className={`sketchy ${styles.lessonCard} ${styles.lessonCardNext}`}
+      >
         <span className={styles.lessonMeta}>
           <span>
             Lesson {lesson.index}
@@ -120,7 +149,7 @@ function UpNextItem({ lesson }: { lesson: UpNextLesson }) {
         </span>
         <span className={styles.lessonTitle}>{lesson.title}</span>
         <span className={styles.lessonGoal}>→ {lesson.goal}</span>
-      </div>
+      </Link>
     </li>
   );
 }
