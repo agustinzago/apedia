@@ -1,6 +1,7 @@
 import { cache } from "react";
 import { createCourseModule, type CourseModule } from "@/course";
 import { getDb } from "@/db/client";
+import { getViewer } from "./auth";
 
 const globalForCourse = globalThis as unknown as {
   apediaCourse?: Promise<CourseModule>;
@@ -16,15 +17,21 @@ export function getCourse(): Promise<CourseModule> {
   return globalForCourse.apediaCourse;
 }
 
-/** The Path read model for a visitor, deduplicated within one request. */
+/** The Path read model for whoever is asking, deduplicated within one request. */
 export const loadCoursePath = cache(async (courseId: string) => {
-  const course = await getCourse();
-  // No sign-in yet: every viewer is a visitor.
-  return course.readCoursePath(courseId, { learnerId: null });
+  const [course, viewer] = await Promise.all([getCourse(), getViewer()]);
+  return course.readCoursePath(courseId, viewer);
 });
 
-/** The Lesson read model for a visitor, deduplicated within one request. */
+/** The signed-in Learner's own Courses, or null for a visitor. */
+export const loadYourCourses = cache(async () => {
+  const [course, viewer] = await Promise.all([getCourse(), getViewer()]);
+  if (viewer.learnerId === null) return null;
+  return course.listCourses(viewer.learnerId);
+});
+
+/** The Lesson read model for whoever is asking, deduplicated within one request. */
 export const loadLesson = cache(async (courseId: string, index: number) => {
-  const course = await getCourse();
-  return course.readLesson(courseId, index, { learnerId: null });
+  const [course, viewer] = await Promise.all([getCourse(), getViewer()]);
+  return course.readLesson(courseId, index, viewer);
 });

@@ -202,3 +202,59 @@ describe("course: reading an Example course Lesson", () => {
     expect(await db.$count(schema.lesson)).toBe(3);
   });
 });
+
+describe("course: listing a Learner's Courses", () => {
+  let db: Db;
+  let course: CourseModule;
+
+  const aCourse = (id: string, learnerId: string, createdAt: string) => ({
+    id,
+    learnerId,
+    subject: id,
+    title: `${id} course`,
+    language: "en",
+    missionWhy: "Because",
+    missionSuccess: ["It works"],
+    missionConstraints: [],
+    missionOutOfScope: [],
+    sittingMinutes: 10,
+    createdAt: new Date(createdAt),
+  });
+
+  beforeEach(async () => {
+    db = await createTestDb();
+    course = createCourseModule({ db });
+    await course.ensureExampleCourse();
+    await db.insert(schema.learner).values([
+      { id: "ana", email: "ana@example.com" },
+      { id: "ben", email: "ben@example.com" },
+    ]);
+  });
+
+  it("is empty for a new Learner, even though the Example course exists", async () => {
+    expect(await course.listCourses("ana")).toEqual([]);
+  });
+
+  it("returns only that Learner's Courses, newest first", async () => {
+    await db.insert(schema.course).values([
+      aCourse("chess", "ana", "2026-01-01T00:00:00Z"),
+      aCourse("spanish", "ana", "2026-02-01T00:00:00Z"),
+      aCourse("drawing", "ben", "2026-03-01T00:00:00Z"),
+    ]);
+
+    expect((await course.listCourses("ana")).map((c) => c.id)).toEqual([
+      "spanish",
+      "chess",
+    ]);
+    expect(await course.listCourses("ben")).toEqual([
+      {
+        id: "drawing",
+        subject: "drawing",
+        title: "drawing course",
+        status: "active",
+        createdAt: new Date("2026-03-01T00:00:00Z"),
+      },
+    ]);
+    expect(await course.listCourses("nobody")).toEqual([]);
+  });
+});

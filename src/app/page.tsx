@@ -1,10 +1,13 @@
 import Link from "next/link";
-import { EXAMPLE_COURSE_ID } from "@/course";
+import { EXAMPLE_COURSE_ID, type CourseSummary } from "@/course";
 import { Mascot } from "@/components/mascot";
+import { loadYourCourses } from "@/server/course";
 import { SubjectForm } from "./subject-form";
 import styles from "./home.module.css";
 
-export default function Home() {
+export default async function Home() {
+  const yourCourses = await loadYourCourses();
+
   return (
     <main className={styles.main}>
       <section className={styles.hero}>
@@ -26,11 +29,34 @@ export default function Home() {
         <h2 id="your-courses" className={styles.sectionTitle}>
           Your courses
         </h2>
-        {/* Courses need sign-in, which lands in a later ticket; until then the list is always empty. */}
-        <p className={styles.empty}>
-          Courses you start will appear here.
-        </p>
+        <YourCourses courses={yourCourses} />
       </section>
     </main>
+  );
+}
+
+function YourCourses({ courses }: { courses: CourseSummary[] | null }) {
+  if (courses === null) {
+    return (
+      <p className={styles.empty}>
+        <Link href="/sign-in">Sign in</Link> to keep your courses and come back
+        to them.
+      </p>
+    );
+  }
+  if (courses.length === 0) {
+    return <p className={styles.empty}>Courses you start will appear here.</p>;
+  }
+  return (
+    <ul className={styles.courseList}>
+      {courses.map((course) => (
+        <li key={course.id}>
+          <Link href={`/courses/${course.id}`} className={`sketchy ${styles.courseCard}`}>
+            <span className={styles.courseSubject}>{course.subject}</span>
+            <span className={styles.courseTitle}>{course.title}</span>
+          </Link>
+        </li>
+      ))}
+    </ul>
   );
 }

@@ -19,3 +19,31 @@
 .logo:hover {
   color: var(--ink);
 }
+
+.account {
+  margin-left: auto;
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  min-width: 0;
+  font-size: 18px;
+}
+
+.email {
+  color: var(--ink-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.link {
+  padding: 0;
+  background: none;
+  border: none;
+  font-size: inherit;
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+}

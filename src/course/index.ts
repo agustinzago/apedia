@@ -60,6 +60,15 @@ export type CoursePath = {
   learningRecords: LearningRecordEntry[];
 };
 
+/** One of a Learner's Courses, as listed under "Your courses". */
+export type CourseSummary = {
+  id: string;
+  subject: string;
+  title: string;
+  status: "active" | "done";
+  createdAt: Date;
+};
+
 export type ResourceKind = (typeof schema.resourceKind.enumValues)[number];
 
 /** A Resource as a Lesson shows it: by its number, never its internal id. */
@@ -102,7 +111,7 @@ export type LessonView = {
   answers: { questionIndex: number; chosenOption: number }[];
 };
 
-/** Who is asking. Null until sign-in exists, or for a visitor. */
+/** Who is asking: a signed-in Learner, or a visitor (null). */
 export type Viewer = { learnerId: string | null };
 
 export type CourseModule = ReturnType<typeof createCourseModule>;
@@ -146,6 +155,26 @@ export function createCourseModule({ db }: { db: Db }) {
     /** Makes sure the read-only Example course is in the database. Safe to call repeatedly. */
     async ensureExampleCourse(): Promise<void> {
       await seedExampleCourse(db);
+    },
+
+    /** The Learner's own Courses, newest first. Never includes the Example course. */
+    async listCourses(learnerId: string): Promise<CourseSummary[]> {
+      return db
+        .select({
+          id: schema.course.id,
+          subject: schema.course.subject,
+          title: schema.course.title,
+          status: schema.course.status,
+          createdAt: schema.course.createdAt,
+        })
+        .from(schema.course)
+        .where(
+          and(
+            eq(schema.course.learnerId, learnerId),
+            eq(schema.course.isExample, false),
+          ),
+        )
+        .orderBy(desc(schema.course.createdAt), asc(schema.course.id));
     },
 
     /** The Path tab: Mission, finished Lessons, Up next and Learning records. Null if not found or not the viewer's. */
