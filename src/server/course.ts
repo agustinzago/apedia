@@ -22,3 +22,9 @@ export const loadCoursePath = cache(async (courseId: string) => {
   // No sign-in yet: every viewer is a visitor.
   return course.readCoursePath(courseId, { learnerId: null });
 });
+
+/** The Lesson read model for a visitor, deduplicated within one request. */
+export const loadLesson = cache(async (courseId: string, index: number) => {
+  const course = await getCourse();
+  return course.readLesson(courseId, index, { learnerId: null });
+});

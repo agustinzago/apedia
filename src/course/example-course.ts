@@ -28,7 +28,7 @@ export const ExampleCourseFixture = z.object({
   resources: z.array(
     z.object({
       id: ResourceId,
-      kind: z.enum(["book", "docs", "course", "article", "site"]),
+      kind: z.enum(schema.resourceKind.enumValues),
       title: z.string(),
       author: z.string(),
       url: z.url(),
@@ -104,6 +104,28 @@ export async function seedExampleCourse(db: Db): Promise<void> {
       })
       .onConflictDoNothing()
       .returning({ id: schema.course.id });
+
+    // Outside the early return below so a database seeded before the
+    // resource table existed gets its Resources too.
+    if (fx.resources.length > 0) {
+      await tx
+        .insert(schema.resource)
+        .values(
+          fx.resources.map((r) => ({
+            courseId: fx.id,
+            ref: r.id,
+            kind: r.kind,
+            title: r.title,
+            author: r.author,
+            url: r.url,
+            why: r.why,
+            language: r.language,
+            createdAt: fx.createdAt,
+          })),
+        )
+        .onConflictDoNothing();
+    }
+
     if (inserted.length === 0) return;
 
     const lessonIds = new Map<number, string>();

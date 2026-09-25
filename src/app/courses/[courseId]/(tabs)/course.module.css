@@ -193,6 +193,13 @@
   margin-bottom: 18px;
   padding: 14px 20px;
   background: var(--card);
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.lessonCard:hover {
+  color: var(--ink);
+  background: var(--blue-hover);
 }
 
 .lessonCardNext {
