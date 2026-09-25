@@ -29,3 +29,9 @@ export const loadYourCourses = cache(async () => {
   if (viewer.learnerId === null) return null;
   return course.listCourses(viewer.learnerId);
 });
+
+/** The Lesson read model for whoever is asking, deduplicated within one request. */
+export const loadLesson = cache(async (courseId: string, index: number) => {
+  const [course, viewer] = await Promise.all([getCourse(), getViewer()]);
+  return course.readLesson(courseId, index, viewer);
+});

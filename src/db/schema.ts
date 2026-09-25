@@ -179,3 +179,33 @@ export const learningRecord = pgTable(
     uniqueIndex("learning_record_course_number_uq").on(t.courseId, t.number),
   ],
 );
+
+export const resourceKind = pgEnum("resource_kind", [
+  "book",
+  "docs",
+  "course",
+  "article",
+  "site",
+]);
+
+export const resource = pgTable(
+  "resource",
+  {
+    id: id(),
+    courseId: text("course_id")
+      .notNull()
+      .references(() => course.id, { onDelete: "cascade" }),
+    // The id Lesson content cites, such as "r1"; unique within the Course.
+    // Never shown to the Learner: the UI shows its number instead.
+    ref: text("ref").notNull(),
+    kind: resourceKind("kind").notNull(),
+    title: text("title").notNull(),
+    author: text("author").notNull(),
+    url: text("url").notNull(),
+    why: text("why").notNull(),
+    // BCP 47 tag of the Resource's language.
+    language: text("language").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex("resource_course_ref_uq").on(t.courseId, t.ref)],
+);
