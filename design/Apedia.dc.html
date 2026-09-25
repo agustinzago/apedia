@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Kalam:wght@400;700&family=Patrick+Hand&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#fbfaf6}
+*{box-sizing:border-box}
+a{color:oklch(0.5 0.14 255)}
+a:hover{color:#1e1e1e}
+textarea,input,button{font-family:inherit}
+textarea:focus,input:focus{outline:none}
+@keyframes apedia-bob{0%,100%{transform:translateY(0) rotate(-6deg)}50%{transform:translateY(-10px) rotate(6deg)}}
+@media print{[data-noprint]{display:none!important}}
+</style>
+</helmet>
+<div style="min-height:100vh;background-color:#fbfaf6;background-image:linear-gradient(to right,#eceff4 1px,transparent 1px),linear-gradient(to bottom,#eceff4 1px,transparent 1px);background-size:22px 22px;font-family:'Patrick Hand',cursive;color:#1e1e1e;font-size:20px;line-height:1.45">
+
+  <header data-noprint="1" style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;padding:22px 32px;max-width:1200px;margin:0 auto">
+    <button onClick="{{ goHome }}" style="background:none;border:none;cursor:pointer;padding:0;font-family:Kalam,cursive;font-weight:700;font-size:34px;color:#1e1e1e;line-height:1">Ape<span style="background:linear-gradient(104deg,transparent 2%,oklch(0.93 0.11 98) 6%,oklch(0.93 0.11 98) 94%,transparent 98%);padding:0 4px">dia</span></button>
+    <span style="color:#5b5b5b;font-size:18px">learn anything, one small page at a time</span>
+  </header>
+
+  <sc-if value="{{ isHome }}" hint-placeholder-val="{{ true }}">
+    <main style="max-width:1000px;margin:0 auto;padding:40px 32px 80px;display:flex;flex-direction:column;gap:64px">
+      <section style="display:flex;flex-direction:column;align-items:center;text-align:center;gap:22px">
+        <span style="font-size:19px;color:oklch(0.5 0.14 255);transform:rotate(-2deg)">your personal teacher, on paper</span>
+        <h1 style="margin:0;font-family:Kalam,cursive;font-weight:700;font-size:clamp(44px,7vw,76px);line-height:1.05;text-wrap:balance">What do you want to <span style="background:linear-gradient(104deg,transparent 1%,oklch(0.93 0.11 98) 4%,oklch(0.93 0.11 98) 96%,transparent 99%);padding:0 10px">learn</span>?</h1>
+        <p style="margin:0;max-width:560px;color:#3d3d3d;font-size:21px;text-wrap:pretty">Type anything. Apedia asks why it matters to you, then writes a short course — tiny lessons, quick quizzes and a cheat sheet — built around your reason.</p>
+        <div style="display:flex;gap:12px;width:100%;max-width:640px;flex-wrap:wrap;margin-top:8px">
+          <input value="{{ subject }}" onChange="{{ onSubject }}" onKeyDown="{{ onSubjectKey }}" placeholder="e.g. sourdough bread, music theory, Python…" style="flex:1 1 320px;min-width:0;font-size:24px;padding:14px 20px;background:#fff;border:2px solid #1e1e1e;border-radius:255px 15px 225px 15px / 15px 225px 15px 255px;color:#1e1e1e">
+          <button onClick="{{ startTyped }}" style="flex:0 0 auto;font-family:Kalam,cursive;font-weight:700;font-size:22px;padding:12px 28px;background:#1e1e1e;color:#fbfaf6;border:2px solid #1e1e1e;border-radius:15px 225px 15px 255px / 255px 15px 225px 15px;cursor:pointer" style-hover="transform:rotate(-2deg)">Start →</button>
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center">
+          <sc-for list="{{ suggestions }}" as="s" hint-placeholder-count="6">
+            <button onClick="{{ s.onPick }}" style="font-size:18px;padding:4px 14px;background:transparent;border:1.5px dashed #8a8a8a;border-radius:255px 15px 225px 15px / 15px 225px 15px 255px;color:#3d3d3d;cursor:pointer" style-hover="background:#fff;border-style:solid;border-color:#1e1e1e">{{ s.label }}</button>
+          </sc-for>
+        </div>
+        <button onClick="{{ openExample }}" style="background:none;border:none;cursor:pointer;font-size:18px;color:oklch(0.5 0.14 255);text-decoration:underline;text-underline-offset:4px;text-decoration-style:wavy">No idea yet? Peek inside an example notebook</button>
+      </section>
+
+      <section style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:28px">
+        <div style="background:#fff;border:2px solid #1e1e1e;border-radius:255px 15px 225px 15px / 15px 225px 15px 255px;padding:24px 26px;transform:rotate(-0.8deg);display:flex;flex-direction:column;gap:8px">
+          <span style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;border:2px solid oklch(0.58 0.17 28);border-radius:50% 45% 55% 48%;font-family:Kalam,cursive;font-weight:700;color:oklch(0.58 0.17 28);font-size:22px">1</span>
+          <h3 style="margin:0;font-family:Kalam,cursive;font-size:25px">Tell it why</h3>
+          <p style="margin:0;color:#3d3d3d">Four quick questions become your mission. Every lesson is tied back to it.</p>
+        </div>
+        <div style="background:#fff;border:2px solid #1e1e1e;border-radius:15px 225px 15px 255px / 255px 15px 225px 15px;padding:24px 26px;transform:rotate(0.6deg);display:flex;flex-direction:column;gap:8px">
+          <span style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;border:2px solid oklch(0.5 0.14 255);border-radius:48% 55% 45% 52%;font-family:Kalam,cursive;font-weight:700;color:oklch(0.5 0.14 255);font-size:22px">2</span>
+          <h3 style="margin:0;font-family:Kalam,cursive;font-size:25px">Learn in small bites</h3>
+          <p style="margin:0;color:#3d3d3d">Each lesson fits one sitting: one idea, one practice task, a quiz that checks you on the spot.</p>
+        </div>
+        <div style="background:#fff;border:2px solid #1e1e1e;border-radius:255px 15px 225px 15px / 15px 225px 15px 255px;padding:24px 26px;transform:rotate(-0.4deg);display:flex;flex-direction:column;gap:8px">
+          <span style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;border:2px solid oklch(0.52 0.14 150);border-radius:55% 45% 50% 48%;font-family:Kalam,cursive;font-weight:700;color:oklch(0.52 0.14 150);font-size:22px">3</span>
+          <h3 style="margin:0;font-family:Kalam,cursive;font-size:25px">Keep what sticks</h3>
+          <p style="margin:0;color:#3d3d3d">A printable cheat sheet, trusted sources, and a record of what you’ve learned so far.</p>
+        </div>
+      </section>
+
+      <sc-if value="{{ hasNotebooks }}" hint-placeholder-val="{{ false }}">
+        <section style="display:flex;flex-direction:column;gap:16px">
+          <h2 style="margin:0;font-family:Kalam,cursive;font-size:30px">Your notebooks</h2>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:18px">
+            <sc-for list="{{ notebooks }}" as="nb" hint-placeholder-count="2">
+              <button onClick="{{ nb.onOpen }}" style="text-align:left;cursor:pointer;background:oklch(0.96 0.07 95);border:none;padding:20px 22px 22px;box-shadow:2px 3px 0 rgba(30,30,30,0.18);display:flex;flex-direction:column;gap:6px;color:#1e1e1e;transform:rotate(-1deg)" style-hover="transform:rotate(0deg) translateY(-3px)">
+                <span style="font-size:16px;color:#5b5b5b">{{ nb.subject }}</span>
+                <span style="font-family:Kalam,cursive;font-weight:700;font-size:23px;line-height:1.2">{{ nb.title }}</span>
+                <span style="font-size:17px;color:#3d3d3d">{{ nb.progress }}</span>
+              </button>
+            </sc-for>
+          </div>
+        </section>
+      </sc-if>
+    </main>
+  </sc-if>
+
+  <sc-if value="{{ isMission }}" hint-placeholder-val="{{ false }}">
+    <main style="max-width:720px;margin:0 auto;padding:32px 32px 80px;display:flex;flex-direction:column;gap:28px">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap">
+        <span style="font-size:19px;color:#5b5b5b">Your mission for <b style="color:#1e1e1e">{{ subject }}</b></span>
+        <div style="display:flex;gap:8px;align-items:center">
+          <sc-for list="{{ stepDots }}" as="d" hint-placeholder-count="4">
+            <span style="width:26px;height:10px;border:1.5px solid #1e1e1e;border-radius:6px 2px 6px 2px;background:{{ d.bg }}"></span>
+          </sc-for>
+          <span style="font-size:17px;color:#5b5b5b;margin-left:6px">{{ stepLabel }}</span>
+        </div>
+      </div>
+      <div style="background:#fff;border:2px solid #1e1e1e;border-radius:255px 15px 225px 15px / 15px 225px 15px 255px;padding:36px 40px;transform:rotate(-0.5deg);display:flex;flex-direction:column;gap:16px">
+        <h2 style="margin:0;font-family:Kalam,cursive;font-weight:700;font-size:clamp(32px,5vw,44px);line-height:1.1;text-wrap:balance">{{ q.title }}</h2>
+        <p style="margin:0;color:#3d3d3d">{{ q.help }}</p>
+        <sc-if value="{{ q.isText }}" hint-placeholder-val="{{ true }}">
+          <textarea value="{{ currentAnswer }}" onChange="{{ onAnswer }}" placeholder="{{ q.placeholder }}" rows="4" style="width:100%;font-size:23px;line-height:34px;padding:4px 6px;border:none;resize:vertical;color:oklch(0.42 0.14 255);background-color:transparent;background-image:linear-gradient(to bottom,transparent 33px,#cfd8e6 33px,#cfd8e6 34px);background-size:100% 34px"></textarea>
+        </sc-if>
+        <sc-if value="{{ q.isTime }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;gap:14px;flex-wrap:wrap;padding:8px 0">
+            <sc-for list="{{ timeOpts }}" as="t" hint-placeholder-count="4">
+              <button onClick="{{ t.onPick }}" style="font-family:Kalam,cursive;font-size:24px;padding:10px 24px;cursor:pointer;border:2px solid #1e1e1e;border-radius:255px 15px 225px 15px / 15px 225px 15px 255px;color:#1e1e1e;background:{{ t.bg }}">{{ t.label }}</button>
+            </sc-for>
+          </div>
+        </sc-if>
+      </div>
+      <div style="display:flex;justify-content:space-between;gap:12px">
+        <button onClick="{{ prevStep }}" style="font-size:20px;background:none;border:none;cursor:pointer;color:#3d3d3d;text-decoration:underline;text-underline-offset:4px">← back</button>
+        <button onClick="{{ nextStep }}" style="font-family:Kalam,cursive;font-weight:700;font-size:22px;padding:12px 28px;background:#1e1e1e;color:#fbfaf6;border:2px solid #1e1e1e;border-radius:15px 225px 15px 255px / 255px 15px 225px 15px;cursor:pointer" style-hover="transform:rotate(-2deg)">{{ nextLabel }}</button>
+      </div>
+    </main>
+  </sc-if>
+
+  <sc-if value="{{ isLoading }}" hint-placeholder-val="{{ false }}">
+    <main style="max-width:560px;margin:0 auto;padding:100px 32px;display:flex;flex-direction:column;align-items:center;gap:28px;text-align:center">
+      <div style="height:40px;display:flex;align-items:flex-end">{{ loader }}</div>
+      <h2 style="margin:0;font-family:Kalam,cursive;font-size:36px;line-height:1.15">{{ busyMsg }}</h2>
+      <p style="margin:0;color:#5b5b5b">This usually takes 10–30 seconds.</p>
+    </main>
+  </sc-if>
+
+  <sc-if value="{{ isError }}" hint-placeholder-val="{{ false }}">
+    <main style="max-width:560px;margin:0 auto;padding:100px 32px;display:flex;flex-direction:column;align-items:center;gap:20px;text-align:center">
+      <h2 style="margin:0;font-family:Kalam,cursive;font-size:36px;color:oklch(0.58 0.17 28)">Oops — the pencil slipped.</h2>
+      <p style="margin:0;color:#3d3d3d">{{ error }}</p>
+      <div style="display:flex;gap:16px;align-items:center">
+        <button onClick="{{ retry }}" style="font-family:Kalam,cursive;font-weight:700;font-size:22px;padding:10px 26px;background:#1e1e1e;color:#fbfaf6;border:2px solid #1e1e1e;border-radius:15px 225px 15px 255px / 255px 15px 225px 15px;cursor:pointer">Try again</button>
+        <button onClick="{{ goHome }}" style="font-size:20px;background:none;border:none;cursor:pointer;color:#3d3d3d;text-decoration:underline">go home</button>
+      </div>
+    </main>
+  </sc-if>
+
+  <sc-if value="{{ isCourse }}" hint-placeholder-val="{{ false }}">
+    <main style="max-width:1200px;margin:0 auto;padding:16px 32px 80px;display:flex;flex-wrap:wrap;gap:40px;align-items:flex-start">
+      <nav data-noprint="1" style="flex:0 1 230px;display:flex;flex-direction:column;gap:6px;position:sticky;top:20px">
+        <span style="font-size:16px;color:#5b5b5b;padding:0 12px">{{ c.subject }}</span>
+        <sc-for list="{{ tabs }}" as="tb" hint-placeholder-count="5">
+          <button onClick="{{ tb.onPick }}" style="text-align:left;font-family:Kalam,cursive;font-size:22px;padding:6px 12px;border:none;cursor:pointer;color:#1e1e1e;border-radius:4px 14px 6px 12px;background:{{ tb.bg }}" style-hover="text-decoration:underline">{{ tb.label }}</button>
+        </sc-for>
+      </nav>
+
+      <div style="flex:1 1 520px;min-width:0;display:flex;flex-direction:column;gap:32px">
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <h1 style="margin:0;font-family:Kalam,cursive;font-weight:700;font-size:clamp(36px,5vw,52px);line-height:1.08;text-wrap:balance">{{ plan.title }}</h1>
+        </div>
+
+        <sc-if value="{{ tabPath }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex;flex-direction:column;gap:32px">
+            <div style="background:oklch(0.96 0.07 95);padding:22px 26px 24px;box-shadow:2px 3px 0 rgba(30,30,30,0.16);transform:rotate(-0.6deg);display:flex;flex-direction:column;gap:10px;max-width:640px">
+              <span style="font-family:Kalam,cursive;font-weight:700;font-size:18px;color:oklch(0.58 0.17 28);letter-spacing:0.04em">MY MISSION</span>
+              <p style="margin:0;font-size:23px;line-height:1.35;text-wrap:pretty">{{ plan.mission.summary }}</p>
+              <div style="display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:18px;color:#3d3d3d">
+                <span style="color:#5b5b5b">why</span><span>{{ plan.mission.why }}</span>
+                <span style="color:#5b5b5b">done when</span><span>{{ plan.mission.success }}</span>
+                <span style="color:#5b5b5b">level</span><span>{{ plan.mission.level }}</span>
+              </div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:0;position:relative">
+              <sc-for list="{{ lessonList }}" as="l" hint-placeholder-count="6">
+                <div style="display:flex;gap:20px;align-items:stretch">
+                  <div style="display:flex;flex-direction:column;align-items:center;flex:0 0 52px">
+                    <span style="width:52px;height:52px;flex:0 0 52px;display:flex;align-items:center;justify-content:center;border:2px solid #1e1e1e;border-radius:50% 46% 54% 48%;font-family:Kalam,cursive;font-weight:700;font-size:22px;background:{{ l.circleBg }}">{{ l.mark }}</span>
+                    <span style="flex:1;border-left:2px dashed #9aa3b2;min-height:18px"></span>
+                  </div>
+                  <button onClick="{{ l.onOpen }}" style="flex:1;min-width:0;text-align:left;cursor:pointer;margin-bottom:18px;padding:14px 20px;background:#fff;border:2px solid #1e1e1e;border-radius:255px 15px 225px 15px / 15px 225px 15px 255px;color:#1e1e1e;display:flex;flex-direction:column;gap:2px" style-hover="transform:rotate(-0.6deg);background:oklch(0.97 0.02 250)">
+                    <span style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;font-size:16px;color:#5b5b5b"><span>{{ l.meta }}</span><span style="color:{{ l.statusColor }}">{{ l.status }}</span></span>
+                    <span style="font-family:Kalam,cursive;font-weight:700;font-size:24px;line-height:1.2">{{ l.title }}</span>
+                    <span style="font-size:18px;color:#3d3d3d">→ {{ l.goal }}</span>
+                  </button>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ tabSheet }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-direction:column;gap:18px;max-width:760px">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap">
+              <h2 style="margin:0;font-family:Kalam,cursive;font-size:30px">Cheat sheet</h2>
+              <button data-noprint="1" onClick="{{ printPage }}" style="font-size:18px;background:none;border:1.5px solid #1e1e1e;border-radius:255px 15px 225px 15px / 15px 225px 15px 255px;padding:4px 16px;cursor:pointer;color:#1e1e1e">print it</button>
+            </div>
+            <sc-if value="{{ hasKeyIdeas }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;flex-direction:column;gap:10px;padding:18px 22px;background:oklch(0.96 0.03 250);border:2px solid oklch(0.5 0.14 255);border-radius:15px 225px 15px 255px / 255px 15px 225px 15px">
+                <span style="font-family:Kalam,cursive;font-weight:700;font-size:18px;color:oklch(0.45 0.14 255)">KEY IDEAS SO FAR</span>
+                <sc-for list="{{ keyIdeas }}" as="k" hint-placeholder-count="2">
+                  <div style="display:flex;gap:12px"><span style="font-family:Kalam,cursive;color:oklch(0.45 0.14 255);flex:0 0 auto">{{ k.n }}</span><span>{{ k.text }}</span></div>
+                </sc-for>
+              </div>
+            </sc-if>
+            <div style="display:flex;flex-direction:column">
+              <sc-for list="{{ glossary }}" as="g" hint-placeholder-count="6">
+                <div style="display:grid;grid-template-columns:minmax(140px,220px) minmax(0,1fr);gap:18px;padding:12px 0;border-bottom:1.5px dashed #c3cad6">
+                  <span style="font-family:Kalam,cursive;font-weight:700;font-size:21px">{{ g.term }}</span>
+                  <span style="color:#3d3d3d">{{ g.def }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ tabRes }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-direction:column;gap:18px;max-width:760px">
+            <h2 style="margin:0;font-family:Kalam,cursive;font-size:30px">Trusted resources</h2>
+            <p style="margin:0;color:#5b5b5b;font-size:18px">Suggested by your teacher — each link searches for it so you can check the real thing.</p>
+            <sc-for list="{{ resources }}" as="r" hint-placeholder-count="4">
+              <div style="display:flex;gap:18px;align-items:flex-start;padding:16px 20px;background:#fff;border:2px solid #1e1e1e;border-radius:255px 15px 225px 15px / 15px 225px 15px 255px">
+                <span style="flex:0 0 auto;font-size:15px;padding:2px 10px;border:1.5px solid #5b5b5b;border-radius:8px 3px 8px 3px;color:#3d3d3d;margin-top:4px">{{ r.kind }}</span>
+                <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px">
+                  <span style="font-family:Kalam,cursive;font-weight:700;font-size:22px">{{ r.title }}</span>
+                  <span style="font-size:17px;color:#5b5b5b">{{ r.author }}</span>
+                  <span style="color:#3d3d3d">{{ r.why }}</span>
+                </div>
+                <a href="{{ r.url }}" target="_blank" rel="noopener" style="flex:0 0 auto;font-size:18px">find it ↗</a>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ tabProg }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-direction:column;gap:20px;max-width:760px">
+            <h2 style="margin:0;font-family:Kalam,cursive;font-size:30px">Progress</h2>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+              <sc-for list="{{ progressBoxes }}" as="pb" hint-placeholder-count="6">
+                <span style="width:34px;height:34px;border:2px solid #1e1e1e;border-radius:6px 3px 7px 3px;display:flex;align-items:center;justify-content:center;font-family:Kalam,cursive;font-weight:700;color:oklch(0.45 0.14 150);background:{{ pb.bg }}">{{ pb.mark }}</span>
+              </sc-for>
+              <span style="margin-left:12px;color:#3d3d3d">{{ progressLabel }}</span>
+            </div>
+            <sc-if value="{{ noRecords }}" hint-placeholder-val="{{ true }}">
+              <p style="margin:0;color:#5b5b5b">Nothing recorded yet. Finish your first lesson and what you learned lands here.</p>
+            </sc-if>
+            <sc-for list="{{ records }}" as="rec" hint-placeholder-count="0">
+              <div style="display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:6px 18px;padding:14px 0;border-bottom:1.5px dashed #c3cad6;align-items:baseline">
+                <span style="font-family:Kalam,cursive;color:oklch(0.58 0.17 28)">{{ rec.id }}</span>
+                <span style="font-family:Kalam,cursive;font-weight:700;font-size:21px">{{ rec.title }}</span>
+                <span style="font-size:17px;color:#5b5b5b">quiz {{ rec.score }} · {{ rec.date }}</span>
+                <span></span>
+                <span style="grid-column:2 / 4;color:#3d3d3d">{{ rec.insight }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ tabPeople }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-direction:column;gap:18px;max-width:760px">
+            <h2 style="margin:0;font-family:Kalam,cursive;font-size:30px">Practise with people</h2>
+            <p style="margin:0;color:#3d3d3d;text-wrap:pretty">Lessons give you knowledge and skill. Wisdom comes from trying it out in front of others — here’s where.</p>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:20px">
+              <sc-for list="{{ communities }}" as="cm" hint-placeholder-count="3">
+                <div style="padding:18px 20px;background:oklch(0.96 0.045 150);box-shadow:2px 3px 0 rgba(30,30,30,0.16);display:flex;flex-direction:column;gap:4px;transform:rotate(-0.8deg)">
+                  <span style="font-family:Kalam,cursive;font-weight:700;font-size:22px">{{ cm.name }}</span>
+                  <span style="font-size:17px;color:#5b5b5b">{{ cm.where }}</span>
+                  <span style="color:#3d3d3d">{{ cm.why }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-if>
+      </div>
+    </main>
+  </sc-if>
+
+  <sc-if value="{{ isLesson }}" hint-placeholder-val="{{ false }}">
+    <main style="max-width:760px;margin:0 auto;padding:12px 32px 100px;display:flex;flex-direction:column;gap:36px">
+      <button data-noprint="1" onClick="{{ goCourse }}" style="align-self:flex-start;font-size:19px;background:none;border:none;padding:0;cursor:pointer;color:#3d3d3d;text-decoration:underline;text-underline-offset:4px">← course map</button>
+
+      <div style="display:flex;flex-direction:column;gap:14px">
+        <span style="font-size:18px;color:oklch(0.58 0.17 28)">{{ lessonMeta }}</span>
+        <h1 style="margin:0;font-family:Kalam,cursive;font-weight:700;font-size:clamp(38px,6vw,56px);line-height:1.06;text-wrap:balance">{{ lessonTitle }}</h1>
+        <p style="margin:0;font-size:23px;line-height:1.4;text-wrap:pretty"><span style="background:linear-gradient(104deg,transparent 0.5%,oklch(0.93 0.11 98) 1.5%,oklch(0.93 0.11 98) 98.5%,transparent 99.5%);box-decoration-break:clone;-webkit-box-decoration-break:clone;padding:1px 6px">{{ L.hook }}</span></p>
+      </div>
+
+      <sc-for list="{{ sections }}" as="sec" hint-placeholder-count="2">
+        <section style="display:flex;flex-direction:column;gap:8px">
+          <h2 style="margin:0;font-family:Kalam,cursive;font-weight:700;font-size:28px">{{ sec.heading }}</h2>
+          <p style="margin:0;font-size:21px;line-height:1.55;color:#262626;text-wrap:pretty">{{ sec.body }}</p>
+        </section>
+      </sc-for>
+
+      <div style="padding:22px 26px;background:oklch(0.96 0.03 250);border:2px solid oklch(0.5 0.14 255);border-radius:15px 225px 15px 255px / 255px 15px 225px 15px;transform:rotate(-0.4deg);display:flex;flex-direction:column;gap:6px">
+        <span style="font-family:Kalam,cursive;font-weight:700;font-size:18px;color:oklch(0.45 0.14 255)">REMEMBER THIS</span>
+        <p style="margin:0;font-family:Kalam,cursive;font-size:25px;line-height:1.3">{{ L.keyIdea }}</p>
+      </div>
+
+      <section style="display:flex;flex-direction:column;gap:12px">
+        <h2 style="margin:0;font-family:Kalam,cursive;font-weight:700;font-size:28px">Try it for real: {{ L.practice.title }}</h2>
+        <sc-for list="{{ practiceSteps }}" as="ps" hint-placeholder-count="3">
+          <div style="display:flex;gap:14px;align-items:flex-start">
+            <span style="flex:0 0 26px;height:26px;margin-top:3px;border:2px solid #1e1e1e;border-radius:4px 2px 5px 2px"></span>
+            <span style="font-size:21px">{{ ps.text }}</span>
+          </div>
+        </sc-for>
+      </section>
+
+      <section style="display:flex;flex-direction:column;gap:22px">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap">
+          <h2 style="margin:0;font-family:Kalam,cursive;font-weight:700;font-size:28px">Check yourself</h2>
+          <span style="font-size:18px;color:#5b5b5b">answer from memory — no scrolling up</span>
+        </div>
+        <sc-for list="{{ quiz }}" as="qz" hint-placeholder-count="3">
+          <div style="display:flex;flex-direction:column;gap:10px;padding:20px 22px;background:#fff;border:2px solid #1e1e1e;border-radius:255px 15px 225px 15px / 15px 225px 15px 255px">
+            <div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap">
+              <span style="font-family:Kalam,cursive;font-weight:700;color:oklch(0.58 0.17 28)">{{ qz.n }}.</span>
+              <span style="font-size:22px;flex:1;min-width:0">{{ qz.q }}</span>
+              <sc-if value="{{ qz.review }}" hint-placeholder-val="{{ false }}">
+                <span style="font-size:15px;padding:1px 10px;border:1.5px solid oklch(0.5 0.14 255);color:oklch(0.45 0.14 255);border-radius:8px 3px 8px 3px">review ↺</span>
+              </sc-if>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px">
+              <sc-for list="{{ qz.options }}" as="op" hint-placeholder-count="4">
+                <button onClick="{{ op.onPick }}" style="text-align:left;font-size:20px;padding:10px 16px;cursor:pointer;color:#1e1e1e;border:2px solid {{ op.border }};background:{{ op.bg }};opacity:{{ op.opacity }};border-radius:15px 225px 15px 255px / 255px 15px 225px 15px;display:flex;justify-content:space-between;gap:10px" style-hover="transform:rotate(-0.8deg)"><span>{{ op.text }}</span><span style="font-family:Kalam,cursive;font-weight:700;color:{{ op.border }}">{{ op.mark }}</span></button>
+              </sc-for>
+            </div>
+            <sc-if value="{{ qz.answered }}" hint-placeholder-val="{{ false }}">
+              <p style="margin:0;font-family:Kalam,cursive;font-size:21px;color:{{ qz.fbColor }}">{{ qz.feedback }}</p>
+            </sc-if>
+          </div>
+        </sc-for>
+      </section>
+
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:24px">
+        <div style="padding:20px 22px;background:oklch(0.96 0.07 95);box-shadow:2px 3px 0 rgba(30,30,30,0.16);transform:rotate(-0.8deg);display:flex;flex-direction:column;gap:4px">
+          <span style="font-family:Kalam,cursive;font-weight:700;font-size:17px;color:oklch(0.58 0.17 28)">READ THIS NEXT</span>
+          <span style="font-family:Kalam,cursive;font-weight:700;font-size:22px;line-height:1.2">{{ L.source.title }}</span>
+          <span style="font-size:17px;color:#5b5b5b">{{ L.source.author }} · {{ L.source.kind }}</span>
+          <span style="color:#3d3d3d;font-size:19px">{{ L.source.why }}</span>
+          <a href="{{ sourceUrl }}" target="_blank" rel="noopener" style="font-size:18px;margin-top:4px">find it ↗</a>
+        </div>
+        <div style="padding:20px 22px;background:#fff;border:2px dashed #1e1e1e;border-radius:255px 15px 225px 15px / 15px 225px 15px 255px;display:flex;flex-direction:column;gap:10px">
+          <span style="font-family:Kalam,cursive;font-weight:700;font-size:22px">Stuck? Ask your teacher.</span>
+          <sc-for list="{{ chat }}" as="m" hint-placeholder-count="0">
+            <div style="display:flex;justify-content:{{ m.align }}">
+              <span style="max-width:90%;font-size:18px;padding:6px 12px;border-radius:10px 4px 10px 4px;color:{{ m.color }};background:{{ m.bg }}">{{ m.text }}</span>
+            </div>
+          </sc-for>
+          <sc-if value="{{ chatBusy }}" hint-placeholder-val="{{ false }}">
+            <span style="font-size:17px;color:#5b5b5b">thinking…</span>
+          </sc-if>
+          <div style="display:flex;gap:8px">
+            <input value="{{ chatInput }}" onChange="{{ onChatInput }}" onKeyDown="{{ onChatKey }}" placeholder="What does ‘hydration’ mean?" style="flex:1;min-width:0;font-size:18px;padding:6px 4px;border:none;border-bottom:2px solid #1e1e1e;background:transparent;color:oklch(0.42 0.14 255)">
+            <button onClick="{{ sendChat }}" style="font-family:Kalam,cursive;font-weight:700;font-size:18px;padding:4px 14px;background:#1e1e1e;color:#fbfaf6;border:none;border-radius:10px 4px 10px 4px;cursor:pointer">ask</button>
+          </div>
+        </div>
+      </div>
+
+      <div data-noprint="1" style="display:flex;justify-content:flex-end;align-items:center;gap:18px;flex-wrap:wrap;border-top:2px dashed #c3cad6;padding-top:24px">
+        <span style="color:#5b5b5b;font-size:18px">{{ finishHint }}</span>
+        <button onClick="{{ finishLesson }}" style="font-family:Kalam,cursive;font-weight:700;font-size:22px;padding:12px 28px;background:#1e1e1e;color:#fbfaf6;border:2px solid #1e1e1e;border-radius:15px 225px 15px 255px / 255px 15px 225px 15px;cursor:pointer;opacity:{{ finishOpacity }}" style-hover="transform:rotate(-2deg)">{{ finishLabel }}</button>
+      </div>
+    </main>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;model&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;claude-haiku-4-5&quot;,&quot;claude-sonnet-4-5&quot;],&quot;default&quot;:&quot;claude-haiku-4-5&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Teacher&quot;},&quot;lessonCount&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;min&quot;:3,&quot;max&quot;:10,&quot;default&quot;:6,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Teacher&quot;},&quot;quizCount&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;min&quot;:2,&quot;max&quot;:6,&quot;default&quot;:3,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Teacher&quot;}}">
+const LS = 'apedia.v1';
+const C = { ink:'#1e1e1e', paper:'#fbfaf6', hl:'oklch(0.93 0.11 98)', blue:'oklch(0.5 0.14 255)', red:'oklch(0.58 0.17 28)', green:'oklch(0.52 0.14 150)', blueF:'oklch(0.95 0.03 250)', greenF:'oklch(0.94 0.05 150)', redF:'oklch(0.95 0.04 28)' };
+const pad = n => String(n).padStart(4, '0');
+const shuffle = q => { const idx = q.options.map((_, i) => i); for (let i = idx.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [idx[i], idx[j]] = [idx[j], idx[i]]; } return { ...q, options: idx.map(i => q.options[i]), answer: idx.indexOf(q.answer) }; };
+const parseJSON = t => JSON.parse(t.slice(t.indexOf('{'), t.lastIndexOf('}') + 1));
+const searchUrl = (...p) => 'https://www.google.com/search?q=' + encodeURIComponent(p.filter(Boolean).join(' '));
+const SYS = "You are Apedia's teacher: a warm, precise expert who designs short, mission-driven lessons for people who have never used AI tools. Use plain words; explain any jargon. Never invent sources — only recommend widely known, real, high-trust ones. Reply with ONLY valid JSON, no markdown fences, no commentary.";
+const BLANK = { why: '', know: '', success: '', time: '10 min' };
+const TIMES = ['5 min', '10 min', '20 min', '30 min'];
+const SUGGEST = ['Sourdough bread', 'Music theory', 'Chess', 'Watercolour', 'Python', 'Stoicism'];
+
+const EXAMPLE = {
+  subject: 'Sourdough bread',
+  answers: { why: 'Bake bread for my family on Sundays', know: 'Nothing — I have never baked bread', success: 'Pull a proper loaf out of my own oven', time: '10 min' },
+  plan: {
+    title: 'Sourdough, from jar to loaf',
+    mission: { summary: 'You want to bake a real sourdough loaf for Sunday breakfast — and understand why it works.', why: 'Bread for the family, every Sunday', success: 'A loaf with an open crumb, from your own oven', level: 'beginner' },
+    lessons: [
+      { title: 'What a starter actually is', goal: 'Explain what lives in a starter and why it rises', minutes: 10 },
+      { title: 'Feeding and reading your starter', goal: 'Tell when your starter is ready to bake with', minutes: 10 },
+      { title: 'Baker’s percentages', goal: 'Scale any recipe using flour as 100%', minutes: 10 },
+      { title: 'Mixing and stretch-and-folds', goal: 'Build dough strength without kneading', minutes: 10 },
+      { title: 'Bulk fermentation: when to stop', goal: 'Judge the end of the first rise by look and feel', minutes: 10 },
+      { title: 'Shaping, scoring, baking', goal: 'Shape a tight loaf and bake it in a Dutch oven', minutes: 10 }
+    ],
+    glossary: [
+      { term: 'Starter (levain)', def: 'Flour and water colonised by wild yeast and lactic acid bacteria — your leavening.' },
+      { term: 'Hydration', def: 'Water weight as a percentage of flour weight.' },
+      { term: 'Bulk fermentation', def: 'The first rise, after mixing and before shaping.' },
+      { term: 'Autolyse', def: 'Resting just flour and water before adding starter and salt.' },
+      { term: 'Crumb', def: 'The inside of the loaf — its holes and texture.' },
+      { term: 'Oven spring', def: 'The quick rise in the first minutes of baking.' }
+    ],
+    resources: [
+      { title: 'Flour Water Salt Yeast', author: 'Ken Forkish', kind: 'book', why: 'Clear, schedule-driven recipes written for home bakers.' },
+      { title: 'Tartine Bread', author: 'Chad Robertson', kind: 'book', why: 'The classic country-loaf method many bakers learn from.' },
+      { title: 'The Perfect Loaf', author: 'Maurizio Leo', kind: 'site', why: 'Tested guides with photos of every stage.' },
+      { title: 'Sourdough baking guide', author: 'King Arthur Baking', kind: 'article', why: 'Reliable troubleshooting from a flour company test kitchen.' }
+    ],
+    communities: [
+      { name: 'r/Sourdough', where: 'Reddit', why: 'Post crumb shots and get fast, specific feedback.' },
+      { name: 'The Fresh Loaf', where: 'thefreshloaf.com forum', why: 'A long-running forum of serious home bakers.' },
+      { name: 'A local bread class', where: 'In person', why: 'Feel properly developed dough with your own hands.' }
+    ]
+  },
+  lesson0: {
+    hook: 'Before your first Sunday bake, you need to know what’s in the jar — it’s the engine of every loaf you’ll make.',
+    sections: [
+      { heading: 'Two tiny workers', body: 'A sourdough starter is flour and water colonised by wild yeast and lactic acid bacteria. The yeast release carbon dioxide, which inflates the dough. The bacteria make acids, which give sourdough its tang and help the bread keep longer.' },
+      { heading: 'Why it rises and falls', body: 'After a feed the microbes have fresh food. Gas builds, bubbles form and the starter rises — often doubling. When the food runs out the bubbles weaken and it sinks back. Bake with it near the peak, when it’s most active.' }
+    ],
+    keyIdea: 'A starter is a living culture: yeast makes it rise, bacteria make it sour, and it peaks a few hours after a feed.',
+    practice: { title: 'watch one cycle', steps: ['Feed your starter and put a rubber band at its level.', 'Check it every two hours and jot down the height.', 'Note when it peaks, and when it starts to fall.'] },
+    quiz: [
+      { q: 'What makes a starter rise?', options: ['Carbon dioxide from wild yeast', 'Acid made by the bacteria', 'Steam from the warm water', 'Gluten stretching on its own'], answer: 0, explain: 'Yeast ferment sugars and release CO₂, which inflates the starter.' },
+      { q: 'When is a starter best to bake with?', options: ['Near its peak after feeding', 'Straight after mixing the feed', 'Once it has fully collapsed', 'Only after a week unfed'], answer: 0, explain: 'At the peak the culture is most active, so it leavens best.' },
+      { q: 'What gives sourdough its tang?', options: ['Acids from lactic acid bacteria', 'Extra salt added at mixing', 'A long, very hot bake', 'The type of water used'], answer: 0, explain: 'Lactic and acetic acids from the bacteria create the sour flavour.' }
+    ],
+    source: { title: 'How to make a sourdough starter', author: 'Maurizio Leo, The Perfect Loaf', kind: 'site', why: 'Step-by-step photos of a starter at every stage.' },
+    newTerms: []
+  }
+};
+
+class Component extends DCLogic {
+  state = (() => { let s = {}; try { s = JSON.parse(localStorage.getItem(LS)) || {}; } catch (e) {} return { screen: 'home', subject: '', step: 0, answers: { ...BLANK }, courses: s.courses || [], cid: null, tab: 'path', li: 0, busyMsg: '', error: '', retryKind: null, chatInput: '', chatBusy: false }; })();
+
+  componentDidUpdate(pp, ps) { if (ps.courses !== this.state.courses) { try { localStorage.setItem(LS, JSON.stringify({ courses: this.state.courses })); } catch (e) {} } }
+  componentWillUnmount() { clearInterval(this.tm); }
+  course() { return this.state.courses.find(c => c.id === this.state.cid); }
+  patchCourse(fn) { this.setState(s => ({ courses: s.courses.map(c => c.id === s.cid ? fn(c) : c) })); }
+  top() { try { window.scrollTo(0, 0); } catch (e) {} }
+
+  async ask(user, max) {
+    const t = await window.claude.complete({ model: this.props.model ?? 'claude-haiku-4-5', max_tokens: max, system: SYS, messages: [{ role: 'user', content: user }] });
+    return parseJSON(t);
+  }
+  busy(msgs) {
+    let i = 0; clearInterval(this.tm);
+    this.setState({ screen: 'loading', busyMsg: msgs[0], error: '' }); this.top();
+    this.tm = setInterval(() => { i = (i + 1) % msgs.length; this.setState({ busyMsg: msgs[i] }); }, 2200);
+  }
+  fail(kind, msg) { clearInterval(this.tm); this.setState({ screen: 'error', retryKind: kind, error: msg }); }
+
+  start = (subj) => { const subject = (subj ?? this.state.subject).trim(); if (!subject) return; this.setState({ subject, screen: 'mission', step: 0, answers: { ...BLANK } }); this.top(); };
+
+  makeCourse = async () => {
+    const { subject, answers: a } = this.state; const n = this.props.lessonCount ?? 6;
+    this.busy([`Writing your mission for ${subject}…`, 'Sketching the learning path…', 'Picking the words you’ll need…', 'Finding sources worth trusting…']);
+    try {
+      const plan = await this.ask(`Subject: ${subject}
+Why they want to learn it: ${a.why || 'not given'}
+What they already know: ${a.know || 'nothing yet'}
+What success looks like: ${a.success || 'not given'}
+Session length: ${a.time}
+
+Design a course of exactly ${n} lessons in their zone of proximal development, ordered so each builds on the last, each tied to their mission and giving one tangible win in one session.
+Return JSON:
+{"title":"short course title","mission":{"summary":"one sentence, second person, restating their goal","why":"their reason, tidied, max 10 words","success":"concrete success moment, max 12 words","level":"beginner | some experience | intermediate"},"lessons":[{"title":"max 6 words","goal":"what they'll be able to do, starting with a verb, max 10 words","minutes":number}],"glossary":[6 × {"term":"...","def":"one plain sentence"}],"resources":[4 × {"title":"...","author":"...","kind":"book|video|course|article|site","why":"one sentence"}],"communities":[3 × {"name":"...","where":"...","why":"one sentence"} — include one offline option]}`, 3500);
+      if (!plan.lessons || !plan.lessons.length) throw new Error('empty');
+      const c = { id: Date.now().toString(36), subject, answers: a, plan, lessons: {}, done: {}, quiz: {}, records: [], chats: {} };
+      clearInterval(this.tm);
+      this.setState(s => ({ courses: [c, ...s.courses], cid: c.id, screen: 'course', tab: 'path' }));
+    } catch (e) { this.fail('course', 'We couldn’t write your course just now. Give it another go.'); }
+  };
+
+  openCourse = (id) => { this.setState({ cid: id, screen: 'course', tab: 'path' }); this.top(); };
+
+  openExample = () => {
+    const ex = this.state.courses.find(c => c.example);
+    if (ex) return this.openCourse(ex.id);
+    const c = { id: 'ex' + Date.now().toString(36), example: true, subject: EXAMPLE.subject, answers: EXAMPLE.answers, plan: EXAMPLE.plan, lessons: { 0: { ...EXAMPLE.lesson0, quiz: EXAMPLE.lesson0.quiz.map(shuffle) } }, done: {}, quiz: {}, records: [], chats: {} };
+    this.setState(s => ({ courses: [c, ...s.courses], cid: c.id, screen: 'course', tab: 'path' })); this.top();
+  };
+
+  openLesson = async (i) => {
+    const c = this.course(); this.setState({ li: i, chatInput: '' });
+    if (c.lessons[i]) { this.setState({ screen: 'lesson' }); this.top(); return; }
+    const p = c.plan, l = p.lessons[i], qn = this.props.quizCount ?? 3;
+    const prev = Object.keys(c.lessons).map(Number).filter(k => k < i).map(k => c.lessons[k].keyIdea).filter(Boolean);
+    this.busy([`Writing “${l.title}”…`, 'Keeping it short enough for one sitting…', 'Drafting a quiz to check you…', 'Choosing one source to read next…']);
+    try {
+      const L = await this.ask(`Course: ${p.title}. Mission: ${p.mission.summary} Level: ${p.mission.level}. Session length: ${c.answers.time}.
+All lessons: ${p.lessons.map((x, k) => `${k + 1}. ${x.title}`).join('; ')}
+Write lesson ${i + 1}: "${l.title}" — goal: ${l.goal}.
+${prev.length ? 'Key ideas already learned: ' + prev.join(' | ') : ''}
+Teach only the knowledge needed for the goal, then make them practise. Finishable in one session.
+Return JSON:
+{"hook":"1–2 sentences on why this matters for THEIR mission","sections":[2 or 3 × {"heading":"2–4 words","body":"60–90 words, plain language"}],"keyIdea":"one sentence to remember","practice":{"title":"short real-world task, lowercase, max 5 words","steps":["3–4 concrete steps"]},"quiz":[${qn} × {"q":"question","options":["exactly 4 options"],"answer":index of the correct option,"explain":"one sentence why","review":false}],"source":{"title":"the single best real, high-trust resource for this lesson","author":"...","kind":"book|video|course|article|site","why":"one sentence"},"newTerms":[0–3 × {"term":"...","def":"one plain sentence"}]}
+Rules for the quiz: all 4 options in a question MUST have exactly the same number of words and similar length, and be equally plausible, so formatting gives no clue. ${prev.length ? 'Make the last question review an earlier key idea and set its "review" to true.' : ''}`, 3500);
+      L.quiz = (L.quiz || []).filter(q => q.options && q.options.length).map(shuffle);
+      clearInterval(this.tm);
+      this.patchCourse(c => {
+        const have = new Set(c.plan.glossary.map(g => g.term.toLowerCase()));
+        const add = (L.newTerms || []).filter(t => t.term && !have.has(t.term.toLowerCase()));
+        return { ...c, lessons: { ...c.lessons, [i]: L }, plan: { ...c.plan, glossary: [...c.plan.glossary, ...add] } };
+      });
+      this.setState({ screen: 'lesson' }); this.top();
+    } catch (e) { this.fail('lesson', 'We couldn’t write this lesson just now. Give it another go.'); }
+  };
+
+  pick = (qi, oi) => { const li = this.state.li; this.patchCourse(c => { const cur = c.quiz[li] || {}; if (cur[qi] != null) return c; return { ...c, quiz: { ...c.quiz, [li]: { ...cur, [qi]: oi } } }; }); };
+
+  finish = () => {
+    const c = this.course(), li = this.state.li, L = c.lessons[li], qa = c.quiz[li] || {};
+    if (Object.keys(qa).length < L.quiz.length) return;
+    if (!c.done[li]) {
+      const k = L.quiz.filter((q, qi) => qa[qi] === q.answer).length;
+      this.patchCourse(c => ({ ...c, done: { ...c.done, [li]: true }, records: [...c.records, { id: pad(c.records.length + 1), title: c.plan.lessons[li].title, score: `${k}/${L.quiz.length}`, insight: L.keyIdea, date: new Date().toLocaleDateString() }] }));
+    }
+    this.setState({ screen: 'course', tab: 'path' }); this.top();
+  };
+
+  sendChat = async () => {
+    const text = this.state.chatInput.trim(); if (!text || this.state.chatBusy) return;
+    const c = this.course(), li = this.state.li, L = c.lessons[li];
+    const hist = [...(c.chats[li] || []), { role: 'user', text }];
+    this.patchCourse(c => ({ ...c, chats: { ...c.chats, [li]: hist } }));
+    this.setState({ chatInput: '', chatBusy: true });
+    let reply;
+    try {
+      reply = await window.claude.complete({ model: this.props.model ?? 'claude-haiku-4-5', max_tokens: 500, system: `You are Apedia's teacher. The student's mission: ${c.plan.mission.summary} Current lesson: "${c.plan.lessons[li].title}". Key idea: ${L.keyIdea}. Answer in under 80 words, plain language, warm and encouraging. If the question needs hands-on experience, suggest asking in: ${(c.plan.communities || []).map(x => x.name).join(', ')}.`, messages: hist.map(m => ({ role: m.role, content: m.text })) });
+    } catch (e) { reply = 'Sorry — I lost my train of thought. Ask me again?'; }
+    this.patchCourse(c => ({ ...c, chats: { ...c.chats, [li]: [...hist, { role: 'assistant', text: reply }] } }));
+    this.setState({ chatBusy: false });
+  };
+
+  renderVals() {
+    const s = this.state, c = this.course(), plan = c ? c.plan : null;
+    const Q = [
+      { title: `Why ${s.subject}?`, help: 'What’s pulling you toward it? The real reason — it shapes every lesson.', placeholder: 'e.g. I want to bake bread for my family on Sundays', key: 'why', isText: true },
+      { title: 'What do you already know?', help: '“Nothing at all” is a perfectly good answer.', placeholder: 'e.g. I’ve watched a few videos, never tried it', key: 'know', isText: true },
+      { title: 'Picture it working. What can you do?', help: 'One concrete moment, a month from now.', placeholder: 'e.g. I pull a proper loaf out of my own oven', key: 'success', isText: true },
+      { title: 'How long is one sitting?', help: 'Lessons are sized to fit. Short is fine — little and often wins.', key: 'time', isTime: true }
+    ];
+    const q = Q[s.step] || Q[0];
+    const nextIdx = plan ? plan.lessons.findIndex((_, i) => !c.done[i]) : -1;
+    const L = c && c.lessons[s.li];
+    const qa = (c && c.quiz[s.li]) || {};
+    const answeredCount = L ? Object.keys(qa).length : 0;
+    const allAnswered = L && answeredCount >= L.quiz.length;
+    const doneCount = plan ? plan.lessons.filter((_, i) => c.done[i]).length : 0;
+    const loader = React.createElement('div', { style: { display: 'flex', gap: 14 } }, [C.blue, C.red, C.green].map((col, i) => React.createElement('span', { key: i, style: { width: 16, height: 16, borderRadius: '50% 45% 55% 48%', background: col, display: 'inline-block', animation: `apedia-bob 1.1s ${i * 0.16}s ease-in-out infinite` } })));
+
+    return {
+      isHome: s.screen === 'home', isMission: s.screen === 'mission', isLoading: s.screen === 'loading', isError: s.screen === 'error', isCourse: s.screen === 'course' && !!c, isLesson: s.screen === 'lesson' && !!L,
+      goHome: () => { clearInterval(this.tm); this.setState({ screen: 'home' }); this.top(); },
+      goCourse: () => { this.setState({ screen: 'course' }); this.top(); },
+      subject: s.subject,
+      onSubject: e => this.setState({ subject: e.target.value }),
+      onSubjectKey: e => { if (e.key === 'Enter') this.start(); },
+      startTyped: () => this.start(),
+      suggestions: SUGGEST.map(label => ({ label, onPick: () => this.start(label) })),
+      openExample: this.openExample,
+      hasNotebooks: s.courses.length > 0,
+      notebooks: s.courses.map(k => ({ subject: k.subject, title: k.plan.title, progress: `${k.plan.lessons.filter((_, i) => k.done[i]).length} of ${k.plan.lessons.length} lessons done`, onOpen: () => this.openCourse(k.id) })),
+
+      q, stepLabel: `${s.step + 1} of ${Q.length}`,
+      stepDots: Q.map((_, i) => ({ bg: i <= s.step ? C.ink : 'transparent' })),
+      currentAnswer: s.answers[q.key] || '',
+      onAnswer: e => { const v = e.target.value; this.setState(st => ({ answers: { ...st.answers, [q.key]: v } })); },
+      timeOpts: TIMES.map(t => ({ label: t, bg: s.answers.time === t ? C.hl : '#fff', onPick: () => this.setState(st => ({ answers: { ...st.answers, time: t } })) })),
+      prevStep: () => s.step === 0 ? this.setState({ screen: 'home' }) : this.setState({ step: s.step - 1 }),
+      nextStep: () => s.step < Q.length - 1 ? this.setState({ step: s.step + 1 }) : this.makeCourse(),
+      nextLabel: s.step < Q.length - 1 ? 'Next →' : 'Write my course →',
+
+      loader, busyMsg: s.busyMsg, error: s.error,
+      retry: () => s.retryKind === 'lesson' ? this.openLesson(s.li) : this.makeCourse(),
+
+      c: c || {}, plan: plan || { mission: {} },
+      tabs: [['path', 'Learning path'], ['sheet', 'Cheat sheet'], ['res', 'Resources'], ['prog', 'Progress'], ['people', 'People']].map(([id, label]) => ({ label, bg: s.tab === id ? C.hl : 'transparent', onPick: () => this.setState({ tab: id }) })),
+      tabPath: s.tab === 'path', tabSheet: s.tab === 'sheet', tabRes: s.tab === 'res', tabProg: s.tab === 'prog', tabPeople: s.tab === 'people',
+      lessonList: plan ? plan.lessons.map((l, i) => {
+        const done = !!c.done[i], next = i === nextIdx;
+        return { ...l, mark: done ? '✓' : String(i + 1), circleBg: done ? C.greenF : next ? C.hl : '#fff', meta: `Lesson ${i + 1} · ${l.minutes || 10} min`, status: done ? 'done' : next ? 'up next' : c.lessons[i] ? 'started' : '', statusColor: done ? C.green : C.red, onOpen: () => this.openLesson(i) };
+      }) : [],
+      glossary: plan ? plan.glossary || [] : [],
+      hasKeyIdeas: !!(c && Object.keys(c.lessons).length),
+      keyIdeas: c ? Object.keys(c.lessons).map(Number).sort((a, b) => a - b).map(k => ({ n: `L${k + 1}`, text: c.lessons[k].keyIdea })) : [],
+      printPage: () => window.print(),
+      resources: plan ? (plan.resources || []).map(r => ({ ...r, url: searchUrl(r.title, r.author) })) : [],
+      communities: plan ? plan.communities || [] : [],
+      progressBoxes: plan ? plan.lessons.map((_, i) => ({ mark: c.done[i] ? '✓' : '', bg: c.done[i] ? C.greenF : '#fff' })) : [],
+      progressLabel: plan ? `${doneCount} of ${plan.lessons.length} lessons done` : '',
+      records: c ? [...c.records].reverse() : [], noRecords: !c || !c.records.length,
+
+      L: L || { practice: {}, source: {} },
+      lessonMeta: plan && L ? `Lesson ${s.li + 1} of ${plan.lessons.length} · ${plan.lessons[s.li].minutes || 10} min` : '',
+      lessonTitle: plan && L ? plan.lessons[s.li].title : '',
+      sections: L ? L.sections || [] : [],
+      practiceSteps: L && L.practice ? (L.practice.steps || []).map(text => ({ text })) : [],
+      quiz: L ? L.quiz.map((qq, qi) => {
+        const sel = qa[qi], answered = sel != null, right = sel === qq.answer;
+        return {
+          n: qi + 1, q: qq.q, review: !!qq.review, answered,
+          feedback: answered ? (right ? '✓ Right. ' : '✗ Not quite. ') + (qq.explain || '') : '', fbColor: right ? C.green : C.red,
+          options: qq.options.map((text, oi) => {
+            const isAns = oi === qq.answer, isSel = oi === sel;
+            return { text, onPick: () => this.pick(qi, oi), border: answered && isAns ? C.green : answered && isSel ? C.red : C.ink, bg: answered && isAns ? C.greenF : answered && isSel ? C.redF : '#fff', opacity: answered && !isAns && !isSel ? 0.5 : 1, mark: answered && isAns ? '✓' : answered && isSel ? '✗' : '' };
+          })
+        };
+      }) : [],
+      sourceUrl: L && L.source ? searchUrl(L.source.title, L.source.author) : '#',
+      chat: c && c.chats[s.li] ? c.chats[s.li].map(m => ({ text: m.text, align: m.role === 'user' ? 'flex-end' : 'flex-start', bg: m.role === 'user' ? C.blueF : C.hl, color: C.ink })) : [],
+      chatBusy: s.chatBusy, chatInput: s.chatInput,
+      onChatInput: e => this.setState({ chatInput: e.target.value }),
+      onChatKey: e => { if (e.key === 'Enter') this.sendChat(); },
+      sendChat: this.sendChat,
+      finishLesson: this.finish,
+      finishOpacity: allAnswered ? 1 : 0.35,
+      finishHint: c && c.done[s.li] ? 'Saved to your progress.' : allAnswered ? 'Nice. Save this to your progress.' : `Answer the quiz to finish (${answeredCount}/${L ? L.quiz.length : 0})`,
+      finishLabel: c && c.done[s.li] ? 'Back to the map →' : 'Finish lesson ✓'
+    };
+  }
+}
+</script>
+</body>
+</html>
