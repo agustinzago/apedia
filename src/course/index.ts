@@ -1,4 +1,4 @@
-import { asc, count, desc, eq, inArray } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray } from "drizzle-orm";
 import { schema, type Db } from "@/db";
 import { EXAMPLE_COURSE_ID, seedExampleCourse } from "./example-course";
 
@@ -53,7 +53,16 @@ export type CoursePath = {
   learningRecords: LearningRecordEntry[];
 };
 
-/** Who is asking. Null until sign-in exists, or for a visitor. */
+/** One of a Learner's Courses, as listed under "Your courses". */
+export type CourseSummary = {
+  id: string;
+  subject: string;
+  title: string;
+  status: "active" | "done";
+  createdAt: Date;
+};
+
+/** Who is asking: a signed-in Learner, or a visitor (null). */
 export type Viewer = { learnerId: string | null };
 
 export type CourseModule = ReturnType<typeof createCourseModule>;
@@ -77,6 +86,26 @@ export function createCourseModule({ db }: { db: Db }) {
     /** Makes sure the read-only Example course is in the database. Safe to call repeatedly. */
     async ensureExampleCourse(): Promise<void> {
       await seedExampleCourse(db);
+    },
+
+    /** The Learner's own Courses, newest first. Never includes the Example course. */
+    async listCourses(learnerId: string): Promise<CourseSummary[]> {
+      return db
+        .select({
+          id: schema.course.id,
+          subject: schema.course.subject,
+          title: schema.course.title,
+          status: schema.course.status,
+          createdAt: schema.course.createdAt,
+        })
+        .from(schema.course)
+        .where(
+          and(
+            eq(schema.course.learnerId, learnerId),
+            eq(schema.course.isExample, false),
+          ),
+        )
+        .orderBy(desc(schema.course.createdAt), asc(schema.course.id));
     },
 
     /** The Path tab: Mission, finished Lessons, Up next and Learning records. Null if not found or not the viewer's. */

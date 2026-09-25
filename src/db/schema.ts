@@ -5,6 +5,7 @@ import {
   jsonb,
   pgEnum,
   pgTable,
+  primaryKey,
   text,
   timestamp,
   uniqueIndex,
@@ -19,12 +20,64 @@ const id = () =>
 const createdAt = () =>
   timestamp("created_at", { withTimezone: true }).notNull().defaultNow();
 
-// Auth.js will extend this table when sign-in lands.
+// Auth.js's user table: the adapter reads and writes id, name, email,
+// emailVerified and image. A row is created on first sign-in.
 export const learner = pgTable("learner", {
   id: id(),
+  name: text("name"),
   email: text("email").notNull().unique(),
+  emailVerified: timestamp("email_verified", { withTimezone: true }),
+  image: text("image"),
   createdAt: createdAt(),
 });
+
+// Auth.js's OAuth account links. Magic-link sign-in never writes here, but
+// the Drizzle adapter requires the table.
+export const account = pgTable(
+  "account",
+  {
+    // Auth.js names this key userId.
+    userId: text("learner_id")
+      .notNull()
+      .references(() => learner.id, { onDelete: "cascade" }),
+    type: text("type").notNull(),
+    provider: text("provider").notNull(),
+    providerAccountId: text("provider_account_id").notNull(),
+    refresh_token: text("refresh_token"),
+    access_token: text("access_token"),
+    expires_at: integer("expires_at"),
+    token_type: text("token_type"),
+    scope: text("scope"),
+    id_token: text("id_token"),
+    session_state: text("session_state"),
+  },
+  (t) => [primaryKey({ columns: [t.provider, t.providerAccountId] })],
+);
+
+// Auth.js's database sessions: one row per signed-in browser.
+export const session = pgTable(
+  "session",
+  {
+    sessionToken: text("session_token").primaryKey(),
+    // Auth.js names this key userId.
+    userId: text("learner_id")
+      .notNull()
+      .references(() => learner.id, { onDelete: "cascade" }),
+    expires: timestamp("expires", { withTimezone: true }).notNull(),
+  },
+  (t) => [index("session_learner_idx").on(t.userId)],
+);
+
+// Auth.js's magic-link tokens, deleted once used.
+export const verificationToken = pgTable(
+  "verification_token",
+  {
+    identifier: text("identifier").notNull(),
+    token: text("token").notNull(),
+    expires: timestamp("expires", { withTimezone: true }).notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.identifier, t.token] })],
+);
 
 export const courseStatus = pgEnum("course_status", ["active", "done"]);
 
