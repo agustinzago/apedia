@@ -1,0 +1,332 @@
+{
+  "id": "example-music-theory",
+  "subject": "Music theory",
+  "title": "Music theory for the guitar you already play",
+  "language": "en",
+  "createdAt": "2026-09-01T18:00:00Z",
+  "mission": {
+    "why": "Understand the songs I already play on guitar, so they stop feeling like memorised shapes.",
+    "success": [
+      "Explain why the chords of a song belong to the same key",
+      "Work out the chords of a key from its major scale"
+    ],
+    "constraints": [
+      "10 minutes per sitting",
+      "Learns on guitar only; no piano at home",
+      "Reads chord charts, not staff notation"
+    ],
+    "sittingMinutes": 10,
+    "outOfScope": ["Reading staff notation", "Jazz harmony", "Writing songs"]
+  },
+  "resources": [
+    {
+      "id": "r1",
+      "kind": "site",
+      "title": "musictheory.net — Lessons",
+      "author": "Ricci Adams",
+      "url": "https://www.musictheory.net/lessons",
+      "why": "Short, free interactive lessons. The pages on steps, accidentals and scales match the first Lessons.",
+      "language": "en"
+    },
+    {
+      "id": "r2",
+      "kind": "book",
+      "title": "Open Music Theory",
+      "author": "Mark Gotham, Kyle Gullings, Chelsey Hamm, Bryn Hughes, Brian Jarvis, Megan Lavengood and John Peterson",
+      "url": "https://viva.pressbooks.pub/openmusictheory/",
+      "why": "A free, peer-reviewed university textbook. Good for checking a definition in full.",
+      "language": "en"
+    },
+    {
+      "id": "r3",
+      "kind": "course",
+      "title": "JustinGuitar",
+      "author": "Justin Sandercoe",
+      "url": "https://www.justinguitar.com/",
+      "why": "Guitar-first lessons that tie theory to the chord shapes you already play.",
+      "language": "en"
+    },
+    {
+      "id": "r4",
+      "kind": "article",
+      "title": "Music Theory for Musicians and Normal People",
+      "author": "Toby Rush",
+      "url": "https://tobyrush.com/theorypages/",
+      "why": "One-page illustrated explainers, each on a single idea. Easy to print and keep.",
+      "language": "en"
+    },
+    {
+      "id": "r5",
+      "kind": "site",
+      "title": "Hooktheory TheoryTab",
+      "author": "Hooktheory",
+      "url": "https://www.hooktheory.com/theorytab",
+      "why": "Shows the chords of real songs by their place in the key — the Mission's finish line.",
+      "language": "en"
+    }
+  ],
+  "communities": [
+    {
+      "name": "r/musictheory",
+      "where": "Reddit, online",
+      "url": "https://www.reddit.com/r/musictheory/",
+      "why": "Ask why a song's chords work and get answers from players and teachers.",
+      "offline": false
+    },
+    {
+      "name": "JustinGuitar Community",
+      "where": "Online forum",
+      "url": "https://community.justinguitar.com/",
+      "why": "Guitarists at every level sharing practice and questions, many learning theory the same way.",
+      "offline": false
+    },
+    {
+      "name": "A local acoustic jam or open-mic night",
+      "where": "Music shops and cafés near you often list them",
+      "url": null,
+      "why": "Playing along with others is the fastest way to hear chords change key.",
+      "offline": true
+    }
+  ],
+  "gaps": [
+    {
+      "description": "Hearing chord changes by ear: no Resource found teaches ear training from the guitar."
+    }
+  ],
+  "lessons": [
+    {
+      "index": 1,
+      "title": "Notes and the musical alphabet",
+      "goal": "Name all twelve notes and find them on one string",
+      "openedAt": "2026-09-01T18:20:00Z",
+      "finishedAt": "2026-09-01T18:31:00Z",
+      "content": {
+        "hook": "Every chord you strum is built from just twelve notes. Once you can name them, the rest of music theory has something to hold on to — including why your chords fit together.",
+        "sections": [
+          {
+            "heading": "Seven letters, twelve notes",
+            "body": "Western music names notes with seven letters: A, B, C, D, E, F and G. After G the letters start again at A, one octave higher. Between most neighbouring letters there is one extra note. It is named from either side: a sharp (♯) raises the lower letter, a flat (♭) lowers the upper one, so A♯ and B♭ are the same note. Counting those in-between notes, there are twelve notes before the pattern repeats.",
+            "citations": ["r1", "r2"]
+          },
+          {
+            "heading": "Two pairs with no gap",
+            "body": "Look at a piano: black keys sit between most white keys, but not between B and C, or between E and F. Those two pairs are neighbours with nothing in between. Every other pair of neighbouring letters has one note between them. On the guitar you cannot see this, which is why it helps to learn it by name. This one irregularity explains most of the patterns you will meet in later Lessons.",
+            "citations": ["r1", "r3"]
+          }
+        ],
+        "keyIdea": "There are twelve notes. The letters repeat every octave, and B–C and E–F have no note between them.",
+        "practice": {
+          "title": "Walk up the low E string",
+          "steps": [
+            "Play your low E string open and say “E”.",
+            "Move up one fret at a time, naming each note: F, F♯, G, G♯, A…",
+            "Stop at the 12th fret: you are back on E, one octave higher.",
+            "Say out loud which two steps had no sharp between them."
+          ]
+        },
+        "practiceMinutes": 6,
+        "quiz": [
+          {
+            "question": "How many different notes are there before the pattern repeats?",
+            "options": ["Seven", "Eight", "Twelve", "Three"],
+            "answer": 2,
+            "explanation": "Seven letters plus five in-between notes make twelve before the letters repeat.",
+            "review": false
+          },
+          {
+            "question": "Which pair of neighbouring letters has no note between them?",
+            "options": ["C and D", "E and F", "G and A", "F and G"],
+            "answer": 1,
+            "explanation": "B–C and E–F are the only neighbouring letters with nothing in between.",
+            "review": false
+          },
+          {
+            "question": "What does a sharp do to a note?",
+            "options": [
+              "Lowers it to the next",
+              "Raises it by an octave",
+              "Lowers it by an octave",
+              "Raises it to the next"
+            ],
+            "answer": 3,
+            "explanation": "A sharp raises a note to the very next note up, so F♯ sits just above F.",
+            "review": false
+          }
+        ],
+        "readNext": "r1",
+        "newTerms": [
+          { "term": "Octave", "definition": "The same note name, twelve notes higher." },
+          { "term": "Sharp", "definition": "A sign (♯) that raises a note to the next note up." },
+          { "term": "Flat", "definition": "A sign (♭) that lowers a note to the next note down." }
+        ]
+      },
+      "quizAttempts": [
+        { "questionIndex": 0, "chosenOption": 2, "at": "2026-09-01T18:28:00Z" },
+        { "questionIndex": 1, "chosenOption": 1, "at": "2026-09-01T18:29:00Z" },
+        { "questionIndex": 2, "chosenOption": 3, "at": "2026-09-01T18:30:00Z" }
+      ]
+    },
+    {
+      "index": 2,
+      "title": "Tones and semitones",
+      "goal": "Measure the distance between any two notes in frets",
+      "openedAt": "2026-09-03T19:05:00Z",
+      "finishedAt": "2026-09-03T19:15:00Z",
+      "content": {
+        "hook": "To see why chords fit together you need a ruler for the distance between notes. Your guitar already is one: every fret is a step of the same size.",
+        "sections": [
+          {
+            "heading": "The semitone: one fret",
+            "body": "The distance from one note to the very next note is called a semitone. On the guitar, a semitone is one fret; on a piano, it is one key, black or white. From E to F is a semitone, and so is F to F♯. Twelve semitones take you from a note to the same note an octave higher, which is why the 12th fret repeats the open string.",
+            "citations": ["r1", "r4"]
+          },
+          {
+            "heading": "The tone: two frets",
+            "body": "Two semitones make a tone, sometimes called a whole step. On one string, a tone is two frets: from G to A, or from C to D. Most neighbouring letters are a tone apart. The two exceptions are the pairs you met in the last Lesson, B–C and E–F, which are only a semitone apart. Measuring in frets turns every distance into something you can count.",
+            "citations": ["r2", "r3"]
+          }
+        ],
+        "keyIdea": "A semitone is one fret; a tone is two frets.",
+        "practice": {
+          "title": "Measure with your frets",
+          "steps": [
+            "On the A string, play A (open) then B (2nd fret). Count the frets: a tone.",
+            "Play B then C (3rd fret). Count again: a semitone.",
+            "Find D and E on the same string and say whether they are a tone or a semitone apart.",
+            "Do the same for E and F."
+          ]
+        },
+        "practiceMinutes": 6,
+        "quiz": [
+          {
+            "question": "How many semitones make one tone?",
+            "options": ["One semitone", "Three semitones", "Two semitones", "Four semitones"],
+            "answer": 2,
+            "explanation": "A tone is two semitones: two frets on one string.",
+            "review": false
+          },
+          {
+            "question": "How many frets separate E from the F just above it?",
+            "options": ["Two frets", "One fret", "Four frets", "Three frets"],
+            "answer": 1,
+            "explanation": "E–F is one of the two pairs with no note between them, so it is a semitone: one fret.",
+            "review": false
+          },
+          {
+            "question": "Which two pairs of neighbouring letters have no note between them?",
+            "options": ["A–B and D–E", "C–D and F–G", "G–A and D–E", "B–C and E–F"],
+            "answer": 3,
+            "explanation": "B–C and E–F are the two gaps with nothing in between, from Lesson 1.",
+            "review": true
+          }
+        ],
+        "readNext": "r4",
+        "newTerms": [
+          { "term": "Semitone", "definition": "The distance from one note to the very next one: one fret on a guitar." },
+          { "term": "Tone", "definition": "Two semitones: two frets on a guitar. Also called a whole step." }
+        ]
+      },
+      "quizAttempts": [
+        { "questionIndex": 0, "chosenOption": 2, "at": "2026-09-03T19:12:00Z" },
+        { "questionIndex": 1, "chosenOption": 0, "at": "2026-09-03T19:13:00Z" },
+        { "questionIndex": 2, "chosenOption": 3, "at": "2026-09-03T19:14:00Z" }
+      ]
+    },
+    {
+      "index": 3,
+      "title": "The major scale",
+      "goal": "Build a major scale from any note on one string",
+      "openedAt": "2026-09-05T18:40:00Z",
+      "finishedAt": null,
+      "content": {
+        "hook": "The chords in a song are drawn from a scale. Learn the one pattern behind every major scale and you can build the raw material of any key on a single string.",
+        "sections": [
+          {
+            "heading": "One pattern of steps",
+            "body": "A major scale is eight notes, from a starting note up to the same note an octave higher. The distances between them always follow one pattern: tone, tone, semitone, tone, tone, tone, semitone. Written short, that is T T S T T T S. Start on C and the pattern gives C D E F G A B C, with no sharps or flats, because the semitones land exactly on E–F and B–C.",
+            "citations": ["r1", "r2"]
+          },
+          {
+            "heading": "Starting somewhere else",
+            "body": "Start the same pattern on G and walk it up the G string's frets: G, A, B, C, D, E, then a tone from E lands on F♯, and a semitone takes you back to G. The pattern forced a sharp in. That sharp is what makes G major sound like G major. Every major scale has its own set of sharps or flats, and the pattern tells you which ones.",
+            "citations": ["r1", "r3"]
+          }
+        ],
+        "keyIdea": "Every major scale follows the same steps: T T S T T T S.",
+        "practice": {
+          "title": "Build G major on one string",
+          "steps": [
+            "Play the open G string and say “G”.",
+            "Follow T T S T T T S up the frets: 2, 4, 5, 7, 9, 11, 12.",
+            "Name each note as you play it and check that the seventh one is F♯.",
+            "Now start on the open D string and find which notes need a sharp."
+          ]
+        },
+        "practiceMinutes": 7,
+        "quiz": [
+          {
+            "question": "Which pattern of steps does every major scale follow?",
+            "options": ["T S T T S T T", "T T T S T T S", "T T S T T T S", "S T T T S T T"],
+            "answer": 2,
+            "explanation": "Tone, tone, semitone, tone, tone, tone, semitone — the same from any starting note.",
+            "review": false
+          },
+          {
+            "question": "What is the seventh note of the G major scale?",
+            "options": ["F natural", "G sharp", "F sharp", "E natural"],
+            "answer": 2,
+            "explanation": "A tone above E is F♯, and a semitone above that brings you back to G.",
+            "review": false
+          },
+          {
+            "question": "How many frets make a tone on one string?",
+            "options": ["Three frets", "Two frets", "One fret", "Four frets"],
+            "answer": 1,
+            "explanation": "A tone is two semitones, and each semitone is one fret — from Lesson 2.",
+            "review": true
+          }
+        ],
+        "readNext": "r1",
+        "newTerms": [
+          { "term": "Scale", "definition": "A set of notes played in order, from a starting note up to its octave." },
+          { "term": "Major scale", "definition": "A scale that follows the steps T T S T T T S." }
+        ]
+      },
+      "quizAttempts": []
+    }
+  ],
+  "learningRecords": [
+    {
+      "number": 1,
+      "kind": "prior_knowledge",
+      "title": "Plays open chords from chord charts",
+      "body": "Said in the Interview they can strum G, C, D, Em and Am from chord charts, and cannot read staff notation.",
+      "lessonIndex": null,
+      "createdAt": "2026-09-01T18:00:00Z"
+    },
+    {
+      "number": 2,
+      "kind": "understanding",
+      "title": "Knows where the gaps between letters fall",
+      "body": "Picked E–F as a pair with no note between in Lesson 1, and B–C and E–F again in Lesson 2's review question.",
+      "lessonIndex": 2,
+      "createdAt": "2026-09-03T19:15:00Z"
+    }
+  ],
+  "glossary": [
+    { "term": "Octave", "definition": "The same note name, twelve notes higher.", "lessonIndex": 1 },
+    { "term": "Sharp", "definition": "A sign (♯) that raises a note to the next note up.", "lessonIndex": 1 },
+    { "term": "Semitone", "definition": "The distance from one note to the very next one: one fret on a guitar.", "lessonIndex": 2 },
+    { "term": "Tone", "definition": "Two semitones: two frets on a guitar. Also called a whole step.", "lessonIndex": 2 }
+  ],
+  "referenceSections": [
+    {
+      "title": "The twelve notes",
+      "body": "A · A♯/B♭ · B · C · C♯/D♭ · D · D♯/E♭ · E · F · F♯/G♭ · G · G♯/A♭ — then A again, an octave up. No note between B–C or E–F."
+    },
+    {
+      "title": "Distances on one string",
+      "body": "1 fret = 1 semitone · 2 frets = 1 tone · 12 frets = 1 octave."
+    }
+  ]
+}

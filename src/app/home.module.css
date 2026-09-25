@@ -1,0 +1,91 @@
+.main {
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 56px var(--gutter) 96px;
+  display: flex;
+  flex-direction: column;
+  gap: 64px;
+}
+
+.hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 22px;
+}
+
+.title {
+  font-size: clamp(48px, 7vw, 68px);
+  line-height: 1.05;
+}
+
+.title :global(.highlight) {
+  padding: 0 10px;
+}
+
+.lede {
+  max-width: 540px;
+  color: var(--ink-secondary);
+  font-size: 21px;
+}
+
+.form {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 22px;
+  margin-top: 6px;
+}
+
+.inputRow {
+  display: flex;
+  gap: 12px;
+  width: 100%;
+  max-width: 640px;
+}
+
+.input {
+  flex: 1;
+  min-width: 0;
+  font-size: 24px;
+  padding: 14px 20px;
+  background: var(--card);
+  color: var(--ink);
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--blue);
+}
+
+.chips {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.example {
+  font-size: 18px;
+  text-underline-offset: 4px;
+}
+
+.yourCourses {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.sectionTitle {
+  font-size: 28px;
+}
+
+.empty {
+  padding: 18px 20px;
+  border: 1.5px dashed var(--rule);
+  border-radius: var(--sketch-radius);
+  color: var(--ink-muted);
+  font-size: 18px;
+}

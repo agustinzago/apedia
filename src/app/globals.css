@@ -1,0 +1,217 @@
+/*
+ * Apedia notebook design tokens (docs/prd.md §8). Define colours, borders
+ * and type here once; pages and components use the variables and the
+ * utility classes below rather than repeating raw values.
+ */
+:root {
+  /* Paper */
+  --paper: #fbfaf6;
+  --paper-grid: #eceff4;
+  --paper-grid-size: 22px;
+  --card: #fff;
+
+  /* Ink */
+  --ink: #1e1e1e;
+  --ink-secondary: #3d3d3d;
+  --ink-muted: #5b5b5b;
+  --ink-faint: #8a8a8a;
+  --rule: #c3cad6;
+  --rule-faint: #dfe3ea;
+  --connector: #9aa3b2;
+
+  /* Accents */
+  --highlighter: oklch(0.93 0.11 98);
+  --blue: oklch(0.5 0.14 255);
+  --blue-deep: oklch(0.45 0.14 255);
+  --red: oklch(0.58 0.17 28);
+  --green: oklch(0.52 0.14 150);
+  --green-deep: oklch(0.45 0.14 150);
+
+  /* Tints */
+  --blue-tint: oklch(0.96 0.03 250);
+  --blue-hover: oklch(0.97 0.02 250);
+  --green-tint: oklch(0.94 0.05 150);
+  --sticky-yellow: oklch(0.96 0.07 95);
+
+  /* Sketchy shapes */
+  --sketch-radius: 255px 15px 225px 15px / 15px 225px 15px 255px;
+  --sketch-radius-mirror: 15px 225px 15px 255px / 255px 15px 225px 15px;
+  --sketch-radius-small: 10px 4px 10px 4px;
+  --circle-radius: 50% 46% 54% 48%;
+  --sketch-border: 2px solid var(--ink);
+  --sticky-shadow: 2px 3px 0 rgba(30, 30, 30, 0.16);
+
+  /* Type (font variables come from next/font in the root layout) */
+  --font-heading: var(--font-kalam), "Kalam", cursive;
+  --font-body: var(--font-patrick-hand), "Patrick Hand", cursive;
+
+  /* Layout */
+  --gutter: 40px;
+}
+
+@media (max-width: 900px) {
+  :root {
+    --gutter: 28px;
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  color-scheme: light;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background-color: var(--paper);
+  background-image:
+    linear-gradient(to right, var(--paper-grid) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--paper-grid) 1px, transparent 1px);
+  background-size: var(--paper-grid-size) var(--paper-grid-size);
+  font-family: var(--font-body);
+  color: var(--ink);
+  font-size: 20px;
+  line-height: 1.45;
+}
+
+h1,
+h2,
+h3 {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-weight: 700;
+  text-wrap: balance;
+}
+
+p {
+  margin: 0;
+  text-wrap: pretty;
+}
+
+a {
+  color: var(--blue);
+}
+
+a:hover {
+  color: var(--ink);
+}
+
+button,
+input,
+textarea {
+  font-family: inherit;
+}
+
+:focus-visible {
+  outline: 2px dashed var(--blue);
+  outline-offset: 3px;
+}
+
+/* ---- Utilities ---- */
+
+/* A hand-drawn box: 2px ink with an irregular radius. */
+.sketchy {
+  border: var(--sketch-border);
+  border-radius: var(--sketch-radius);
+}
+
+.sketchy-mirror {
+  border: var(--sketch-border);
+  border-radius: var(--sketch-radius-mirror);
+}
+
+/* A hand-drawn circle, e.g. a Lesson number. */
+.sketchy-circle {
+  border: var(--sketch-border);
+  border-radius: var(--circle-radius);
+}
+
+/* Highlighter pen behind a word or phrase. */
+.highlight {
+  background: linear-gradient(
+    104deg,
+    transparent 1%,
+    var(--highlighter) 4%,
+    var(--highlighter) 96%,
+    transparent 99%
+  );
+  padding: 0 0.15em;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+/* A yellow sticky note: no border, a soft offset shadow. */
+.sticky-note {
+  background: var(--sticky-yellow);
+  box-shadow: var(--sticky-shadow);
+}
+
+/* Small all-caps label in the heading hand, e.g. MISSION. */
+.kicker {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 17px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+/* The Teacher's mascot is always circular. */
+.mascot {
+  display: block;
+  border-radius: 50%;
+  flex: none;
+  object-fit: cover;
+}
+
+/* Filled ink button, e.g. Begin. */
+.button-ink {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 22px;
+  padding: 12px 28px;
+  background: var(--ink);
+  color: var(--paper);
+  border: var(--sketch-border);
+  border-radius: var(--sketch-radius-mirror);
+  cursor: pointer;
+}
+
+/* Dashed suggestion chip that firms up on hover. */
+.chip {
+  font-size: 18px;
+  padding: 4px 14px;
+  background: transparent;
+  border: 1.5px dashed var(--ink-faint);
+  border-radius: var(--sketch-radius);
+  color: var(--ink-secondary);
+  cursor: pointer;
+}
+
+.chip:hover {
+  background: var(--card);
+  border-style: solid;
+  border-color: var(--ink);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media print {
+  [data-noprint] {
+    display: none !important;
+  }
+}
