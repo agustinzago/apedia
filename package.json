@@ -11,6 +11,7 @@
     "test": "vitest run",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx scripts/migrate.ts",
+    "wizard": "tsx scripts/wizard.ts",
     "test:e2e": "playwright test"
   },
   "dependencies": {

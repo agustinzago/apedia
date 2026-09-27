@@ -45,6 +45,18 @@ Outside production the link is always printed to the console and never emailed.
 
 Every Claude call lives in `src/teacher/` (an ESLint rule keeps the SDK out of every other module). In production set `ANTHROPIC_API_KEY`; it is only read on the server. `APEDIA_FAKE_TEACHER=1` forces the stand-in Teacher, as the e2e smoke test does.
 
+## Go live
+
+Apedia runs on Vercel with Neon Postgres (ADR 0001) and sends magic links through Resend (ADR 0003). To provision it:
+
+```sh
+npm run wizard
+```
+
+The wizard walks through Neon, Anthropic, Resend, the Auth.js secret and the site URL, checking each value against its service as you enter it. It migrates Neon, links the Vercel project, sets every variable in Vercel's Production environment, deploys, and checks that the live site offers sign-in. Values are recorded in `.env.wizard` (gitignored; Next.js never loads it, so local builds and the smoke test keep using PGlite). Re-run it to pick up where you left off or to change a value.
+
+Production variables: `DATABASE_URL`, `ANTHROPIC_API_KEY`, `AUTH_RESEND_KEY`, `AUTH_EMAIL_FROM`, `AUTH_SECRET` and `AUTH_URL` (the site's origin, set for Production only so preview deployments build links from their own URL). Every push to `master` deploys to Production. After adding a migration, run `DATABASE_URL=… npm run db:migrate` before (or right after) the deploy that needs it.
+
 ## Layout
 
 - `src/course/`: the `course` module, the one seam the UI calls. `example-course.json` is the Example course fixture; it doubles as test data. `interview.ts` holds the Interview: anonymous until "Write my course", when the Learner claims it and the Course is written.
@@ -54,4 +66,5 @@ Every Claude call lives in `src/teacher/` (an ESLint rule keeps the SDK out of e
 - `src/app/`: Next.js routes. They stay thin: call `course`, render. The Interview is `/interview`; the browser keeps its id in a cookie so the answers survive sign-in. The Course page tabs live in the `(tabs)` route group; the Lesson page (`lessons/[index]`) sits outside it, without the tab bar.
 - `src/app/globals.css`: the notebook design tokens and shared classes.
 - `e2e/`: the Playwright smoke test.
+- `scripts/`: `migrate.ts` (Neon migrations) and `wizard.ts` (go live), with the wizard's checks in `wizard/`.
 - `design/`: prototype HTML and the mascot.
