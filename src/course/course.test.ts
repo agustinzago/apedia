@@ -259,3 +259,130 @@ describe("course: listing a Learner's Courses", () => {
     expect(await course.listCourses("nobody")).toEqual([]);
   });
 });
+
+describe("course: reading a Reference sheet", () => {
+  let db: Db;
+  let course: CourseModule;
+
+  beforeEach(async () => {
+    db = await createTestDb();
+    course = createCourseModule({ db, teacher: createFakeTeacher() });
+    await course.ensureExampleCourse();
+  });
+
+  it("shows the Example course's Glossary alphabetically to a visitor", async () => {
+    const sheet = await course.readReferenceSheet(EXAMPLE_COURSE_ID, visitor);
+
+    expect(sheet?.course).toEqual({
+      id: EXAMPLE_COURSE_ID,
+      subject: "Music theory",
+      title: "Music theory for the guitar you already play",
+      isExample: true,
+    });
+    expect(sheet?.glossary).toEqual([
+      { term: "Octave", definition: "The same note name, twelve notes higher." },
+      {
+        term: "Semitone",
+        definition:
+          "The distance from one note to the very next one: one fret on a guitar.",
+      },
+      {
+        term: "Sharp",
+        definition: "A sign (♯) that raises a note to the next note up.",
+      },
+      {
+        term: "Tone",
+        definition: "Two semitones: two frets on a guitar. Also called a whole step.",
+      },
+    ]);
+  });
+
+  it("numbers the Key ideas of finished Lessons in Lesson order", async () => {
+    const sheet = await course.readReferenceSheet(EXAMPLE_COURSE_ID, visitor);
+
+    // Lesson 3 is started but not finished, so its Key idea is not here yet.
+    expect(sheet?.keyIdeas).toEqual([
+      {
+        number: 1,
+        lessonIndex: 1,
+        lessonTitle: "Notes and the musical alphabet",
+        text: "There are twelve notes. The letters repeat every octave, and B–C and E–F have no note between them.",
+      },
+      {
+        number: 2,
+        lessonIndex: 2,
+        lessonTitle: "Tones and semitones",
+        text: "A semitone is one fret; a tone is two frets.",
+      },
+    ]);
+  });
+
+  it("lists the topic-specific sections in sheet order", async () => {
+    const sheet = await course.readReferenceSheet(EXAMPLE_COURSE_ID, visitor);
+
+    expect(sheet?.sections.map((s) => s.title)).toEqual([
+      "The twelve notes",
+      "Distances on one string",
+    ]);
+    expect(sheet?.sections[1].body).toBe(
+      "1 fret = 1 semitone · 2 frets = 1 tone · 12 frets = 1 octave.",
+    );
+  });
+
+  it("is empty for a Course with no finished Lessons", async () => {
+    await db.insert(schema.learner).values({ id: "ana", email: "ana@example.com" });
+    await db.insert(schema.course).values({
+      id: "chess",
+      learnerId: "ana",
+      subject: "Chess",
+      title: "Chess for weekend games",
+      language: "en",
+      missionWhy: "Beat my brother",
+      missionSuccess: ["Win a game against my brother"],
+      missionConstraints: [],
+      missionOutOfScope: [],
+      sittingMinutes: 10,
+    });
+
+    expect(
+      await course.readReferenceSheet("chess", { learnerId: "ana" }),
+    ).toMatchObject({ glossary: [], keyIdeas: [], sections: [] });
+  });
+
+  it("does not show a Learner's Reference sheet to anyone else", async () => {
+    await db.insert(schema.learner).values([
+      { id: "owner", email: "owner@example.com" },
+      { id: "other", email: "other@example.com" },
+    ]);
+    await db.insert(schema.course).values({
+      id: "private",
+      learnerId: "owner",
+      subject: "Chess",
+      title: "Chess for weekend games",
+      language: "en",
+      missionWhy: "Beat my brother",
+      missionSuccess: ["Win a game against my brother"],
+      missionConstraints: [],
+      missionOutOfScope: [],
+      sittingMinutes: 10,
+    });
+
+    expect(await course.readReferenceSheet("private", visitor)).toBeNull();
+    expect(
+      await course.readReferenceSheet("private", { learnerId: "other" }),
+    ).toBeNull();
+    expect(await course.readReferenceSheet("no-such-course", visitor)).toBeNull();
+  });
+
+  it("seeds the Reference sheet into an Example course seeded before it existed", async () => {
+    await db.delete(schema.glossaryTerm);
+    await db.delete(schema.referenceSection);
+
+    await course.ensureExampleCourse();
+    await course.ensureExampleCourse();
+
+    expect(await db.$count(schema.glossaryTerm)).toBe(4);
+    expect(await db.$count(schema.referenceSection)).toBe(2);
+    expect(await db.$count(schema.lesson)).toBe(3);
+  });
+});

@@ -218,8 +218,22 @@ textarea {
   border: 0;
 }
 
+/*
+ * Print: no navigation, plain paper, the same notebook fonts. Margins in mm
+ * and no fixed page size, so a page fits A4 and Letter alike.
+ */
+@page {
+  margin: 14mm 12mm;
+}
+
 @media print {
   [data-noprint] {
     display: none !important;
+  }
+
+  body {
+    min-height: 0;
+    background: none;
+    font-size: 11pt;
   }
 }

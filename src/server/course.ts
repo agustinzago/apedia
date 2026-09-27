@@ -39,3 +39,9 @@ export const loadLesson = cache(async (courseId: string, index: number) => {
   const [course, viewer] = await Promise.all([getCourse(), getViewer()]);
   return course.readLesson(courseId, index, viewer);
 });
+
+/** The Reference sheet read model for whoever is asking, deduplicated within one request. */
+export const loadReferenceSheet = cache(async (courseId: string) => {
+  const [course, viewer] = await Promise.all([getCourse(), getViewer()]);
+  return course.readReferenceSheet(courseId, viewer);
+});

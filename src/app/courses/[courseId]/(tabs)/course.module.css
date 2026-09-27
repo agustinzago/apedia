@@ -326,3 +326,19 @@
     position: static;
   }
 }
+
+@media print {
+  .main {
+    max-width: none;
+    padding: 0;
+    gap: 12pt;
+  }
+
+  .subject {
+    font-size: 11pt;
+  }
+
+  .title {
+    font-size: 24pt;
+  }
+}

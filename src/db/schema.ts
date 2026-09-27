@@ -256,3 +256,46 @@ export const resource = pgTable(
   },
   (t) => [uniqueIndex("resource_course_ref_uq").on(t.courseId, t.ref)],
 );
+
+// The Course's Glossary: a term is added only once the Learner has shown
+// they understand it, so it is written at Finish, never at Lesson writing.
+export const glossaryTerm = pgTable(
+  "glossary_term",
+  {
+    id: id(),
+    courseId: text("course_id")
+      .notNull()
+      .references(() => course.id, { onDelete: "cascade" }),
+    term: text("term").notNull(),
+    definition: text("definition").notNull(),
+    // The Lesson whose Finish added the term.
+    lessonId: text("lesson_id").references(() => lesson.id, {
+      onDelete: "set null",
+    }),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex("glossary_term_course_term_uq").on(t.courseId, t.term)],
+);
+
+// The Reference sheet's topic-specific sections, such as a table of the
+// twelve notes. Finish adds or rewrites them.
+export const referenceSection = pgTable(
+  "reference_section",
+  {
+    id: id(),
+    courseId: text("course_id")
+      .notNull()
+      .references(() => course.id, { onDelete: "cascade" }),
+    // 1-based order on the sheet.
+    position: integer("position").notNull(),
+    title: text("title").notNull(),
+    body: text("body").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    uniqueIndex("reference_section_course_position_uq").on(
+      t.courseId,
+      t.position,
+    ),
+  ],
+);
