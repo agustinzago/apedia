@@ -5,7 +5,7 @@
 import { Pool } from "@neondatabase/serverless";
 import { drizzle } from "drizzle-orm/neon-serverless";
 import { migrate } from "drizzle-orm/neon-serverless/migrator";
-import { createCourseModule } from "@/course";
+import { ensureExampleCourse } from "@/course";
 import { MIGRATIONS_FOLDER, schema } from "@/db";
 
 const url = process.env.DATABASE_URL;
@@ -18,7 +18,7 @@ async function main(connectionString: string) {
   const pool = new Pool({ connectionString });
   const db = drizzle({ client: pool, schema });
   await migrate(db, { migrationsFolder: MIGRATIONS_FOLDER });
-  await createCourseModule({ db }).ensureExampleCourse();
+  await ensureExampleCourse(db);
   await pool.end();
   console.log("Migrated and seeded the Example course.");
 }

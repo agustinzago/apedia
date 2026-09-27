@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { schema, type Db } from "@/db";
+import { createFakeTeacher } from "@/teacher/fake";
 import { createTestDb } from "@/test/db";
 import { createCourseModule, EXAMPLE_COURSE_ID, type CourseModule } from ".";
 
@@ -11,7 +12,7 @@ describe("course: reading the Example course's Path", () => {
 
   beforeEach(async () => {
     db = await createTestDb();
-    course = createCourseModule({ db });
+    course = createCourseModule({ db, teacher: createFakeTeacher() });
     await course.ensureExampleCourse();
   });
 
@@ -104,7 +105,7 @@ describe("course: reading an Example course Lesson", () => {
 
   beforeEach(async () => {
     db = await createTestDb();
-    course = createCourseModule({ db });
+    course = createCourseModule({ db, teacher: createFakeTeacher() });
     await course.ensureExampleCourse();
   });
 
@@ -223,7 +224,7 @@ describe("course: listing a Learner's Courses", () => {
 
   beforeEach(async () => {
     db = await createTestDb();
-    course = createCourseModule({ db });
+    course = createCourseModule({ db, teacher: createFakeTeacher() });
     await course.ensureExampleCourse();
     await db.insert(schema.learner).values([
       { id: "ana", email: "ana@example.com" },

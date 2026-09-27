@@ -16,8 +16,8 @@ export default async function Home() {
           What would you like to <span className="highlight">learn</span>?
         </h1>
         <p className={styles.lede}>
-          Tell your teacher why it matters to you. You’ll get a short course
-          built around that reason.
+          Anything at all. Your teacher will ask you 4 short questions, then
+          write a course that fits your reason and your time.
         </p>
         <SubjectForm />
         <Link href={`/courses/${EXAMPLE_COURSE_ID}`} className={styles.example}>

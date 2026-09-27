@@ -1,0 +1,11 @@
+{
+  "title": "Ajedrez para ganarle a mi hermano",
+  "why": "Quiero ganarle a mi hermano en las partidas de los domingos.",
+  "successLooksLike": ["Ganar una partida a mi hermano sin perder la dama"],
+  "constraints": ["20 minutos por sesión"],
+  "outOfScope": ["Torneos"],
+  "priorKnowledge": {
+    "title": "Conoce cómo se mueven las piezas",
+    "body": "Dijo en la entrevista que sabe mover todas las piezas pero no conoce aperturas."
+  }
+}

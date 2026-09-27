@@ -69,6 +69,14 @@
   margin-bottom: 18px;
 }
 
+.preparing {
+  padding: 16px 20px;
+  background: var(--card);
+  border-style: dashed;
+  color: var(--ink-secondary);
+  font-size: 19px;
+}
+
 .muted {
   color: var(--ink-muted);
   font-size: 18px;

@@ -1,6 +1,8 @@
 import { and, asc, count, desc, eq, inArray } from "drizzle-orm";
 import { schema, type Db } from "@/db";
+import type { Teacher } from "@/teacher";
 import { EXAMPLE_COURSE_ID, seedExampleCourse } from "./example-course";
+import { createInterviewOperations } from "./interview";
 import {
   LessonContent,
   lessonMinutes,
@@ -9,6 +11,16 @@ import {
 } from "./lesson-content";
 
 export { EXAMPLE_COURSE_ID };
+export {
+  openingMessages,
+  SITTING_MINUTES,
+  type ClaimResult,
+  type InterviewMessage,
+  type InterviewStage,
+  type InterviewView,
+  type SittingMinutes,
+  type WriteCourseResult,
+} from "./interview";
 export type { Question, Term } from "./lesson-content";
 
 export type Mission = {
@@ -54,6 +66,8 @@ export type CoursePath = {
   isExample: boolean;
   status: "active" | "done";
   mission: Mission;
+  /** True while a new Course waits for its Resources and first Lesson. */
+  preparing: boolean;
   finishedLessons: FinishedLesson[];
   upNext: UpNextLesson | null;
   /** Newest first. */
@@ -116,7 +130,12 @@ export type Viewer = { learnerId: string | null };
 
 export type CourseModule = ReturnType<typeof createCourseModule>;
 
-export function createCourseModule({ db }: { db: Db }) {
+/** Makes sure the read-only Example course is in the database. Safe to call repeatedly. */
+export async function ensureExampleCourse(db: Db): Promise<void> {
+  await seedExampleCourse(db);
+}
+
+export function createCourseModule({ db, teacher }: { db: Db; teacher: Teacher }) {
   /** Returns the course row if the viewer may read it, otherwise null. */
   async function findReadableCourse(courseId: string, viewer: Viewer) {
     const [row] = await db
@@ -152,9 +171,11 @@ export function createCourseModule({ db }: { db: Db }) {
   }
 
   return {
+    ...createInterviewOperations({ db, teacher }),
+
     /** Makes sure the read-only Example course is in the database. Safe to call repeatedly. */
     async ensureExampleCourse(): Promise<void> {
-      await seedExampleCourse(db);
+      await ensureExampleCourse(db);
     },
 
     /** The Learner's own Courses, newest first. Never includes the Example course. */
@@ -273,6 +294,9 @@ export function createCourseModule({ db }: { db: Db }) {
           sittingMinutes: course.sittingMinutes,
           outOfScope: course.missionOutOfScope,
         },
+        // Research and the first Lesson arrive with the Course creation job.
+        preparing:
+          !course.isExample && course.status === "active" && lessons.length === 0,
         finishedLessons,
         upNext,
         learningRecords: records.map(({ supersededById, ...r }) => ({

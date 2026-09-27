@@ -17,12 +17,13 @@ export default defineConfig({
     url: `http://localhost:${PORT}`,
     // A fresh in-memory database, seeded with the Example course on first
     // request. `next start` runs as production, so Auth.js needs a secret and
-    // to trust localhost.
+    // to trust localhost. There is no API key, so the Teacher is the fake.
     env: {
       PGLITE_DIR: "memory://",
       DATABASE_URL: "",
       AUTH_SECRET: "e2e-only-secret",
       AUTH_TRUST_HOST: "true",
+      APEDIA_FAKE_TEACHER: "1",
     },
     reuseExistingServer: !process.env.CI,
     timeout: 300_000,

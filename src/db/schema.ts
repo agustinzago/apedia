@@ -79,6 +79,49 @@ export const verificationToken = pgTable(
   (t) => [primaryKey({ columns: [t.identifier, t.token] })],
 );
 
+// Where an Interview is: the question being asked, done, or redirected
+// because the subject is harmful.
+export const interviewStage = pgEnum("interview_stage", [
+  "why",
+  "know",
+  "success",
+  "sitting",
+  "complete",
+  "redirected",
+]);
+
+export type InterviewMessage = { from: "teacher" | "learner"; text: string };
+
+// An Interview runs before sign-in, so it starts anonymous: whoever holds its
+// id may continue it. It is claimed by a Learner at "Write my course".
+export const interview = pgTable(
+  "interview",
+  {
+    id: id(),
+    // Null until claimed.
+    learnerId: text("learner_id").references(() => learner.id, {
+      onDelete: "cascade",
+    }),
+    subject: text("subject").notNull(),
+    // BCP 47 tag of the language the visitor writes in.
+    language: text("language").notNull(),
+    stage: interviewStage("stage").notNull(),
+    why: text("why"),
+    know: text("know"),
+    success: text("success"),
+    sittingMinutes: integer("sitting_minutes"),
+    // At most one follow-up per Interview.
+    followUpAsked: boolean("follow_up_asked").notNull().default(false),
+    // True while the question at `stage` waits for the answer to its follow-up.
+    awaitingFollowUp: boolean("awaiting_follow_up").notNull().default(false),
+    // The conversation as shown, in order.
+    messages: jsonb("messages").$type<InterviewMessage[]>().notNull(),
+    claimedAt: timestamp("claimed_at", { withTimezone: true }),
+    createdAt: createdAt(),
+  },
+  (t) => [index("interview_learner_idx").on(t.learnerId)],
+);
+
 export const courseStatus = pgEnum("course_status", ["active", "done"]);
 
 export const course = pgTable(
@@ -101,6 +144,10 @@ export const course = pgTable(
     sittingMinutes: integer("sitting_minutes").notNull(),
     status: courseStatus("status").notNull().default("active"),
     communityOptOut: boolean("community_opt_out").notNull().default(false),
+    // The Interview the Course was written from; one Course per Interview.
+    interviewId: text("interview_id")
+      .unique()
+      .references(() => interview.id, { onDelete: "set null" }),
     createdAt: createdAt(),
   },
   (t) => [index("course_learner_idx").on(t.learnerId)],
