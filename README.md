@@ -35,7 +35,7 @@ The smoke test builds the app and serves it on port 3100 with a fresh in-memory 
 
 Magic-link sign-in with Auth.js and Resend (ADR 0003). Learners and sessions live in Postgres through the Drizzle adapter. In production set:
 
-- `AUTH_SECRET`: `npx auth secret` generates one.
+- `AUTH_SECRET`: 32 random bytes, base64: `openssl rand -base64 32`. (Not `npx auth secret`: the `auth` package on npm is now Better Auth's CLI.)
 - `AUTH_RESEND_KEY`: a Resend API key.
 - `AUTH_EMAIL_FROM`: the sender on a domain verified in Resend, e.g. `Apedia <sign-in@example.com>`.
 

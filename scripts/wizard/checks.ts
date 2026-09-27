@@ -68,7 +68,7 @@ export function parseSiteUrl(value: string): { origin: string } | { problem: str
   return { origin: url.origin };
 }
 
-/** Same as `npx auth secret`: 32 random bytes, base64. */
+/** 32 random bytes, base64, as Auth.js recommends for AUTH_SECRET. */
 export function generateAuthSecret(): string {
   return randomBytes(32).toString("base64");
 }
