@@ -1,6 +1,7 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { describe, expect, it, vi } from "vitest";
 import { createClaudeTeacher, SEARCH_MAX_USES, TeacherError } from "./claude";
+import finishFixture from "./fixtures/finish-music-theory.json";
 import lessonFixture from "./fixtures/lesson-music-theory.json";
 import safetyRedirect from "./fixtures/safety-redirect.json";
 
@@ -246,5 +247,53 @@ describe("teacher: talking to Claude", () => {
     expect(request.system).toContain("Quiz rule");
     expect(request.messages[0].content).toContain("1. G major");
     expect(request.messages[0].content).toContain("What is wrong with it: The options have 1, 2, 1, 1 words.");
+  });
+
+  it("finishes a Lesson with Sonnet and a structured output, giving it the evidence by id", async () => {
+    const { client, parse } = clientReturning({ stop_reason: "end_turn", parsed_output: finishFixture });
+
+    const finish = await createClaudeTeacher({ client }).finishLesson({
+      subject: "Music theory",
+      language: "es",
+      mission,
+      lesson: {
+        index: 2,
+        title: "La escala mayor",
+        goal: "Tocar la escala de sol mayor",
+        keyIdea: "Tono, tono, semitono.",
+        newTerms: [{ term: "Escala mayor", definition: "Siete notas." }],
+      },
+      quizAttempts: [
+        {
+          id: "L2Q3",
+          lessonIndex: 2,
+          question: "¿Cuántas notas hay?",
+          rightOption: "Doce",
+          chosenOption: "Siete",
+          correct: false,
+          review: true,
+        },
+      ],
+      chat: [{ id: "C1", from: "learner", text: "Ahora lo entiendo." }],
+      learningRecords: [{ number: 1, kind: "prior_knowledge", title: "Toca acordes", body: "…" }],
+      glossary: [{ term: "Tono", definition: "Dos trastes." }],
+      referenceSections: [{ title: "Las doce notas", body: "A · A♯ · B…" }],
+      finishedLessons: [{ title: "La escala mayor", goal: "Tocar la escala de sol mayor" }],
+      resources: [{ kind: "site", title: "musictheory.net", why: "Free lessons." }],
+    });
+
+    expect(finish).toEqual(finishFixture);
+    const request = parse.mock.calls[0][0];
+    expect(request.model).toBe("claude-sonnet-5");
+    expect(request.output_config.format.type).toBe("json_schema");
+    expect(request.system).toContain('language tagged "es"');
+    expect(request.system).toContain("A wrong answer on its own is only a quiz attempt");
+    expect(request.system).toContain('ids starting "L2Q"');
+    const user = request.messages[0].content;
+    expect(user).toContain("- L2Q3 (review) ¿Cuántas notas hay? Right answer: Doce. Chose: Siete. Wrong.");
+    expect(user).toContain("- C1 (learner) Ahora lo entiendo.");
+    expect(user).toContain("- 0001 (prior_knowledge) Toca acordes: …");
+    expect(user).toContain("- Escala mayor: Siete notas.");
+    expect(user).toContain("- Las doce notas: A · A♯ · B…");
   });
 });

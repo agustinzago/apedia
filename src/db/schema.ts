@@ -290,7 +290,13 @@ export const glossaryTerm = pgTable(
     }),
     createdAt: createdAt(),
   },
-  (t) => [uniqueIndex("glossary_term_course_term_uq").on(t.courseId, t.term)],
+  // One entry per term, whatever its casing.
+  (t) => [
+    uniqueIndex("glossary_term_course_term_uq").on(
+      t.courseId,
+      sql`lower(${t.term})`,
+    ),
+  ],
 );
 
 // The Reference sheet's topic-specific sections, such as a table of the
@@ -350,6 +356,7 @@ export const gap = pgTable(
 export const jobKind = pgEnum("job_kind", [
   "course_creation",
   "lesson_generation",
+  "finish",
 ]);
 
 // pending: waiting for a runner. running: a runner holds it (see runId).
@@ -373,7 +380,8 @@ export const job = pgTable(
       .notNull()
       .references(() => course.id, { onDelete: "cascade" }),
     kind: jobKind("kind").notNull(),
-    // The Lesson a lesson_generation job writes; null for other kinds.
+    // The Lesson a lesson_generation job writes or a finish job finishes;
+    // null for course_creation.
     lessonId: text("lesson_id").references(() => lesson.id, {
       onDelete: "cascade",
     }),
@@ -402,7 +410,7 @@ export const job = pgTable(
     uniqueIndex("job_course_creation_uq")
       .on(t.courseId)
       .where(sql`${t.kind} = 'course_creation'`),
-    // One generation job per Lesson: it is written once, never again.
-    uniqueIndex("job_lesson_uq").on(t.lessonId),
+    // One job of each kind per Lesson: it is written once and finished once.
+    uniqueIndex("job_lesson_kind_uq").on(t.lessonId, t.kind),
   ],
 );

@@ -1,0 +1,18 @@
+{
+  "learningRecords": [],
+  "glossary": [
+    { "term": "Key", "question": 3 },
+    { "term": "Home chord", "question": 1 }
+  ],
+  "referenceSections": [
+    {
+      "title": "Keys you already play",
+      "body": "G major: G · A · B · C · D · E · F♯. Its chords: G, Am, Bm, C, D, Em. Home chord: G."
+    }
+  ],
+  "upNext": {
+    "title": "Chords that share a key",
+    "goal": "Spot which chords in a chart belong to G major",
+    "minutes": 10
+  }
+}

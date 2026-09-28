@@ -338,7 +338,7 @@ export function createCourseCreationOperations({
 }
 
 /** Why an Up next breaks the rules, or null if it keeps them. */
-function upNextProblem(draft: UpNextDraft, sittingMinutes: number): string | null {
+export function upNextProblem(draft: UpNextDraft, sittingMinutes: number): string | null {
   const titleWords = draft.title.trim().split(/\s+/).filter(Boolean).length;
   if (titleWords === 0) return "The title is empty.";
   if (titleWords > MAX_TITLE_WORDS) {

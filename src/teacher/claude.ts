@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import type { z } from "zod";
 import {
+  FinishDraft,
   InterviewReply,
   LessonDraft,
   MissionDraft,
@@ -375,6 +376,73 @@ ${question.options.map((o, i) => `${i}. ${o}`).join("\n")}
 <explanation>${question.explanation}</explanation>
 
 What is wrong with it: ${problem}`,
+      });
+    },
+
+    async finishLesson({
+      subject,
+      language,
+      mission,
+      lesson,
+      quizAttempts,
+      chat,
+      learningRecords,
+      glossary,
+      referenceSections,
+      finishedLessons,
+      resources,
+    }) {
+      const thisLesson = `L${lesson.index}Q`;
+      return mustAnswer(FinishDraft, {
+        model: SONNET,
+        maxTokens: 8192,
+        system: `You are the Teacher in Apedia. The Learner has just finished Lesson ${lesson.index}. Weigh the evidence it gave, update the Course, and choose the next Lesson. Write every word in the language tagged "${language}" (BCP 47).
+
+- "learningRecords": what the Learner now knows, written only on evidence. Covering material is not evidence. Each record has "kind", a "title" of at most 8 words, a "body" of one or two sentences in the third person naming the evidence ("Picked … in Lesson 1, and again in Lesson 2's review question."), "evidence" (the ids of the quiz attempts, such as "${thisLesson}1", and chat messages, such as "C1", that show it) and "supersedes" (the numbers of standing records it replaces, such as a prior-knowledge record it overtakes or a misconception now corrected; often empty). Every record must cite at least one piece of evidence from this Lesson (ids starting "${thisLesson}", or chat). The evidence rules:
+  - A wrong answer on its own is only a quiz attempt: never write a record from it.
+  - "misconception": only once it has been corrected: a wrong attempt, then a later correct attempt on the same idea, or the Learner putting it right in the chat. Say what they believed and what they now see.
+  - "understanding": two correct attempts on the same idea (such as its own Lesson's question and a later review question), or the Learner explaining it correctly in their own words in the chat. One correct answer is not enough.
+  Most Lessons earn zero or one record. Do not repeat a standing record.
+- "glossary": one entry per term in <new_terms>, with "question" set to the number (1, 2, 3…) of this Lesson's question that tests the term, or null if none does. Copy the term as written there.
+- "referenceSections": 0 to 2 sections for the printable Reference sheet: compressed facts from this Lesson worth looking up later, such as a table, a list of steps or a formula, in a short "title" and a "body" of at most 40 words. Reuse a title from <reference_sections> to rewrite that section with the new facts folded in. Do not repeat the Key idea or glossary definitions.
+- "upNext": the single Lesson to teach next. There is no lesson plan. Pick it from the Mission's success item with the most leverage and from the Learning records (the new ones included), so it sits just beyond what the Learner can now do. It gives one tangible win in one sitting and must not repeat a finished Lesson. "title": at most 6 words. "goal": one sentence of at most 12 words, starting with an observable verb such as name, play, write, spot, build or explain; never "understand", "learn", "know" or their equivalents in any language ("comprender", "aprender", "entender", "saber"…). "minutes": reading plus practice, at most ${mission.sittingMinutes}.
+
+${SAFETY_RULES}
+${TONE}`,
+        user: `${DATA_NOTE}
+
+<subject>${subject}</subject>
+${missionXml(mission)}
+<lesson>
+<number>${lesson.index}</number>
+<title>${lesson.title}</title>
+<goal>${lesson.goal}</goal>
+<key_idea>${lesson.keyIdea}</key_idea>
+</lesson>
+<new_terms>
+${lesson.newTerms.map((t) => `- ${t.term}: ${t.definition}`).join("\n")}
+</new_terms>
+<quiz_attempts>
+${quizAttempts.map((a) => `- ${a.id}${a.review ? " (review)" : ""} ${a.question} Right answer: ${a.rightOption}. Chose: ${a.chosenOption}. ${a.correct ? "Correct" : "Wrong"}.`).join("\n")}
+</quiz_attempts>
+<chat>
+${chat.map((m) => `- ${m.id} (${m.from}) ${m.text}`).join("\n")}
+</chat>
+<learning_records>
+${learningRecords.map((r) => `- ${String(r.number).padStart(4, "0")} (${r.kind}) ${r.title}: ${r.body}`).join("\n")}
+</learning_records>
+<glossary>
+${glossary.map((t) => `- ${t.term}: ${t.definition}`).join("\n")}
+</glossary>
+<reference_sections>
+${referenceSections.map((r) => `- ${r.title}: ${r.body}`).join("\n")}
+</reference_sections>
+<finished_lessons>
+${finishedLessons.map((l) => `- ${l.title}: ${l.goal}`).join("\n")}
+</finished_lessons>
+<resources>
+${resources.map((r) => `- (${r.kind}) ${r.title}: ${r.why}`).join("\n")}
+</resources>`,
       });
     },
   };

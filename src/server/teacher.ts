@@ -24,6 +24,7 @@ export function createAppTeacher(): Teacher {
     pickUpNext: async (input) => get().pickUpNext(input),
     writeLesson: async (input) => get().writeLesson(input),
     rewriteQuestion: async (input) => get().rewriteQuestion(input),
+    finishLesson: async (input) => get().finishLesson(input),
   };
 }
 

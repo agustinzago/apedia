@@ -205,16 +205,23 @@ function FinishBar({ lesson }: { lesson: LessonView }) {
         ? "Every question answered."
         : `Answer every question to finish (${answered}/${total}).`;
 
-  return (
-    <div data-noprint className={styles.finish}>
-      <span className={styles.finishNote}>{note}</span>
-      {lesson.finishedAt ? (
+  if (lesson.finishedAt) {
+    return (
+      <div data-noprint className={styles.finish}>
+        <span className={styles.finishNote}>{note}</span>
         <button type="button" className="button-ink" disabled>
           Finished ✓
         </button>
-      ) : (
-        <FinishButton enabled={!lesson.readOnly && allAnswered} />
-      )}
-    </div>
+      </div>
+    );
+  }
+  return (
+    <FinishButton
+      courseId={lesson.course.id}
+      index={lesson.index}
+      enabled={!lesson.readOnly && allAnswered}
+      note={note}
+      initial={lesson.finishing}
+    />
   );
 }

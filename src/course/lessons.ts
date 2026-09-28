@@ -58,7 +58,38 @@ export type AnswerQuestionResult =
       reason: "not-found" | "read-only" | "not-written" | "finished" | "invalid";
     };
 
-type LessonRow = typeof schema.lesson.$inferSelect;
+export type LessonRow = typeof schema.lesson.$inferSelect;
+
+/** The Learner's own Lesson, or why they may not change it. */
+export async function findOwnLessonIn(
+  db: Db,
+  courseId: string,
+  lessonIndex: number,
+  learnerId: string,
+): Promise<{ ok: true; lesson: LessonRow } | { ok: false; reason: "not-found" | "read-only" }> {
+  const [row] = await db
+    .select({ lesson: schema.lesson, course: schema.course })
+    .from(schema.lesson)
+    .innerJoin(schema.course, eq(schema.course.id, schema.lesson.courseId))
+    .where(and(eq(schema.course.id, courseId), eq(schema.lesson.index, lessonIndex)));
+  if (!row) return { ok: false, reason: "not-found" };
+  if (row.course.isExample) return { ok: false, reason: "read-only" };
+  if (row.course.learnerId !== learnerId) return { ok: false, reason: "not-found" };
+  return { ok: true, lesson: row.lesson };
+}
+
+/** The Lesson's job of one kind, if it has one. */
+export async function findLessonJob(
+  db: Db,
+  lessonId: string,
+  kind: "lesson_generation" | "finish",
+): Promise<JobRow | null> {
+  const [job] = await db
+    .select()
+    .from(schema.job)
+    .where(and(eq(schema.job.lessonId, lessonId), eq(schema.job.kind, kind)));
+  return job ?? null;
+}
 
 export function createLessonOperations({
   db,
@@ -70,27 +101,10 @@ export function createLessonOperations({
   /** Shuffles quiz options; `Math.random` in the app. */
   random: () => number;
 }) {
-  /** The Learner's own Lesson, or why they may not change it. */
-  async function findOwnLesson(
-    courseId: string,
-    lessonIndex: number,
-    learnerId: string,
-  ): Promise<{ ok: true; lesson: LessonRow } | { ok: false; reason: "not-found" | "read-only" }> {
-    const [row] = await db
-      .select({ lesson: schema.lesson, course: schema.course })
-      .from(schema.lesson)
-      .innerJoin(schema.course, eq(schema.course.id, schema.lesson.courseId))
-      .where(and(eq(schema.course.id, courseId), eq(schema.lesson.index, lessonIndex)));
-    if (!row) return { ok: false, reason: "not-found" };
-    if (row.course.isExample) return { ok: false, reason: "read-only" };
-    if (row.course.learnerId !== learnerId) return { ok: false, reason: "not-found" };
-    return { ok: true, lesson: row.lesson };
-  }
-
-  async function findGenerationJob(lessonId: string): Promise<JobRow | null> {
-    const [job] = await db.select().from(schema.job).where(eq(schema.job.lessonId, lessonId));
-    return job ?? null;
-  }
+  const findOwnLesson = (courseId: string, lessonIndex: number, learnerId: string) =>
+    findOwnLessonIn(db, courseId, lessonIndex, learnerId);
+  const findGenerationJob = (lessonId: string) =>
+    findLessonJob(db, lessonId, "lesson_generation");
 
   async function insertGenerationJob(lesson: LessonRow): Promise<JobRow> {
     await db

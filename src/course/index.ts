@@ -8,8 +8,9 @@ import {
   type CourseCreationView,
 } from "./course-creation";
 import { EXAMPLE_COURSE_ID, seedExampleCourse } from "./example-course";
+import { createFinishOperations } from "./finish";
 import { createInterviewOperations } from "./interview";
-import { runJobStep, viewOf, type JobStepResult, type JobView } from "./jobs";
+import { runJobStep, viewOf, type JobKind, type JobStepResult, type JobView } from "./jobs";
 import { createLessonOperations } from "./lessons";
 import {
   LessonContent,
@@ -34,6 +35,7 @@ export type {
   CourseCreationView,
   RetryCourseCreationResult,
 } from "./course-creation";
+export type { FinishLessonResult, RetryFinishResult } from "./finish";
 export type { JobStepResult, JobView } from "./jobs";
 export type {
   AnswerQuestionResult,
@@ -181,6 +183,8 @@ export type LessonView = {
   readOnly: boolean;
   /** The Lesson generation job while the Lesson is unwritten; null if there is none. */
   generation: JobView | null;
+  /** The Finish job once Finish is pressed, until the Lesson is finished; null otherwise. */
+  finishing: JobView | null;
 };
 
 /** The Key idea of one finished Lesson. */
@@ -230,6 +234,7 @@ export function createCourseModule({
 }) {
   const creation = createCourseCreationOperations({ db, teacher, fetchUrl });
   const lessons = createLessonOperations({ db, teacher, random });
+  const finish = createFinishOperations({ db, teacher });
 
   /** Returns the course row if the viewer may read it, otherwise null. */
   async function findReadableCourse(courseId: string, viewer: Viewer) {
@@ -273,16 +278,20 @@ export function createCourseModule({
     readLessonGeneration: lessons.readLessonGeneration,
     retryLessonGeneration: lessons.retryLessonGeneration,
     answerQuestion: lessons.answerQuestion,
+    finishLesson: finish.finishLesson,
+    readFinish: finish.readFinish,
+    retryFinish: finish.retryFinish,
 
     /**
-     * Runs the next step of a pending generation job (Course creation or
-     * Lesson generation) and reports whether another step waits. Each call
+     * Runs the next step of a pending generation job (Course creation,
+     * Lesson generation or Finish) and reports whether another step waits. Each call
      * runs one step, so the app can give every step its own invocation.
      */
     async runJobStep(jobId: string): Promise<JobStepResult> {
       return runJobStep(db, jobId, {
         course_creation: creation.runCourseCreationStep,
         lesson_generation: lessons.runLessonGenerationStep,
+        finish: finish.runFinishStep,
       });
     },
 
@@ -603,12 +612,17 @@ export function createCourseModule({
       }
 
       let generation: JobView | null = null;
-      if (content === null && !course.isExample) {
-        const [job] = await db
+      let finishing: JobView | null = null;
+      if (!course.isExample && (content === null || lesson.finishedAt === null)) {
+        const jobs = await db
           .select()
           .from(schema.job)
           .where(eq(schema.job.lessonId, lesson.id));
-        generation = job ? viewOf(job) : null;
+        const ofKind = (kind: JobKind) => jobs.find((j) => j.kind === kind);
+        const writing = content === null ? ofKind("lesson_generation") : undefined;
+        const finishJob = lesson.finishedAt === null ? ofKind("finish") : undefined;
+        generation = writing ? viewOf(writing) : null;
+        finishing = finishJob ? viewOf(finishJob) : null;
       }
 
       return {
@@ -626,6 +640,7 @@ export function createCourseModule({
         answers,
         readOnly: course.isExample,
         generation,
+        finishing,
       };
     },
   };

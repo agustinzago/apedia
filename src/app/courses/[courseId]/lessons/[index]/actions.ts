@@ -93,3 +93,55 @@ export async function answerQuestion(
     allAnswered: answered.allAnswered,
   };
 }
+
+export type FinishState = { view: JobView | null; error: string | null };
+
+/** Finish: starts the Lesson's Finish job, once every question is answered. */
+export async function finishLesson(courseId: string, index: number): Promise<FinishState> {
+  const [course, viewer] = await Promise.all([getCourse(), getViewer()]);
+  if (viewer.learnerId === null) return { view: null, error: "Sign in again to finish this Lesson." };
+
+  const finished = await course.finishLesson(courseId, index, viewer.learnerId);
+  if (!finished.ok) {
+    return {
+      view: null,
+      error:
+        finished.reason === "unanswered"
+          ? "Answer every question first."
+          : finished.reason === "finished"
+            ? "This Lesson is already finished. Reload the page to see it."
+            : "This Lesson isn’t yours to finish.",
+    };
+  }
+  if (finished.start) await startJobStep(finished.finishing.jobId, await requestOrigin());
+  return { view: finished.finishing, error: null };
+}
+
+/**
+ * The Finish job's progress, for the screen that polls it. A job left
+ * waiting (its start was lost) is started again.
+ */
+export async function checkFinish(courseId: string, index: number): Promise<JobView | null> {
+  const [course, viewer] = await Promise.all([getCourse(), getViewer()]);
+  const view = await course.readFinish(courseId, index, viewer.learnerId);
+  if (view?.stalled) await startJobStep(view.jobId, await requestOrigin());
+  return view;
+}
+
+/** "Try again": runs the Finish again after a failure. */
+export async function retryFinish(courseId: string, index: number): Promise<RetryState> {
+  const [course, viewer] = await Promise.all([getCourse(), getViewer()]);
+  if (viewer.learnerId === null) return { error: "Sign in again to finish this Lesson." };
+
+  const retried = await course.retryFinish(courseId, index, viewer.learnerId);
+  if (!retried.ok) {
+    return {
+      error:
+        retried.reason === "nothing-to-retry"
+          ? "This Lesson is already finished. Reload the page to see it."
+          : "This Lesson isn’t yours to finish.",
+    };
+  }
+  await startJobStep(retried.jobId, await requestOrigin());
+  return { error: null };
+}

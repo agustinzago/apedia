@@ -1,4 +1,5 @@
 import {
+  FinishDraft,
   InterviewReply,
   LessonDraft,
   MissionDraft,
@@ -7,6 +8,7 @@ import {
   SafetyVerdict,
   SearchFindings,
   UpNextDraft,
+  type FinishLessonInput,
   type InterviewFollowUpInput,
   type PickUpNextInput,
   type ResearchSearchInput,
@@ -41,6 +43,7 @@ export type FakeTeacherReplies = {
   pickUpNext?: Reply<PickUpNextInput>;
   writeLesson?: Reply<WriteLessonInput>;
   rewriteQuestion?: Reply<RewriteQuestionInput>;
+  finishLesson?: Reply<FinishLessonInput>;
 };
 
 export type FakeTeacherCall =
@@ -51,7 +54,8 @@ export type FakeTeacherCall =
   | { op: "researchStructure"; input: ResearchStructureInput }
   | { op: "pickUpNext"; input: PickUpNextInput }
   | { op: "writeLesson"; input: WriteLessonInput }
-  | { op: "rewriteQuestion"; input: RewriteQuestionInput };
+  | { op: "rewriteQuestion"; input: RewriteQuestionInput }
+  | { op: "finishLesson"; input: FinishLessonInput };
 
 export type FakeTeacher = Teacher & {
   /** Every call made, in order. */
@@ -164,6 +168,29 @@ export function createFakeTeacher(replies: FakeTeacherReplies = {}): FakeTeacher
           options: ["The first choice", "The second choice", "The third choice", "The fourth choice"],
         })),
       );
+    },
+
+    async finishLesson(input) {
+      calls.push({ op: "finishLesson", input });
+      return FinishDraft.parse(reply(replies.finishLesson, input, defaultFinish));
+    },
+  };
+}
+
+/**
+ * A Finish that writes no Learning record, offers each new term with the
+ * question of the same number, and moves on to a numbered next step.
+ */
+function defaultFinish(input: FinishLessonInput): Json {
+  const next = input.lesson.index + 1;
+  return {
+    learningRecords: [],
+    glossary: input.lesson.newTerms.map((t, i) => ({ term: t.term, question: i + 1 })),
+    referenceSections: [],
+    upNext: {
+      title: `Step ${next} in ${input.subject}`.split(/\s+/).slice(0, 6).join(" "),
+      goal: `Use what Lesson ${input.lesson.index} taught on something of your own`,
+      minutes: input.mission.sittingMinutes,
     },
   };
 }

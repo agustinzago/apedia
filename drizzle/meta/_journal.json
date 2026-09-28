@@ -50,6 +50,13 @@
       "when": 1790610877222,
       "tag": "0006_lesson_generation_job",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1790618189997,
+      "tag": "0007_finish",
+      "breakpoints": true
     }
   ]
 }

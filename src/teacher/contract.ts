@@ -211,6 +211,75 @@ export type RewriteQuestionInput = {
   problem: string;
 };
 
+/** One quiz attempt, as evidence a Learning record may cite. */
+export type QuizAttemptEvidence = {
+  /** Lesson and question number, such as "L2Q3". */
+  id: string;
+  lessonIndex: number;
+  question: string;
+  rightOption: string;
+  chosenOption: string;
+  correct: boolean;
+  /** True when the question reviewed an earlier Lesson's Key idea. */
+  review: boolean;
+};
+
+export type FinishLessonInput = {
+  subject: string;
+  /** BCP 47 tag of the Interview's language; everything is written in it. */
+  language: string;
+  mission: MissionInput;
+  /** The Lesson being finished. */
+  lesson: {
+    index: number;
+    title: string;
+    goal: string;
+    keyIdea: string;
+    /** The terms it introduced: candidates for the Glossary. */
+    newTerms: { term: string; definition: string }[];
+  };
+  /** Every quiz attempt in the Course, in Lesson and question order; this Lesson's are last. */
+  quizAttempts: QuizAttemptEvidence[];
+  /** The Lesson's chat, oldest first; ids such as "C1". Empty until the Lesson has a chat. */
+  chat: { id: string; from: "teacher" | "learner"; text: string }[];
+  /** Records still standing, oldest first. */
+  learningRecords: { number: number; kind: string; title: string; body: string }[];
+  glossary: { term: string; definition: string }[];
+  /** The Reference sheet's topic-specific sections, in sheet order. */
+  referenceSections: { title: string; body: string }[];
+  /** Oldest first, this Lesson included. */
+  finishedLessons: { title: string; goal: string }[];
+  resources: { kind: string; title: string; why: string }[];
+};
+
+/**
+ * What a Finish writes. The evidence rules are asked for in the prompt and
+ * checked in `course`, which drops a record or term that breaks them.
+ */
+export const FinishDraft = z.object({
+  /** Only what this Lesson gave evidence of; often empty. */
+  learningRecords: z.array(
+    z.object({
+      kind: z.enum(["understanding", "misconception"]),
+      /** At most 8 words. */
+      title: z.string(),
+      /** One or two sentences naming the evidence, in the third person. */
+      body: z.string(),
+      /** Ids of the quiz attempts ("L2Q3") and chat messages ("C4") that show it. */
+      evidence: z.array(z.string()),
+      /** Numbers of standing Learning records this one replaces. */
+      supersedes: z.array(z.number().int()),
+    }),
+  ),
+  /** For each of the Lesson's new terms, the number of this Lesson's question that tests it, or null. */
+  glossary: z.array(z.object({ term: z.string(), question: z.number().int().nullable() })),
+  /** New topic-specific sections, or rewrites of existing ones (same title). */
+  referenceSections: z.array(z.object({ title: z.string(), body: z.string() })),
+  /** The Lesson to teach next, by the same rules as `pickUpNext`. */
+  upNext: UpNextDraft,
+});
+export type FinishDraft = z.infer<typeof FinishDraft>;
+
 export interface Teacher {
   /** Haiku: is the subject, with its reason, something to teach? Also detects the visitor's language. */
   checkSafety(input: SafetyCheckInput): Promise<SafetyVerdict>;
@@ -228,4 +297,6 @@ export interface Teacher {
   writeLesson(input: WriteLessonInput): Promise<LessonDraft>;
   /** Sonnet, structured output: rewrites one quiz question that broke the quiz rule. */
   rewriteQuestion(input: RewriteQuestionInput): Promise<QuestionDraft>;
+  /** Sonnet, structured output: weighs a finished Lesson's evidence and picks the next Up next. */
+  finishLesson(input: FinishLessonInput): Promise<FinishDraft>;
 }
