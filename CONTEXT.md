@@ -18,6 +18,10 @@ _Avoid_: Ape, AI, assistant, bot, tutor
 Everything Apedia holds for one Learner learning one subject: its Mission, Lessons, Resources, Communities and records. One subject, one Mission, one Course.
 _Avoid_: Notebook (that is the visual style, not a concept), workspace
 
+**Course credit**:
+What one purchase buys a Learner: the right to start one Course. It is available until used, and a full refund takes back an unused one.
+_Avoid_: Token, ticket, license, seat, purchase (for the credit itself)
+
 **Example course**:
 A pre-made, read-only Course ("Music theory") that anyone can open to see what a Course looks like.
 _Avoid_: Example notebook, demo

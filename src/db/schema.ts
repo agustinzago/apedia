@@ -557,3 +557,42 @@ export const spendAlarm = pgTable("spend_alarm", {
   thresholdUsd: doublePrecision("threshold_usd").notNull(),
   createdAt: createdAt(),
 });
+
+// available: bought, not yet used. used: it started a Course (set by the
+// Interview gate, not yet built). refunded: the payment was fully refunded
+// before the credit was used, so it can no longer start a Course.
+export const courseCreditStatus = pgEnum("course_credit_status", [
+  "available",
+  "used",
+  "refunded",
+]);
+
+// One Course credit per payment: what buying a Course gives the Learner. The
+// payment itself lives with the provider (Polar); this is Apedia's record of
+// it, written only by a verified webhook. Deleting the Learner deletes it.
+export const courseCredit = pgTable(
+  "course_credit",
+  {
+    id: id(),
+    learnerId: text("learner_id")
+      .notNull()
+      .references(() => learner.id, { onDelete: "cascade" }),
+    // Who took the payment, such as "polar", and its id there (Polar's order id).
+    provider: text("provider").notNull(),
+    providerPaymentId: text("provider_payment_id").notNull(),
+    // What the Learner paid for the Course, in the currency's smallest unit.
+    amountCents: integer("amount_cents").notNull(),
+    // ISO 4217, lowercase, as the provider reports it: "usd".
+    currency: text("currency").notNull(),
+    status: courseCreditStatus("status").notNull().default("available"),
+    // Set by a full refund, whatever the status; a used credit keeps "used".
+    refundedAt: timestamp("refunded_at", { withTimezone: true }),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    index("course_credit_learner_idx").on(t.learnerId),
+    // One credit per payment, however many times the webhook is delivered.
+    uniqueIndex("course_credit_payment_uq").on(t.provider, t.providerPaymentId),
+  ],
+);

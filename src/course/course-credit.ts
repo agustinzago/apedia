@@ -1,7 +1,8 @@
 /**
- * What a Course credit buys, and when it is refunded. Payments and the
- * per-Course allowances are not built yet; the Terms and Refund policy
- * pages quote these numbers, and both should read them from here.
+ * What a Course credit buys, and when it is refunded. The per-Course
+ * allowances are not built yet; the Terms and Refund policy pages and the
+ * "Buy a Course" button quote these numbers, and should read them from here.
+ * The price Learners are charged is the Polar product's: keep it at `priceUsd`.
  */
 export const COURSE_CREDIT = {
   /** The price of one credit, in US dollars. */

@@ -6,6 +6,7 @@ import {
   dailyLimitsFromEnv,
   magicLinkLimitsFromEnv,
   operatorFromEnv,
+  polarFromEnv,
   spendAlarmFromEnv,
   spendLimitsFromEnv,
 } from "./config";
@@ -156,5 +157,48 @@ describe("server: the operator from the environment", () => {
 
     expect(error).toHaveBeenCalledOnce();
     expect(error.mock.calls[0][0]).toContain("APEDIA_CONTACT_EMAIL");
+  });
+});
+
+describe("server: Polar from the environment", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  const keys = {
+    POLAR_ACCESS_TOKEN: " polar_oat_abc ",
+    POLAR_WEBHOOK_SECRET: "whsec_abc",
+    POLAR_PRODUCT_ID: "prod-1",
+  };
+
+  it("reads the keys, on Polar's sandbox unless told production", () => {
+    expect(polarFromEnv(keys)).toEqual({
+      accessToken: "polar_oat_abc",
+      webhookSecret: "whsec_abc",
+      productId: "prod-1",
+      server: "sandbox",
+    });
+    expect(polarFromEnv({ ...keys, POLAR_SERVER: "production" })).toMatchObject({
+      server: "production",
+    });
+  });
+
+  it("falls back to the sandbox for an unknown server", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    expect(polarFromEnv({ ...keys, POLAR_SERVER: "live" })).toMatchObject({ server: "sandbox" });
+    expect(warn).toHaveBeenCalledOnce();
+  });
+
+  it("is not set up while any key is missing, and complains only in production", () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    expect(polarFromEnv({})).toBeNull();
+    expect(polarFromEnv({ ...keys, POLAR_WEBHOOK_SECRET: " " })).toBeNull();
+    expect(error).not.toHaveBeenCalled();
+
+    expect(polarFromEnv({ NODE_ENV: "production", ...keys, POLAR_PRODUCT_ID: "" })).toBeNull();
+    expect(error).toHaveBeenCalledOnce();
+    expect(error.mock.calls[0][0]).toContain("POLAR_PRODUCT_ID");
   });
 });

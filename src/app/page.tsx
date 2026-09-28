@@ -1,12 +1,14 @@
 import Link from "next/link";
 import { EXAMPLE_COURSE_ID, type CourseSummary } from "@/course";
 import { Mascot } from "@/components/mascot";
-import { loadYourCourses } from "@/server/course";
+import { loadCourseCredits, loadYourCourses } from "@/server/course";
+import { BuyCourse } from "./purchase/buy-course";
+import { creditsLine } from "./purchase/credits-line";
 import { SubjectForm } from "./subject-form";
 import styles from "./home.module.css";
 
 export default async function Home() {
-  const yourCourses = await loadYourCourses();
+  const [yourCourses, credits] = await Promise.all([loadYourCourses(), loadCourseCredits()]);
 
   return (
     <main className={styles.main}>
@@ -24,6 +26,15 @@ export default async function Home() {
           or open the Example course: Music theory
         </Link>
       </section>
+
+      {credits !== null && (
+        <section className={styles.credits} aria-label="Course credits">
+          {credits.available > 0 && (
+            <p className={styles.creditCount}>{creditsLine(credits.available)}</p>
+          )}
+          <BuyCourse from="/" />
+        </section>
+      )}
 
       <section className={styles.yourCourses} aria-labelledby="your-courses">
         <h2 id="your-courses" className={styles.sectionTitle}>

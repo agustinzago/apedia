@@ -1,6 +1,7 @@
 /**
  * Walks through getting Apedia live (issue #7, ADRs 0001 and 0003): Neon,
- * Anthropic, Resend, the operator and spend alarm, Auth.js, then Vercel. Checks each value, records it in
+ * Anthropic, Resend, the operator and spend alarm, Auth.js, the site URL,
+ * Polar, then Vercel. Checks each value, records it in
  * .env.wizard (gitignored, and not a file Next.js loads, so local builds never
  * see production values), copies the values to Vercel's Production
  * environment, migrates Neon and deploys. Safe to re-run: recorded values are
@@ -24,11 +25,16 @@ import {
   operatorNameProblem,
   parseFromAddress,
   parseSiteUrl,
+  polarAccessTokenProblem,
+  polarProductIdProblem,
+  polarServerProblem,
+  polarWebhookSecretProblem,
   resendKeyProblem,
   spendThresholdProblem,
   type Check,
 } from "./wizard/checks";
 import { parseEnvFile, serializeEnvFile, type EnvValues } from "./wizard/env-file";
+import { COURSE_CREDIT } from "../src/course/course-credit";
 
 const ENV_FILE = ".env.wizard";
 const HEADER = "Apedia production values, recorded by `npm run wizard`.\nSecrets: never commit this file.";
@@ -45,6 +51,10 @@ const VARIABLES = [
   "APEDIA_CONTACT_EMAIL",
   "APEDIA_OPERATOR_EMAIL",
   "APEDIA_SPEND_ALARM_USD",
+  "POLAR_SERVER",
+  "POLAR_ACCESS_TOKEN",
+  "POLAR_PRODUCT_ID",
+  "POLAR_WEBHOOK_SECRET",
 ] as const;
 type Variable = (typeof VARIABLES)[number];
 
@@ -56,6 +66,8 @@ const PLAIN: ReadonlySet<Variable> = new Set([
   "APEDIA_CONTACT_EMAIL",
   "APEDIA_OPERATOR_EMAIL",
   "APEDIA_SPEND_ALARM_USD",
+  "POLAR_SERVER",
+  "POLAR_PRODUCT_ID",
 ]);
 
 const values: EnvValues = existsSync(ENV_FILE) ? parseEnvFile(readFileSync(ENV_FILE, "utf8")) : {};
@@ -226,12 +238,13 @@ async function main() {
   console.log(`
 Apedia go-live wizard
 
-You will need accounts at neon.tech, console.anthropic.com, resend.com and
-vercel.com, and access to the DNS of the domain Apedia sends email from.
+You will need accounts at neon.tech, console.anthropic.com, resend.com,
+polar.sh and vercel.com, and access to the DNS of the domain Apedia sends
+email from.
 Values are recorded in ${ENV_FILE} as you go; re-run any time to pick up
 where you left off.`);
 
-  heading("1/7  Neon database", [
+  heading("1/8  Neon database", [
     "At console.neon.tech create a project in the region of your Vercel functions",
     "(Vercel's default, iad1, is AWS US East 1 in Neon), then Connect → copy the",
     "connection string. The pooled one (host with -pooler) is fine.",
@@ -247,7 +260,7 @@ where you left off.`);
     }
   }
 
-  heading("2/7  Anthropic API key", [
+  heading("2/8  Anthropic API key", [
     "At console.anthropic.com → API keys, create a key for Apedia. It only ever lives",
     "in Vercel's server environment: never in the client and never in the repo.",
   ]);
@@ -256,7 +269,7 @@ where you left off.`);
     verify: (key) => checkAnthropicKey(key),
   });
 
-  heading("3/7  Resend sending domain", [
+  heading("3/8  Resend sending domain", [
     "At resend.com/domains add the domain Apedia sends from (a subdomain like",
     "mail.your-domain.com keeps your main domain's reputation apart), add the DNS",
     "records Resend shows, and press Verify. Then create an API key at",
@@ -276,7 +289,7 @@ where you left off.`);
     },
   });
 
-  heading("4/7  You, the operator", [
+  heading("4/8  You, the operator", [
     "The Privacy, Terms and Refund policy pages name who runs Apedia and give an",
     "address to write to; Polar requires both. Both are shown to the public.",
     "",
@@ -298,7 +311,7 @@ where you left off.`);
     problem: spendThresholdProblem,
   });
 
-  heading("5/7  Auth.js secret", ["Signs Learners' sessions. The wizard generates one."]);
+  heading("5/8  Auth.js secret", ["Signs Learners' sessions. The wizard generates one."]);
   if (values.AUTH_SECRET && (await confirm(`   Keep the recorded AUTH_SECRET (${mask(values.AUTH_SECRET)})?`))) {
     console.log("   ✓ Kept. (Changing it signs every Learner out.)");
   } else {
@@ -306,7 +319,7 @@ where you left off.`);
     console.log("   ✓ Generated.");
   }
 
-  heading("6/7  Site URL", [
+  heading("6/8  Site URL", [
     "The address Learners open; magic links point here. Your own domain, or the",
     "project's production domain in Vercel (e.g. https://apedia.vercel.app).",
     "It is set for Production only, so preview deployments keep their own URLs.",
@@ -320,7 +333,25 @@ where you left off.`);
   const origin = (parseSiteUrl(siteUrl) as { origin: string }).origin;
   if (origin !== siteUrl) record("AUTH_URL", origin);
 
-  heading("7/7  Vercel", [
+  heading("7/8  Polar payments", [
+    "Polar sells Course credits as the merchant of record. Use polar.sh for real",
+    "payments, or sandbox.polar.sh (test cards, no money) to try it first; each",
+    "has its own organization, product, token and webhook.",
+    "",
+    `1. Products → New product: "Course credit", one-time, US$${COURSE_CREDIT.priceUsd}. The price must`,
+    "   match what Apedia shows (src/course/course-credit.ts). Copy its product ID.",
+    "2. Settings → Developers → New token, with the checkouts:read and",
+    "   checkouts:write scopes.",
+    `3. Settings → Webhooks → Add endpoint: URL ${origin}/api/payments/webhook,`,
+    "   format Raw, API version 2026-04 if asked, events order.paid and",
+    "   order.refunded. Copy its secret.",
+  ]);
+  await obtain("POLAR_SERVER", "production or sandbox", { problem: polarServerProblem });
+  await obtain("POLAR_ACCESS_TOKEN", "Polar access token", { problem: polarAccessTokenProblem });
+  await obtain("POLAR_PRODUCT_ID", "Course credit product ID", { problem: polarProductIdProblem });
+  await obtain("POLAR_WEBHOOK_SECRET", "Webhook secret", { problem: polarWebhookSecretProblem });
+
+  heading("8/8  Vercel", [
     "Links this folder to a Vercel project (create it when asked), connects it to",
     "the GitHub repo so every push to master deploys to Production, copies the",
     "values above into the Production environment, and deploys.",
