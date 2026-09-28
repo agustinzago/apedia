@@ -246,9 +246,13 @@ export const resourceKind = pgEnum("resource_kind", [
 
 // ok: the URL answered below 400. blocked: 403 or 429, kept because the URL
 // came from the web search results (bot walls are common on live sites).
+// broken: a later check found the URL gone (404, 410, 5xx, DNS failure,
+// timeout). Course creation drops such URLs, so only a re-check writes it;
+// the success_metrics view counts it.
 export const resourceCheckOutcome = pgEnum("resource_check_outcome", [
   "ok",
   "blocked",
+  "broken",
 ]);
 
 export const resource = pgTable(
@@ -268,8 +272,8 @@ export const resource = pgTable(
     why: text("why").notNull(),
     // BCP 47 tag of the Resource's language.
     language: text("language").notNull(),
-    // What the URL check found. Null for Resources that were never checked
-    // (the Example course's).
+    // What the latest URL check found, at verifiedAt. Null for Resources that
+    // were never checked (the Example course's).
     checkOutcome: resourceCheckOutcome("check_outcome"),
     verifiedAt: timestamp("verified_at", { withTimezone: true }),
     createdAt: createdAt(),
