@@ -29,7 +29,7 @@ The smoke test builds the app and serves it on port 3100 with a fresh in-memory 
 ## Database
 
 - Schema: `src/db/schema.ts`. After changing it, run `npm run db:generate` and commit the new file in `drizzle/`.
-- Production (Neon): `DATABASE_URL=… npm run db:migrate` applies migrations and seeds the Example course.
+- Production (Neon): migrations are applied by the Production build on Vercel; `DATABASE_URL=… npm run db:migrate` applies them by hand and seeds the Example course.
 
 ## Sign-in
 
@@ -55,7 +55,7 @@ npm run wizard
 
 The wizard walks through Neon, Anthropic, Resend, the Auth.js secret and the site URL, checking each value against its service as you enter it. It migrates Neon, links the Vercel project, sets every variable in Vercel's Production environment, deploys, and checks that the live site offers sign-in. Values are recorded in `.env.wizard` (gitignored; Next.js never loads it, so local builds and the smoke test keep using PGlite). Re-run it to pick up where you left off or to change a value.
 
-Production variables: `DATABASE_URL`, `ANTHROPIC_API_KEY`, `AUTH_RESEND_KEY`, `AUTH_EMAIL_FROM`, `AUTH_SECRET` and `AUTH_URL` (the site's origin, set for Production only so preview deployments build links from their own URL). Every push to `master` deploys to Production. After adding a migration, run `DATABASE_URL=… npm run db:migrate` before (or right after) the deploy that needs it.
+Production variables: `DATABASE_URL`, `ANTHROPIC_API_KEY`, `AUTH_RESEND_KEY`, `AUTH_EMAIL_FROM`, `AUTH_SECRET` and `AUTH_URL` (the site's origin, set for Production only so preview deployments build links from their own URL). Every push to `master` deploys to Production, and the Production build applies pending migrations to Neon (and seeds the Example course) before `next build`, so a deploy never runs ahead of its schema. Preview and local builds skip that step. `DATABASE_URL=… npm run db:migrate` still applies them by hand.
 
 ## Layout
 

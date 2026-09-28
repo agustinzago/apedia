@@ -1,6 +1,10 @@
 /**
  * Applies migrations to DATABASE_URL (Neon) and seeds the Example course.
  * In dev without DATABASE_URL the app migrates its local PGlite database itself.
+ *
+ * With --on-deploy (run by `npm run build`) it acts only in a Vercel
+ * Production build, so every deploy to Production migrates before the new
+ * code serves; local builds, previews and the smoke test are left alone.
  */
 import { Pool } from "@neondatabase/serverless";
 import { drizzle } from "drizzle-orm/neon-serverless";
@@ -9,6 +13,10 @@ import { ensureExampleCourse } from "@/course";
 import { MIGRATIONS_FOLDER, schema } from "@/db";
 
 const url = process.env.DATABASE_URL;
+if (process.argv.includes("--on-deploy") && process.env.VERCEL_ENV !== "production") {
+  console.log("Not a Vercel Production build: skipping migrations.");
+  process.exit(0);
+}
 if (!url) {
   console.error("DATABASE_URL is not set.");
   process.exit(1);

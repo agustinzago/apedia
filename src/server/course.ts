@@ -10,15 +10,23 @@ const globalForCourse = globalThis as unknown as {
 
 /** The app's `course` module, with the Example course in place. */
 export function getCourse(): Promise<CourseModule> {
-  globalForCourse.apediaCourse ??= (async () => {
-    const course = createCourseModule({
-      db: await getDb(),
-      teacher: createAppTeacher(),
-      fetchUrl: createAppUrlFetcher(),
+  if (!globalForCourse.apediaCourse) {
+    const started = (async () => {
+      const course = createCourseModule({
+        db: await getDb(),
+        teacher: createAppTeacher(),
+        fetchUrl: createAppUrlFetcher(),
+      });
+      await course.ensureExampleCourse();
+      return course;
+    })();
+    // A failed start (say, a schema behind the code) is tried again on the
+    // next request, rather than failing every request until a restart.
+    started.catch(() => {
+      if (globalForCourse.apediaCourse === started) globalForCourse.apediaCourse = undefined;
     });
-    await course.ensureExampleCourse();
-    return course;
-  })();
+    globalForCourse.apediaCourse = started;
+  }
   return globalForCourse.apediaCourse;
 }
 
