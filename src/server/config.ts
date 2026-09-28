@@ -1,13 +1,18 @@
-import { DEFAULT_DAILY_LIMITS, type DailyLimits, type SpendAlarm, type SpendAlert } from "@/course";
+import {
+  DEFAULT_DAILY_LIMITS,
+  DEFAULT_SPEND_LIMITS,
+  type DailyLimits,
+  type SpendAlarm,
+  type SpendAlert,
+  type SpendLimits,
+} from "@/course";
 
 /**
  * Cost protection, configured from the environment. Unset values fall back
  * to the MVP spec's: 1 new Course, 10 Lessons and 60 chat questions per
- * Learner per day, and a spend alarm at $20 a day.
+ * Learner per day, and a spend alarm at $20 a day, which pauses sales, with
+ * the Teacher stopping at twice the alarm.
  */
-
-/** Org-wide daily spend, in US dollars, past which the operator is emailed. */
-export const DEFAULT_SPEND_ALARM_USD = 20;
 
 type Env = Record<string, string | undefined>;
 
@@ -21,16 +26,29 @@ export function dailyLimitsFromEnv(env: Env = process.env): DailyLimits {
 }
 
 /**
- * The spend alarm: APEDIA_SPEND_ALARM_USD is the threshold, and the alert
- * is emailed through Resend (AUTH_RESEND_KEY, from AUTH_EMAIL_FROM) to
- * APEDIA_OPERATOR_EMAIL. Outside production, or without an operator email,
- * it is written to the server log instead.
+ * APEDIA_SPEND_ALARM_USD, where sales pause and the operator is alerted, and
+ * APEDIA_SPEND_STOP_USD, where the Teacher stops for the day. Unset, the stop
+ * is twice the alarm; it is never below it.
+ */
+export function spendLimitsFromEnv(env: Env = process.env): SpendLimits {
+  const alarmUsd = amount(env, "APEDIA_SPEND_ALARM_USD", DEFAULT_SPEND_LIMITS.alarmUsd);
+  const stopUsd = amount(env, "APEDIA_SPEND_STOP_USD", 2 * alarmUsd);
+  if (stopUsd >= alarmUsd) return { alarmUsd, stopUsd };
+  console.warn(
+    `APEDIA_SPEND_STOP_USD must be at or above APEDIA_SPEND_ALARM_USD; using ${alarmUsd}.`,
+  );
+  return { alarmUsd, stopUsd: alarmUsd };
+}
+
+/**
+ * The spend alarm: the alert is emailed through Resend (AUTH_RESEND_KEY,
+ * from AUTH_EMAIL_FROM) to APEDIA_OPERATOR_EMAIL. Outside production, or
+ * without an operator email, it is written to the server log instead.
  */
 export function spendAlarmFromEnv(
   env: Env = process.env,
   { send = fetch, log = console.warn }: { send?: typeof fetch; log?: (message: string) => void } = {},
 ): SpendAlarm {
-  const thresholdUsd = amount(env, "APEDIA_SPEND_ALARM_USD", DEFAULT_SPEND_ALARM_USD);
   const to = env.APEDIA_OPERATOR_EMAIL?.trim();
   const key = env.AUTH_RESEND_KEY;
   const emails = env.NODE_ENV === "production" && Boolean(to && key);
@@ -41,7 +59,6 @@ export function spendAlarmFromEnv(
   }
 
   return {
-    thresholdUsd,
     async notify(alert) {
       const { subject, text } = alertEmail(alert);
       if (!emails) {
@@ -65,17 +82,18 @@ export function spendAlarmFromEnv(
   };
 }
 
-export function alertEmail({ day, spentUsd, thresholdUsd }: SpendAlert) {
+export function alertEmail({ day, spentUsd, thresholdUsd, stopUsd }: SpendAlert) {
   const usd = (n: number) => `$${n.toFixed(2)}`;
   return {
     subject: `Apedia spend passed ${usd(thresholdUsd)} on ${day}`,
     text: [
       `Claude spend on ${day} (UTC) reached ${usd(spentUsd)}, past the alarm threshold of ${usd(thresholdUsd)}.`,
+      `New Interviews are paused until midnight UTC. Courses already started keep going until spend reaches ${usd(stopUsd)}, when the Teacher stops for the rest of the day.`,
       "",
       "This is the only alert for today. Each call is in the teacher_call table:",
       `  select operation, count(*), sum(cost_usd) from teacher_call where created_at >= '${day}' group by operation;`,
       "",
-      "Per-Learner caps are set by APEDIA_DAILY_NEW_COURSES, APEDIA_DAILY_LESSONS and APEDIA_DAILY_CHAT_MESSAGES; the threshold by APEDIA_SPEND_ALARM_USD.",
+      "Per-Learner caps are set by APEDIA_DAILY_NEW_COURSES, APEDIA_DAILY_LESSONS and APEDIA_DAILY_CHAT_MESSAGES; the threshold by APEDIA_SPEND_ALARM_USD; the stop by APEDIA_SPEND_STOP_USD.",
     ].join("\n"),
   };
 }

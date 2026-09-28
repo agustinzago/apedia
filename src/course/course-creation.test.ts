@@ -43,6 +43,7 @@ describe("course: the Course creation job, from research to Up next", () => {
       subject: "Music theory",
       why: "To understand the songs I already play on guitar",
     });
+    if ("reason" in started) throw new Error("The Interview was paused.");
     await course.answerInterview(started.id, "I can strum G, C, D, Em and Am from chord charts");
     await course.answerInterview(started.id, "Work out the chords of a song myself");
     await course.chooseSittingLength(started.id, 10);
@@ -195,6 +196,7 @@ describe("course: the Course creation job, from research to Up next", () => {
       jobId,
       status: "done",
       stalled: false,
+      resumesAt: null,
       progress: [
         "Looking for trustworthy books, courses and sites on Music theory.",
         "Found 7 pages worth a closer look.",

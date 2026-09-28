@@ -1,6 +1,7 @@
 import { and, eq, lt, or, sql } from "drizzle-orm";
 import { schema, type Db } from "@/db";
 import type { JobProgressMessage } from "@/db/schema";
+import type { SpendPaused } from "./spend";
 
 /**
  * What every generation job shares (ADR 0004): a runner claims a pending
@@ -16,11 +17,14 @@ export const STALLED_AFTER_MS = 15_000;
 /** A job as the Learner sees it while it works. */
 export type JobView = {
   jobId: string;
-  status: "working" | "failed" | "done";
+  /** "paused": the day's spend reached its stop; a retry resumes it once the day resets. */
+  status: "working" | "failed" | "paused" | "done";
   /** Calm progress messages, oldest first. */
   progress: string[];
   /** True when the job is waiting for a runner that never started; start it again. */
   stalled: boolean;
+  /** While paused: when the next UTC day starts. Null otherwise. */
+  resumesAt: Date | null;
 };
 
 /** "Keep going" if another step waits, "stop" when done, failed, or not this runner's to run. */
@@ -33,6 +37,18 @@ export type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
 /** Another runner holds the job now; this one must stop without writing. */
 export class LostJobError extends Error {}
 
+/**
+ * A job the spend stop paused is failed at its step like any other, so a
+ * retry resumes it; its error is this, followed by when it may resume.
+ */
+const PAUSED = "Paused by the daily spend stop until ";
+
+/** When a job the spend stop paused may resume; null for any other job. */
+function pausedUntil(job: JobRow): Date | null {
+  if (job.status !== "failed" || !job.error?.startsWith(PAUSED)) return null;
+  return new Date(job.error.slice(PAUSED.length));
+}
+
 /** The job as its progress screen shows it. A running job past the step limit counts as failed. */
 export function viewOf(job: JobRow): JobView {
   const now = Date.now();
@@ -40,12 +56,20 @@ export function viewOf(job: JobRow): JobView {
     job.status === "running" &&
     job.startedAt !== null &&
     now - job.startedAt.getTime() > STEP_LIMIT_MS;
+  const resumesAt = pausedUntil(job);
   return {
     jobId: job.id,
     status:
-      job.status === "done" ? "done" : job.status === "failed" || cutOff ? "failed" : "working",
+      job.status === "done"
+        ? "done"
+        : resumesAt
+          ? "paused"
+          : job.status === "failed" || cutOff
+            ? "failed"
+            : "working",
     progress: job.progress.map((p) => p.text),
     stalled: job.status === "pending" && now - job.updatedAt.getTime() > STALLED_AFTER_MS,
+    resumesAt,
   };
 }
 
@@ -95,6 +119,20 @@ function runOf(db: Db, job: JobRow, runId: string) {
       if (moved.length === 0) throw new LostJobError();
     },
 
+    /** Stops the job at its step until the next UTC day, for a retry to resume then. */
+    async pause({ resumesAt }: SpendPaused) {
+      await db
+        .update(schema.job)
+        .set({
+          status: "failed",
+          error: `${PAUSED}${resumesAt.toISOString()}`,
+          progress: withProgress("Pausing here until tomorrow."),
+          runId: null,
+          updatedAt: new Date(),
+        })
+        .where(held);
+    },
+
     async fail(error: unknown) {
       await db
         .update(schema.job)
@@ -118,12 +156,14 @@ export type StepRunner = (job: JobRow, run: JobRun) => Promise<JobStepResult>;
  * Runs the next step of a pending job, handing it to the runner for its
  * kind, and reports whether another step waits. A job that is not pending
  * (another runner has it, or it failed or finished) is left alone. A failing
- * step marks the job failed at that step, for a retry to resume.
+ * step marks the job failed at that step, for a retry to resume. So does the
+ * spend stop, which `paused` reports, before the step calls the Teacher.
  */
 export async function runJobStep(
   db: Db,
   jobId: string,
   runners: Record<JobKind, StepRunner>,
+  paused: () => Promise<SpendPaused | null>,
 ): Promise<JobStepResult> {
   const runId = crypto.randomUUID();
   const now = new Date();
@@ -136,6 +176,11 @@ export async function runJobStep(
 
   const run = runOf(db, job, runId);
   try {
+    const stopped = await paused();
+    if (stopped) {
+      await run.pause(stopped);
+      return "stop";
+    }
     return await runners[job.kind](job, run);
   } catch (error) {
     if (error instanceof LostJobError) return "stop";

@@ -1,7 +1,7 @@
 "use server";
 
 import type { ChatMessage, DailyLimitReached, JobView, ProposalView } from "@/course";
-import { untilReset } from "@/app/daily-limit";
+import { breatherNote, stillPausedNote, untilReset } from "@/app/daily-limit";
 import { getViewer } from "@/server/auth";
 import { getCourse } from "@/server/course";
 import { requestOrigin, startJobStep } from "@/server/jobs";
@@ -9,8 +9,8 @@ import { requestOrigin, startJobStep } from "@/server/jobs";
 export type OpenState = {
   view: JobView | null;
   error: string | null;
-  /** True when today's Lessons are used up: the error says when the next can be written. */
-  limited: boolean;
+  /** Set when today's Lessons are used up, or the Teacher is paused: the error says until when. */
+  limited: "daily-limit" | "paused" | null;
 };
 
 const DONE_NOTE = "This Course is Done, so no new Lessons are written.";
@@ -27,21 +27,23 @@ function lessonLimitNote({ limit, resetsAt }: DailyLimitReached): string {
 export async function openLesson(courseId: string, index: number): Promise<OpenState> {
   const [course, viewer] = await Promise.all([getCourse(), getViewer()]);
   if (viewer.learnerId === null) {
-    return { view: null, error: "Sign in again to open this Lesson.", limited: false };
+    return { view: null, error: "Sign in again to open this Lesson.", limited: null };
   }
 
   const opened = await course.openLesson(courseId, index, viewer.learnerId);
   if (!opened.ok) {
     return opened.reason === "daily-limit"
-      ? { view: null, error: lessonLimitNote(opened), limited: true }
-      : opened.reason === "done"
-        ? { view: null, error: DONE_NOTE, limited: false }
-        : { view: null, error: "This Lesson isn’t yours to open.", limited: false };
+      ? { view: null, error: lessonLimitNote(opened), limited: "daily-limit" }
+      : opened.reason === "paused"
+        ? { view: null, error: breatherNote(opened.resumesAt), limited: "paused" }
+        : opened.reason === "done"
+          ? { view: null, error: DONE_NOTE, limited: null }
+          : { view: null, error: "This Lesson isn’t yours to open.", limited: null };
   }
   if (opened.start && opened.generation) {
     await startJobStep(opened.generation.jobId, await requestOrigin());
   }
-  return { view: opened.generation, error: null, limited: false };
+  return { view: opened.generation, error: null, limited: null };
 }
 
 /**
@@ -60,7 +62,7 @@ export async function checkLessonGeneration(
 
 export type RetryState = { error: string | null };
 
-/** "Try again": writes the Lesson again after a failure. */
+/** "Try again": writes the Lesson again after a failure or a pause. */
 export async function retryLessonGeneration(courseId: string, index: number): Promise<RetryState> {
   const [course, viewer] = await Promise.all([getCourse(), getViewer()]);
   if (viewer.learnerId === null) return { error: "Sign in again to keep writing this Lesson." };
@@ -71,11 +73,13 @@ export async function retryLessonGeneration(courseId: string, index: number): Pr
       error:
         retried.reason === "daily-limit"
           ? lessonLimitNote(retried)
-          : retried.reason === "nothing-to-retry"
-            ? "This Lesson is already written. Reload the page to see it."
-            : retried.reason === "done"
-              ? DONE_NOTE
-              : "This Lesson isn’t yours to write.",
+          : retried.reason === "paused"
+            ? stillPausedNote(retried.resumesAt)
+            : retried.reason === "nothing-to-retry"
+              ? "This Lesson is already written. Reload the page to see it."
+              : retried.reason === "done"
+                ? DONE_NOTE
+                : "This Lesson isn’t yours to write.",
     };
   }
   await startJobStep(retried.jobId, await requestOrigin());
@@ -135,11 +139,13 @@ export async function finishLesson(courseId: string, index: number): Promise<Fin
       error:
         finished.reason === "unanswered"
           ? "Answer every question first."
-          : finished.reason === "finished"
-            ? "This Lesson is already finished. Reload the page to see it."
-            : finished.reason === "done"
-              ? "This Course is Done, so Lessons are no longer finished."
-              : "This Lesson isn’t yours to finish.",
+          : finished.reason === "paused"
+            ? `${breatherNote(finished.resumesAt)} Your answers are saved.`
+            : finished.reason === "finished"
+              ? "This Lesson is already finished. Reload the page to see it."
+              : finished.reason === "done"
+                ? "This Course is Done, so Lessons are no longer finished."
+                : "This Lesson isn’t yours to finish.",
     };
   }
   if (finished.start) await startJobStep(finished.finishing.jobId, await requestOrigin());
@@ -157,7 +163,7 @@ export async function checkFinish(courseId: string, index: number): Promise<JobV
   return view;
 }
 
-/** "Try again": runs the Finish again after a failure. */
+/** "Try again": runs the Finish again after a failure or a pause. */
 export async function retryFinish(courseId: string, index: number): Promise<RetryState> {
   const [course, viewer] = await Promise.all([getCourse(), getViewer()]);
   if (viewer.learnerId === null) return { error: "Sign in again to finish this Lesson." };
@@ -166,11 +172,13 @@ export async function retryFinish(courseId: string, index: number): Promise<Retr
   if (!retried.ok) {
     return {
       error:
-        retried.reason === "nothing-to-retry"
-          ? "This Lesson is already finished. Reload the page to see it."
-          : retried.reason === "done"
-            ? "This Course is Done, so Lessons are no longer finished."
-            : "This Lesson isn’t yours to finish.",
+        retried.reason === "paused"
+          ? stillPausedNote(retried.resumesAt)
+          : retried.reason === "nothing-to-retry"
+            ? "This Lesson is already finished. Reload the page to see it."
+            : retried.reason === "done"
+              ? "This Course is Done, so Lessons are no longer finished."
+              : "This Lesson isn’t yours to finish.",
     };
   }
   await startJobStep(retried.jobId, await requestOrigin());
@@ -197,15 +205,17 @@ export async function askTeacher(
       error:
         asked.reason === "daily-limit"
           ? `You’ve asked ${asked.limit} questions today, which is the daily limit. Your teacher can answer again ${untilReset(asked.resetsAt)}.`
-          : asked.reason === "unavailable"
-            ? "Your teacher couldn’t answer just now. Please ask again in a moment."
-            : asked.reason === "invalid"
-              ? "Write a question first, a little shorter if it’s long."
-              : asked.reason === "finished"
-                ? "This Lesson is finished, so its chat is closed."
-                : asked.reason === "done"
-                  ? "This Course is Done, so its chat is closed."
-                  : "This Lesson’s chat isn’t yours to use.",
+          : asked.reason === "paused"
+            ? breatherNote(asked.resumesAt)
+            : asked.reason === "unavailable"
+              ? "Your teacher couldn’t answer just now. Please ask again in a moment."
+              : asked.reason === "invalid"
+                ? "Write a question first, a little shorter if it’s long."
+                : asked.reason === "finished"
+                  ? "This Lesson is finished, so its chat is closed."
+                  : asked.reason === "done"
+                    ? "This Course is Done, so its chat is closed."
+                    : "This Lesson’s chat isn’t yours to use.",
     };
   }
   return { ok: true, messages: asked.messages, proposal: asked.proposal };

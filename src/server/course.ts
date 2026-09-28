@@ -2,7 +2,7 @@ import { cache } from "react";
 import { createCourseModule, type CourseModule } from "@/course";
 import { getDb } from "@/db/client";
 import { getViewer } from "./auth";
-import { dailyLimitsFromEnv, spendAlarmFromEnv } from "./config";
+import { dailyLimitsFromEnv, spendAlarmFromEnv, spendLimitsFromEnv } from "./config";
 import { createAppTeacher, createAppUrlFetcher } from "./teacher";
 
 const globalForCourse = globalThis as unknown as {
@@ -15,10 +15,11 @@ export function getCourse(): Promise<CourseModule> {
     const started = (async () => {
       const course: CourseModule = createCourseModule({
         db: await getDb(),
-        // Every call to Claude is recorded, for the spend alarm.
+        // Every call to Claude is recorded, for the spend limits.
         teacher: createAppTeacher({ recordCall: (call) => course.recordTeacherCall(call) }),
         fetchUrl: createAppUrlFetcher(),
         limits: dailyLimitsFromEnv(),
+        spendLimits: spendLimitsFromEnv(),
         spendAlarm: spendAlarmFromEnv(),
       });
       await course.ensureExampleCourse();

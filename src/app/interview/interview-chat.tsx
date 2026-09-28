@@ -20,12 +20,15 @@ export function InterviewChat({
   openingMessages,
   initial,
   signedIn,
+  paused = false,
 }: {
   subject: string;
   /** What to show before the Interview is stored. */
   openingMessages: InterviewMessage[];
   initial: InterviewView | null;
   signedIn: boolean;
+  /** Sales are paused for the day: the opening says so, and no answer is taken. */
+  paused?: boolean;
 }) {
   const [state, send, sending] = useActionState(sendAnswer, {
     view: initial,
@@ -95,7 +98,7 @@ export function InterviewChat({
         </p>
       )}
 
-      {!sending && (stage === "why" || stage === "know" || stage === "success") && (
+      {!sending && !paused && (stage === "why" || stage === "know" || stage === "success") && (
         <form
           action={send}
           onSubmit={() => setSent(draft)}
@@ -152,7 +155,7 @@ export function InterviewChat({
 
       {stage === "complete" && <WriteCourse signedIn={signedIn} />}
 
-      {stage === "redirected" && (
+      {(stage === "redirected" || paused) && (
         <Link href="/" className={styles.homeLink}>
           Back to the home page
         </Link>
