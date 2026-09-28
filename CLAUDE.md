@@ -1,5 +1,7 @@
 ## Agent skills
 
+Matt Pocock's skills (`mattpocock/skills`, MIT) are committed in `.claude/skills/`, so every session has them, including cloud ones. `skills-lock.json` pins them; pull his latest with `npx skills update -p`.
+
 ### Issue tracker
 
 Issues are tracked in this repo's GitHub Issues via the `gh` CLI. See `docs/agents/issue-tracker.md`.
