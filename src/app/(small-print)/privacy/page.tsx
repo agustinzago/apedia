@@ -42,6 +42,11 @@ export default function PrivacyPage() {
           in, and one remembers an Interview you started before signing in.
           There are no advertising or tracking cookies.
         </p>
+        <p>
+          To see how many people visit, Apedia counts page views with Vercel
+          Web Analytics. It sets no cookies and reports only totals, such as
+          visits per page and country, never who you are.
+        </p>
       </section>
 
       <section aria-labelledby="who-handles-it" className={styles.section}>
@@ -51,7 +56,7 @@ export default function PrivacyPage() {
         <ul className={styles.list}>
           <li>
             <strong>Vercel</strong> hosts Apedia: every page you open is served
-            by it.
+            by it, and it counts page views for us.
           </li>
           <li>
             <strong>Neon</strong> runs the database where everything above is
