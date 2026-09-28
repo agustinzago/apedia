@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, inArray } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, isNotNull } from "drizzle-orm";
 import { schema, type Db } from "@/db";
 import type { Teacher } from "@/teacher";
 import type { UrlFetcher } from "@/url-fetcher";
@@ -169,6 +169,28 @@ export type LessonView = {
   } | null;
   /** Quiz answers already recorded, in question order. */
   answers: { questionIndex: number; chosenOption: number }[];
+};
+
+/** The Key idea of one finished Lesson. */
+export type KeyIdea = {
+  /** 1, 2, 3… in Lesson order. */
+  number: number;
+  lessonIndex: number;
+  lessonTitle: string;
+  text: string;
+};
+
+export type ReferenceSection = { title: string; body: string };
+
+/** What the Reference sheet tab shows and prints. */
+export type ReferenceSheet = {
+  course: { id: string; subject: string; title: string; isExample: boolean };
+  /** Alphabetical, in the Course's language. */
+  glossary: Term[];
+  /** Finished Lessons only, in Lesson order. */
+  keyIdeas: KeyIdea[];
+  /** Topic-specific sections, in sheet order. */
+  sections: ReferenceSection[];
 };
 
 /** Who is asking: a signed-in Learner, or a visitor (null). */
@@ -364,6 +386,70 @@ export function createCourseModule({
           ...r,
           superseded: supersededById !== null,
         })),
+      };
+    },
+
+    /** The Reference sheet: Glossary, Key ideas so far and topic-specific sections. Null if not found or not the viewer's. */
+    async readReferenceSheet(
+      courseId: string,
+      viewer: Viewer,
+    ): Promise<ReferenceSheet | null> {
+      const course = await findReadableCourse(courseId, viewer);
+      if (!course) return null;
+
+      const [terms, finishedLessons, sections] = await Promise.all([
+        db
+          .select({
+            term: schema.glossaryTerm.term,
+            definition: schema.glossaryTerm.definition,
+          })
+          .from(schema.glossaryTerm)
+          .where(eq(schema.glossaryTerm.courseId, course.id)),
+        db
+          .select({
+            index: schema.lesson.index,
+            title: schema.lesson.title,
+            content: schema.lesson.content,
+          })
+          .from(schema.lesson)
+          .where(
+            and(
+              eq(schema.lesson.courseId, course.id),
+              isNotNull(schema.lesson.finishedAt),
+            ),
+          )
+          .orderBy(asc(schema.lesson.index)),
+        db
+          .select({
+            title: schema.referenceSection.title,
+            body: schema.referenceSection.body,
+          })
+          .from(schema.referenceSection)
+          .where(eq(schema.referenceSection.courseId, course.id))
+          .orderBy(asc(schema.referenceSection.position)),
+      ]);
+
+      const collator = new Intl.Collator(course.language, {
+        sensitivity: "base",
+      });
+
+      return {
+        course: {
+          id: course.id,
+          subject: course.subject,
+          title: course.title,
+          isExample: course.isExample,
+        },
+        glossary: terms.sort((a, b) => collator.compare(a.term, b.term)),
+        keyIdeas: finishedLessons
+          .filter((l) => l.content !== null)
+          .map((l, i) => ({
+            number: i + 1,
+            lessonIndex: l.index,
+            lessonTitle: l.title,
+            text: LessonContent.parse(l.content).keyIdea,
+          })),
+        sections,
       };
     },
 

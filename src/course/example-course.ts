@@ -106,8 +106,8 @@ export async function seedExampleCourse(db: Db): Promise<void> {
       .onConflictDoNothing()
       .returning({ id: schema.course.id });
 
-    // Outside the early return below so a database seeded before the
-    // resource table existed gets its Resources too.
+    // Seeded even when the Course row already exists, so a database seeded
+    // before the resource table existed gets its Resources too.
     if (fx.resources.length > 0) {
       await tx
         .insert(schema.resource)
@@ -146,50 +146,95 @@ export async function seedExampleCourse(db: Db): Promise<void> {
       );
     }
 
-    if (inserted.length === 0) return;
+    if (inserted.length > 0) await seedLessonsAndRecords(tx, fx);
 
-    const lessonIds = new Map<number, string>();
-    for (const l of fx.lessons) {
-      const [row] = await tx
-        .insert(schema.lesson)
-        .values({
-          courseId: fx.id,
-          index: l.index,
-          title: l.title,
-          goal: l.goal,
-          content: l.content,
-          openedAt: l.openedAt,
-          finishedAt: l.finishedAt,
-          createdAt: fx.createdAt,
-        })
-        .returning({ id: schema.lesson.id });
-      lessonIds.set(l.index, row.id);
+    // Likewise for a database seeded before the Reference sheet tables existed.
+    await seedReferenceSheet(tx, fx);
+  });
+}
 
-      if (l.quizAttempts.length > 0) {
-        await tx.insert(schema.quizAttempt).values(
-          l.quizAttempts.map((a) => ({
-            lessonId: row.id,
-            questionIndex: a.questionIndex,
-            chosenOption: a.chosenOption,
-            correct: l.content?.quiz[a.questionIndex]?.answer === a.chosenOption,
-            createdAt: a.at,
-          })),
-        );
-      }
-    }
+type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
 
-    if (fx.learningRecords.length > 0) {
-      await tx.insert(schema.learningRecord).values(
-        fx.learningRecords.map((r) => ({
-          courseId: fx.id,
-          number: r.number,
-          kind: r.kind,
-          title: r.title,
-          body: r.body,
-          lessonId: r.lessonIndex === null ? null : lessonIds.get(r.lessonIndex),
-          createdAt: r.createdAt,
+async function seedLessonsAndRecords(tx: Tx, fx: ExampleCourseFixture) {
+  const lessonIds = new Map<number, string>();
+  for (const l of fx.lessons) {
+    const [row] = await tx
+      .insert(schema.lesson)
+      .values({
+        courseId: fx.id,
+        index: l.index,
+        title: l.title,
+        goal: l.goal,
+        content: l.content,
+        openedAt: l.openedAt,
+        finishedAt: l.finishedAt,
+        createdAt: fx.createdAt,
+      })
+      .returning({ id: schema.lesson.id });
+    lessonIds.set(l.index, row.id);
+
+    if (l.quizAttempts.length > 0) {
+      await tx.insert(schema.quizAttempt).values(
+        l.quizAttempts.map((a) => ({
+          lessonId: row.id,
+          questionIndex: a.questionIndex,
+          chosenOption: a.chosenOption,
+          correct: l.content?.quiz[a.questionIndex]?.answer === a.chosenOption,
+          createdAt: a.at,
         })),
       );
     }
-  });
+  }
+
+  if (fx.learningRecords.length > 0) {
+    await tx.insert(schema.learningRecord).values(
+      fx.learningRecords.map((r) => ({
+        courseId: fx.id,
+        number: r.number,
+        kind: r.kind,
+        title: r.title,
+        body: r.body,
+        lessonId: r.lessonIndex === null ? null : lessonIds.get(r.lessonIndex),
+        createdAt: r.createdAt,
+      })),
+    );
+  }
+}
+
+async function seedReferenceSheet(tx: Tx, fx: ExampleCourseFixture) {
+  const lessons = await tx
+    .select({ id: schema.lesson.id, index: schema.lesson.index })
+    .from(schema.lesson)
+    .where(eq(schema.lesson.courseId, fx.id));
+  const lessonIds = new Map(lessons.map((l) => [l.index, l.id]));
+
+  if (fx.glossary.length > 0) {
+    await tx
+      .insert(schema.glossaryTerm)
+      .values(
+        fx.glossary.map((g) => ({
+          courseId: fx.id,
+          term: g.term,
+          definition: g.definition,
+          lessonId: lessonIds.get(g.lessonIndex) ?? null,
+          createdAt: fx.createdAt,
+        })),
+      )
+      .onConflictDoNothing();
+  }
+
+  if (fx.referenceSections.length > 0) {
+    await tx
+      .insert(schema.referenceSection)
+      .values(
+        fx.referenceSections.map((r, i) => ({
+          courseId: fx.id,
+          position: i + 1,
+          title: r.title,
+          body: r.body,
+          createdAt: fx.createdAt,
+        })),
+      )
+      .onConflictDoNothing();
+  }
 }
