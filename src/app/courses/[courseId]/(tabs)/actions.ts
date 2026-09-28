@@ -1,6 +1,7 @@
 "use server";
 
 import type { CourseCreationView } from "@/course";
+import { untilReset } from "@/app/daily-limit";
 import { getViewer } from "@/server/auth";
 import { getCourse } from "@/server/course";
 import { requestOrigin, startJobStep } from "@/server/jobs";
@@ -27,9 +28,11 @@ export async function retryCourseCreation(courseId: string): Promise<RetryState>
   if (!retried.ok) {
     return {
       error:
-        retried.reason === "nothing-to-retry"
-          ? "This Course is already prepared. Reload the page to see it."
-          : "This Course isn’t yours to prepare.",
+        retried.reason === "daily-limit"
+          ? `You’ve started ${retried.limit === 1 ? "a new course" : `${retried.limit} new courses`} today, which is the daily limit, so this one can’t be researched again yet. Try again ${untilReset(retried.resetsAt)}.`
+          : retried.reason === "nothing-to-retry"
+            ? "This Course is already prepared. Reload the page to see it."
+            : "This Course isn’t yours to prepare.",
     };
   }
   await startJobStep(retried.jobId, await requestOrigin());

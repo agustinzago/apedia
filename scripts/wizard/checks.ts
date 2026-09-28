@@ -53,6 +53,21 @@ export function parseFromAddress(value: string): { domain: string } | { problem:
   return { domain };
 }
 
+/** Where the spend alarm is emailed. */
+export function operatorEmailProblem(value: string): string | undefined {
+  return /^[^<>\s@]+@[^<>\s@]+\.[^<>\s@]+$/.test(value)
+    ? undefined
+    : "Use a plain address, like you@your-domain.com.";
+}
+
+/** The daily spend, in US dollars, past which the operator is emailed. */
+export function spendThresholdProblem(value: string): string | undefined {
+  const amount = Number(value);
+  return value.trim() !== "" && Number.isFinite(amount) && amount > 0
+    ? undefined
+    : "Give an amount in US dollars above 0, such as 20.";
+}
+
 /** The site's origin (`https://host`), or a problem. Auth.js builds magic links from it. */
 export function parseSiteUrl(value: string): { origin: string } | { problem: string } {
   let url: URL;

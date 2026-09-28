@@ -2,6 +2,7 @@ import { cache } from "react";
 import { createCourseModule, type CourseModule } from "@/course";
 import { getDb } from "@/db/client";
 import { getViewer } from "./auth";
+import { dailyLimitsFromEnv, spendAlarmFromEnv } from "./config";
 import { createAppTeacher, createAppUrlFetcher } from "./teacher";
 
 const globalForCourse = globalThis as unknown as {
@@ -12,10 +13,13 @@ const globalForCourse = globalThis as unknown as {
 export function getCourse(): Promise<CourseModule> {
   if (!globalForCourse.apediaCourse) {
     const started = (async () => {
-      const course = createCourseModule({
+      const course: CourseModule = createCourseModule({
         db: await getDb(),
-        teacher: createAppTeacher(),
+        // Every call to Claude is recorded, for the spend alarm.
+        teacher: createAppTeacher({ recordCall: (call) => course.recordTeacherCall(call) }),
         fetchUrl: createAppUrlFetcher(),
+        limits: dailyLimitsFromEnv(),
+        spendAlarm: spendAlarmFromEnv(),
       });
       await course.ensureExampleCourse();
       return course;

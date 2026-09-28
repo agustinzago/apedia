@@ -14,12 +14,11 @@ import {
   type MissionInput,
   type SearchFindings,
   type Teacher,
+  type TeacherCallRecorder,
 } from "./contract";
+import { costUsd, HAIKU, SONNET, type Model } from "./pricing";
 
 /** The only file that talks to Claude. The API key stays on the server. */
-
-const HAIKU = "claude-haiku-4-5-20251001";
-const SONNET = "claude-sonnet-5";
 
 /** Research search limits (ADR 0004): the step must fit one 300 s function run. */
 export const SEARCH_MAX_USES = 8;
@@ -53,24 +52,62 @@ export class TeacherError extends Error {
   }
 }
 
-/** The real Teacher, backed by Claude. Reads ANTHROPIC_API_KEY unless a client is given. */
+/**
+ * The real Teacher, backed by Claude. Reads ANTHROPIC_API_KEY unless a client
+ * is given. Every call's tokens, web searches and cost go to `recordCall`.
+ */
 export function createClaudeTeacher({
   client = new Anthropic(),
   searchDeadlineMs = SEARCH_DEADLINE_MS,
-}: { client?: Anthropic; searchDeadlineMs?: number } = {}): Teacher {
-  type Request = { system: string; user: string; maxTokens: number; model?: string };
+  recordCall,
+}: {
+  client?: Anthropic;
+  searchDeadlineMs?: number;
+  recordCall?: TeacherCallRecorder;
+} = {}): Teacher {
+  type Request = {
+    operation: keyof Teacher;
+    system: string;
+    user: string;
+    maxTokens: number;
+    model?: Model;
+  };
+
+  /** Reports what one response cost. A failure to record never fails the Teacher's work. */
+  async function record(
+    operation: keyof Teacher,
+    model: Model,
+    usage: Anthropic.Usage | undefined,
+  ): Promise<void> {
+    if (!recordCall || !usage) return;
+    const tokens = {
+      inputTokens: usage.input_tokens,
+      outputTokens: usage.output_tokens,
+      cacheWriteTokens: usage.cache_creation_input_tokens ?? 0,
+      cacheReadTokens: usage.cache_read_input_tokens ?? 0,
+      webSearches: usage.server_tool_use?.web_search_requests ?? 0,
+    };
+    try {
+      await recordCall({ operation, model, ...tokens, costUsd: costUsd(model, tokens) });
+    } catch (error) {
+      console.error(`Recording a call to Claude (${operation}) failed.`, error);
+    }
+  }
 
   async function ask<T>(
     schema: z.ZodType<T>,
     request: Request,
   ): Promise<{ output: T | null; refused: boolean }> {
+    const model = request.model ?? HAIKU;
     const response = await client.messages.parse({
-      model: request.model ?? HAIKU,
+      model,
       max_tokens: request.maxTokens,
       system: request.system,
       messages: [{ role: "user", content: request.user }],
       output_config: { format: zodOutputFormat(schema) },
     });
+    // Refused or malformed, the tokens were still spent.
+    await record(request.operation, model, response.usage);
     if (response.stop_reason === "refusal") return { output: null, refused: true };
     if (response.parsed_output == null) {
       throw new TeacherError(
@@ -89,6 +126,7 @@ export function createClaudeTeacher({
   return {
     async checkSafety({ subject, why }) {
       const { output } = await ask(SafetyVerdict, {
+        operation: "checkSafety",
         maxTokens: 1024,
         system: `You screen subjects for Apedia, a web app where a Teacher writes a short course around why someone wants to learn something.
 
@@ -125,6 +163,7 @@ ${TONE}`,
         ? `If the answer is empty or vague, set "followUp" to one short, friendly question (one sentence) that helps them give a concrete answer. Otherwise set "followUp" to null.`
         : `Set "followUp" to null: this Interview has already used its one follow-up.`;
       return mustAnswer(InterviewReply, {
+        operation: "interviewFollowUp",
         maxTokens: 1024,
         system: `You are the Teacher in Apedia, interviewing a visitor before writing them a short course on the subject below. The Interview is in the language tagged "${language}" (BCP 47); write every word you return in that language.
 
@@ -148,6 +187,7 @@ Next question: ${nextQuestion}`,
 
     async writeMission({ subject, language, why, know, success, sittingMinutes }) {
       return mustAnswer(MissionDraft, {
+        operation: "writeMission",
         maxTokens: 2048,
         system: `You are the Teacher in Apedia. From a finished Interview, write the Learner's Mission: the reason every Lesson traces back to. Write every word in the language tagged "${language}" (BCP 47).
 
@@ -223,12 +263,15 @@ ${missionXml(mission)}`,
           message = await stream.finalMessage();
         } catch (error) {
           if (!timedOut) throw error;
+          // Cut off at the deadline: what had streamed was still paid for.
+          await record("researchSearch", SONNET, stream.currentMessage?.usage);
           content.push(...(stream.currentMessage?.content ?? []));
           break;
         } finally {
           clearTimeout(timer);
         }
 
+        await record("researchSearch", SONNET, message.usage);
         content.push(...message.content);
         if (message.stop_reason === "refusal") {
           throw new TeacherError("The Teacher declined to research this subject.");
@@ -243,6 +286,7 @@ ${missionXml(mission)}`,
 
     async researchStructure({ subject, language, mission, findings }) {
       return mustAnswer(ResearchDraft, {
+        operation: "researchStructure",
         model: SONNET,
         maxTokens: 16000,
         system: `You are the Teacher in Apedia. From your research notes and the web search results below, choose the Course's Resources, Communities and Gaps. Write every "why", "where" and gap description in the language tagged "${language}" (BCP 47); keep titles and author names as published.
@@ -274,6 +318,7 @@ ${findings.results.map((r) => `- ${r.url} (${r.title})`).join("\n")}
       feedback,
     }) {
       return mustAnswer(UpNextDraft, {
+        operation: "pickUpNext",
         model: SONNET,
         maxTokens: 4096,
         system: `You are the Teacher in Apedia. There is no lesson plan: you choose only the single Lesson to teach next. Pick it from the Mission's success item with the most leverage (the one that unlocks the others, or matters most to their reason) and from the Learning records, so it sits just beyond what the Learner can already do. It gives one tangible win in one sitting and must not repeat a finished Lesson.
@@ -318,6 +363,7 @@ ${resources.map((r) => `- (${r.kind}) ${r.title}: ${r.why}`).join("\n")}
           ? `The last question reviews the Key idea of one earlier Lesson (listed in <earlier_key_ideas>), so the Learner recalls it after a gap; the other two check this Lesson.`
           : `All three questions check this Lesson.`;
       return mustAnswer(LessonDraft, {
+        operation: "writeLesson",
         model: SONNET,
         maxTokens: 8192,
         system: `You are the Teacher in Apedia. Write one Lesson: a short, self-contained piece of teaching that gives the Learner a single tangible win toward their Mission, in one ${mission.sittingMinutes}-minute sitting. Teach only what the Lesson's goal needs, then make them practise. Build on the Learning records: skip what they already know, and meet them just beyond it. Write every word in the language tagged "${language}" (BCP 47).
@@ -363,6 +409,7 @@ ${learningRecords.map((r) => `- ${String(r.number).padStart(4, "0")} (${r.kind})
 
     async rewriteQuestion({ subject, language, lesson, question, problem }) {
       return mustAnswer(QuestionDraft, {
+        operation: "rewriteQuestion",
         model: SONNET,
         maxTokens: 2048,
         system: `You are the Teacher in Apedia. One question in a Lesson's quiz broke the quiz rule. Rewrite it so it keeps testing the same thing and follows the rule. Return exactly 4 "options", "answer" (the index of the right option, 0 to 3) and a one-sentence "explanation". Write every word in the language tagged "${language}" (BCP 47).
@@ -402,6 +449,7 @@ What is wrong with it: ${problem}`,
     }) {
       const thisLesson = `L${lesson.index}Q`;
       return mustAnswer(FinishDraft, {
+        operation: "finishLesson",
         model: SONNET,
         maxTokens: 8192,
         system: `You are the Teacher in Apedia. The Learner has just finished Lesson ${lesson.index}. Weigh the evidence it gave, update the Course, and choose the next Lesson. Write every word in the language tagged "${language}" (BCP 47).
@@ -469,6 +517,7 @@ ${resources.map((r) => `- (${r.kind}) ${r.title}: ${r.why}`).join("\n")}
         ? `- "community": for a "wisdom" question (one that turns on experience, taste or practice with other people, such as what to buy, how to stay motivated or how others do it, rather than facts in the Resources), or whenever you are not sure, the number of the best Community in <communities> to ask there; you may name it in one short sentence. Otherwise null. Null too if <communities> is empty.`
         : `- "community": always null. The Learner asked not to be pointed to Communities: never suggest groups, forums, clubs or other people to ask.`;
       const { output, refused } = await ask(ChatAnswer, {
+        operation: "askTeacher",
         maxTokens: 1024,
         system: `You are the Teacher in Apedia, answering the Learner's question in the chat beside Lesson ${lesson.index}. Help them with this Lesson and their Mission.
 

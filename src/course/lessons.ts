@@ -4,6 +4,7 @@ import type { LessonDraft, QuestionDraft, Teacher, WriteLessonInput } from "@/te
 import { missionOf } from "./course-creation";
 import { resumeJob, viewOf, type JobRow, type JobRun, type JobStepResult, type JobView } from "./jobs";
 import { LessonContent, readingMinutes } from "./lesson-content";
+import type { DailyCaps, DailyLimitReached } from "./limits";
 
 /**
  * Lessons: the Up next Lesson is written by a Lesson generation job on its
@@ -32,11 +33,14 @@ export type OpenLessonResult =
       /** True when the job waits for a runner: start it. */
       start: boolean;
     }
-  | { ok: false; reason: "not-found" | "read-only" };
+  | { ok: false; reason: "not-found" | "read-only" }
+  /** The Lesson is unwritten and the Learner has had today's Lessons written. */
+  | DailyLimitReached;
 
 export type RetryLessonGenerationResult =
   | { ok: true; jobId: string }
-  | { ok: false; reason: "not-found" | "read-only" | "nothing-to-retry" };
+  | { ok: false; reason: "not-found" | "read-only" | "nothing-to-retry" }
+  | DailyLimitReached;
 
 export type QuizAttemptEntry = {
   questionIndex: number;
@@ -95,16 +99,28 @@ export function createLessonOperations({
   db,
   teacher,
   random,
+  caps,
 }: {
   db: Db;
   teacher: Teacher;
   /** Shuffles quiz options; `Math.random` in the app. */
   random: () => number;
+  caps: DailyCaps;
 }) {
   const findOwnLesson = (courseId: string, lessonIndex: number, learnerId: string) =>
     findOwnLessonIn(db, courseId, lessonIndex, learnerId);
   const findGenerationJob = (lessonId: string) =>
     findLessonJob(db, lessonId, "lesson_generation");
+
+  /** Starts writing the Lesson, if today's limit allows another. */
+  async function startGeneration(
+    lesson: LessonRow,
+    learnerId: string,
+  ): Promise<JobRow | DailyLimitReached> {
+    const limited = await caps.lessonGeneration(learnerId);
+    if (limited) return limited;
+    return insertGenerationJob(lesson);
+  }
 
   async function insertGenerationJob(lesson: LessonRow): Promise<JobRow> {
     await db
@@ -307,8 +323,8 @@ export function createLessonOperations({
 
     /**
      * The Learner opens a Lesson. The first open of an unwritten Lesson starts
-     * its generation job; later opens report on that job. A written Lesson
-     * needs nothing.
+     * its generation job, within the Learner's daily limit; later opens
+     * report on that job. A written Lesson needs nothing.
      */
     async openLesson(
       courseId: string,
@@ -327,7 +343,9 @@ export function createLessonOperations({
         return { ok: true, generation: null, start: false };
       }
 
-      const job = (await findGenerationJob(lesson.id)) ?? (await insertGenerationJob(lesson));
+      const job =
+        (await findGenerationJob(lesson.id)) ?? (await startGeneration(lesson, learnerId));
+      if ("reason" in job) return job;
       return { ok: true, generation: viewOf(job), start: job.status === "pending" };
     },
 
@@ -358,7 +376,10 @@ export function createLessonOperations({
       }
 
       const job = await findGenerationJob(lesson.id);
-      if (!job) return { ok: true, jobId: (await insertGenerationJob(lesson)).id };
+      if (!job) {
+        const started = await startGeneration(lesson, learnerId);
+        return "reason" in started ? started : { ok: true, jobId: started.id };
+      }
       await resumeJob(db, job.id, "Trying again.");
       // Pending, running or done: nothing to reset; starting it again is harmless.
       return { ok: true, jobId: job.id };

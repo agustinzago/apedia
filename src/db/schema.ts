@@ -1,6 +1,8 @@
 import { sql } from "drizzle-orm";
 import {
   boolean,
+  date,
+  doublePrecision,
   index,
   integer,
   jsonb,
@@ -439,3 +441,33 @@ export const job = pgTable(
     uniqueIndex("job_lesson_kind_uq").on(t.lessonId, t.kind),
   ],
 );
+
+// Every call the Teacher makes to Claude, for the org-wide spend alarm and
+// for the operator. Not tied to a Learner: Interviews start anonymous.
+export const teacherCall = pgTable(
+  "teacher_call",
+  {
+    id: id(),
+    // The Teacher operation, such as "writeLesson".
+    operation: text("operation").notNull(),
+    model: text("model").notNull(),
+    inputTokens: integer("input_tokens").notNull(),
+    outputTokens: integer("output_tokens").notNull(),
+    cacheWriteTokens: integer("cache_write_tokens").notNull(),
+    cacheReadTokens: integer("cache_read_tokens").notNull(),
+    webSearches: integer("web_searches").notNull(),
+    // At list prices, in US dollars.
+    costUsd: doublePrecision("cost_usd").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [index("teacher_call_created_at_idx").on(t.createdAt)],
+);
+
+// One row per UTC day on which spend crossed the alarm threshold: the
+// operator is emailed once per day, by whichever request inserts it.
+export const spendAlarm = pgTable("spend_alarm", {
+  day: date("day").primaryKey(),
+  spentUsd: doublePrecision("spent_usd").notNull(),
+  thresholdUsd: doublePrecision("threshold_usd").notNull(),
+  createdAt: createdAt(),
+});

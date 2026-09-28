@@ -18,6 +18,7 @@ import {
   type RewriteQuestionInput,
   type SafetyCheckInput,
   type Teacher,
+  type TeacherCallRecorder,
   type WriteLessonInput,
   type WriteMissionInput,
 } from "./contract";
@@ -66,16 +67,61 @@ export type FakeTeacher = Teacher & {
   calls: FakeTeacherCall[];
 };
 
-export function createFakeTeacher(replies: FakeTeacherReplies = {}): FakeTeacher {
+/**
+ * What each call reports costing, in US dollars: roughly what the pipeline
+ * prototype measured (a Course ≈ $0.60, a Lesson ≈ $0.05, a Finish ≈ $0.025,
+ * a chat answer ≈ $0.002).
+ */
+export const FAKE_CALL_COSTS: Record<keyof Teacher, number> = {
+  checkSafety: 0.001,
+  interviewFollowUp: 0.001,
+  writeMission: 0.002,
+  researchSearch: 0.55,
+  researchStructure: 0.05,
+  pickUpNext: 0.01,
+  writeLesson: 0.047,
+  rewriteQuestion: 0.005,
+  finishLesson: 0.025,
+  askTeacher: 0.002,
+};
+
+/** The research search's web searches, as the real Teacher's cap allows. */
+const FAKE_SEARCHES = 8;
+
+export function createFakeTeacher(
+  replies: FakeTeacherReplies = {},
+  {
+    recordCall,
+    costs = {},
+  }: {
+    /** Receives a report of every call, as the real Teacher's would be. */
+    recordCall?: TeacherCallRecorder;
+    /** Overrides `FAKE_CALL_COSTS`. */
+    costs?: Partial<Record<keyof Teacher, number>>;
+  } = {},
+): FakeTeacher {
   const calls: FakeTeacherCall[] = [];
   const reply = <I>(given: Reply<I> | undefined, input: I, fallback: (input: I) => Json) =>
     given === undefined ? fallback(input) : typeof given === "function" ? given(input) : given;
+  const log = async (call: FakeTeacherCall) => {
+    calls.push(call);
+    await recordCall?.({
+      operation: call.op,
+      model: "fake",
+      inputTokens: 0,
+      outputTokens: 0,
+      cacheWriteTokens: 0,
+      cacheReadTokens: 0,
+      webSearches: call.op === "researchSearch" ? FAKE_SEARCHES : 0,
+      costUsd: costs[call.op] ?? FAKE_CALL_COSTS[call.op],
+    });
+  };
 
   return {
     calls,
 
     async checkSafety(input) {
-      calls.push({ op: "checkSafety", input });
+      await log({ op: "checkSafety", input });
       return SafetyVerdict.parse(
         reply(replies.checkSafety, input, () => ({
           verdict: "allow",
@@ -86,7 +132,7 @@ export function createFakeTeacher(replies: FakeTeacherReplies = {}): FakeTeacher
     },
 
     async interviewFollowUp(input) {
-      calls.push({ op: "interviewFollowUp", input });
+      await log({ op: "interviewFollowUp", input });
       return InterviewReply.parse(
         reply(replies.interviewFollowUp, input, (i) => ({
           followUp:
@@ -99,7 +145,7 @@ export function createFakeTeacher(replies: FakeTeacherReplies = {}): FakeTeacher
     },
 
     async writeMission(input) {
-      calls.push({ op: "writeMission", input });
+      await log({ op: "writeMission", input });
       return MissionDraft.parse(
         reply(replies.writeMission, input, (i) => ({
           title: i.subject,
@@ -113,7 +159,7 @@ export function createFakeTeacher(replies: FakeTeacherReplies = {}): FakeTeacher
     },
 
     async researchSearch(input) {
-      calls.push({ op: "researchSearch", input });
+      await log({ op: "researchSearch", input });
       return SearchFindings.parse(
         reply(replies.researchSearch, input, (i) => ({
           text: `Candidates for ${i.subject}.`,
@@ -123,7 +169,7 @@ export function createFakeTeacher(replies: FakeTeacherReplies = {}): FakeTeacher
     },
 
     async researchStructure(input) {
-      calls.push({ op: "researchStructure", input });
+      await log({ op: "researchStructure", input });
       return ResearchDraft.parse(
         reply(replies.researchStructure, input, (i) => ({
           resources: defaultResources(i.subject),
@@ -149,7 +195,7 @@ export function createFakeTeacher(replies: FakeTeacherReplies = {}): FakeTeacher
     },
 
     async pickUpNext(input) {
-      calls.push({ op: "pickUpNext", input });
+      await log({ op: "pickUpNext", input });
       return UpNextDraft.parse(
         reply(replies.pickUpNext, input, (i) => ({
           title: `First steps in ${i.subject}`.split(/\s+/).slice(0, 6).join(" "),
@@ -160,12 +206,12 @@ export function createFakeTeacher(replies: FakeTeacherReplies = {}): FakeTeacher
     },
 
     async writeLesson(input) {
-      calls.push({ op: "writeLesson", input });
+      await log({ op: "writeLesson", input });
       return LessonDraft.parse(reply(replies.writeLesson, input, defaultLesson));
     },
 
     async rewriteQuestion(input) {
-      calls.push({ op: "rewriteQuestion", input });
+      await log({ op: "rewriteQuestion", input });
       return QuestionDraft.parse(
         reply(replies.rewriteQuestion, input, (i) => ({
           ...i.question,
@@ -175,12 +221,12 @@ export function createFakeTeacher(replies: FakeTeacherReplies = {}): FakeTeacher
     },
 
     async finishLesson(input) {
-      calls.push({ op: "finishLesson", input });
+      await log({ op: "finishLesson", input });
       return FinishDraft.parse(reply(replies.finishLesson, input, defaultFinish));
     },
 
     async askTeacher(input) {
-      calls.push({ op: "askTeacher", input });
+      await log({ op: "askTeacher", input });
       return ChatAnswer.parse(
         reply(replies.askTeacher, input, (i) => {
           const [first] = i.lesson.sections.flatMap((s) => s.citations);

@@ -1,11 +1,22 @@
 "use server";
 
-import type { ChatMessage, JobView } from "@/course";
+import type { ChatMessage, DailyLimitReached, JobView } from "@/course";
+import { untilReset } from "@/app/daily-limit";
 import { getViewer } from "@/server/auth";
 import { getCourse } from "@/server/course";
 import { requestOrigin, startJobStep } from "@/server/jobs";
 
-export type OpenState = { view: JobView | null; error: string | null };
+export type OpenState = {
+  view: JobView | null;
+  error: string | null;
+  /** True when today's Lessons are used up: the error says when the next can be written. */
+  limited: boolean;
+};
+
+/** Today's Lessons are used up. */
+function lessonLimitNote({ limit, resetsAt }: DailyLimitReached): string {
+  return `You’ve had ${limit} new Lessons written today, which is the daily limit. Your teacher can write this one ${untilReset(resetsAt)}.`;
+}
 
 /**
  * The Learner opened an unwritten Lesson: starts writing it the first time,
@@ -13,14 +24,20 @@ export type OpenState = { view: JobView | null; error: string | null };
  */
 export async function openLesson(courseId: string, index: number): Promise<OpenState> {
   const [course, viewer] = await Promise.all([getCourse(), getViewer()]);
-  if (viewer.learnerId === null) return { view: null, error: "Sign in again to open this Lesson." };
+  if (viewer.learnerId === null) {
+    return { view: null, error: "Sign in again to open this Lesson.", limited: false };
+  }
 
   const opened = await course.openLesson(courseId, index, viewer.learnerId);
-  if (!opened.ok) return { view: null, error: "This Lesson isn’t yours to open." };
+  if (!opened.ok) {
+    return opened.reason === "daily-limit"
+      ? { view: null, error: lessonLimitNote(opened), limited: true }
+      : { view: null, error: "This Lesson isn’t yours to open.", limited: false };
+  }
   if (opened.start && opened.generation) {
     await startJobStep(opened.generation.jobId, await requestOrigin());
   }
-  return { view: opened.generation, error: null };
+  return { view: opened.generation, error: null, limited: false };
 }
 
 /**
@@ -48,9 +65,11 @@ export async function retryLessonGeneration(courseId: string, index: number): Pr
   if (!retried.ok) {
     return {
       error:
-        retried.reason === "nothing-to-retry"
-          ? "This Lesson is already written. Reload the page to see it."
-          : "This Lesson isn’t yours to write.",
+        retried.reason === "daily-limit"
+          ? lessonLimitNote(retried)
+          : retried.reason === "nothing-to-retry"
+            ? "This Lesson is already written. Reload the page to see it."
+            : "This Lesson isn’t yours to write.",
     };
   }
   await startJobStep(retried.jobId, await requestOrigin());
@@ -162,13 +181,15 @@ export async function askTeacher(
     return {
       ok: false,
       error:
-        asked.reason === "unavailable"
-          ? "Your teacher couldn’t answer just now. Please ask again in a moment."
-          : asked.reason === "invalid"
-            ? "Write a question first, a little shorter if it’s long."
-            : asked.reason === "finished"
-              ? "This Lesson is finished, so its chat is closed."
-              : "This Lesson’s chat isn’t yours to use.",
+        asked.reason === "daily-limit"
+          ? `You’ve asked ${asked.limit} questions today, which is the daily limit. Your teacher can answer again ${untilReset(asked.resetsAt)}.`
+          : asked.reason === "unavailable"
+            ? "Your teacher couldn’t answer just now. Please ask again in a moment."
+            : asked.reason === "invalid"
+              ? "Write a question first, a little shorter if it’s long."
+              : asked.reason === "finished"
+                ? "This Lesson is finished, so its chat is closed."
+                : "This Lesson’s chat isn’t yours to use.",
     };
   }
   return { ok: true, messages: asked.messages };

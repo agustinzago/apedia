@@ -7,9 +7,11 @@ import {
   databaseUrlProblem,
   generateAuthSecret,
   mask,
+  operatorEmailProblem,
   parseFromAddress,
   parseSiteUrl,
   resendKeyProblem,
+  spendThresholdProblem,
   type Fetch,
 } from "./checks";
 import { parseEnvFile, serializeEnvFile } from "./env-file";
@@ -59,6 +61,17 @@ describe("shape checks", () => {
     expect(parseFromAddress("sign-in@mail.apedia.app")).toEqual({ domain: "mail.apedia.app" });
     expect(parseFromAddress("Apedia")).toHaveProperty("problem");
     expect(parseFromAddress("Apedia <onboarding@resend.dev>")).toHaveProperty("problem");
+  });
+
+  it("wants a plain operator address and a positive spend threshold", () => {
+    expect(operatorEmailProblem("ops@apedia.app")).toBeUndefined();
+    expect(operatorEmailProblem("Ops <ops@apedia.app>")).toBeDefined();
+    expect(operatorEmailProblem("ops")).toBeDefined();
+    expect(spendThresholdProblem("20")).toBeUndefined();
+    expect(spendThresholdProblem("7.5")).toBeUndefined();
+    expect(spendThresholdProblem("0")).toBeDefined();
+    expect(spendThresholdProblem("$20")).toBeDefined();
+    expect(spendThresholdProblem("")).toBeDefined();
   });
 
   it("wants the site as a bare https origin", () => {

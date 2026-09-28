@@ -45,6 +45,12 @@ Outside production the link is always printed to the console and never emailed.
 
 Every Claude call lives in `src/teacher/` (an ESLint rule keeps the SDK out of every other module). In production set `ANTHROPIC_API_KEY`; it is only read on the server. `APEDIA_FAKE_TEACHER=1` forces the stand-in Teacher, as the e2e smoke test does. Alongside the stand-in Teacher, Resource URLs are not fetched (its Resources are made up).
 
+## Cost protection
+
+Per Learner per day (UTC), `course` allows 1 new Course, 10 Lesson generations and 60 chat questions, counting the Learner's rows for the day. A Course whose research failed counts only if it produced Resources. Hitting a limit shows a friendly message saying when it resets. The limits are configuration: `APEDIA_DAILY_NEW_COURSES`, `APEDIA_DAILY_LESSONS` and `APEDIA_DAILY_CHAT_MESSAGES` override the defaults in `src/course/limits.ts`.
+
+Every call the Teacher makes to Claude is recorded in the `teacher_call` table: operation, model, input and output tokens, web searches and cost at list prices (`src/teacher/pricing.ts`). The first time a day's org-wide spend reaches `APEDIA_SPEND_ALARM_USD` (default $20), the operator is emailed once through Resend at `APEDIA_OPERATOR_EMAIL`; outside production the alert is printed to the console. Calls made by the stand-in Teacher are not recorded.
+
 ## Go live
 
 Apedia runs on Vercel with Neon Postgres (ADR 0001) and sends magic links through Resend (ADR 0003). To provision it:
@@ -53,14 +59,14 @@ Apedia runs on Vercel with Neon Postgres (ADR 0001) and sends magic links throug
 npm run wizard
 ```
 
-The wizard walks through Neon, Anthropic, Resend, the Auth.js secret and the site URL, checking each value against its service as you enter it. It migrates Neon, links the Vercel project, sets every variable in Vercel's Production environment, deploys, and checks that the live site offers sign-in. Values are recorded in `.env.wizard` (gitignored; Next.js never loads it, so local builds and the smoke test keep using PGlite). Re-run it to pick up where you left off or to change a value.
+The wizard walks through Neon, Anthropic, Resend, the spend alarm, the Auth.js secret and the site URL, checking each value against its service as you enter it. It migrates Neon, links the Vercel project, sets every variable in Vercel's Production environment, deploys, and checks that the live site offers sign-in. Values are recorded in `.env.wizard` (gitignored; Next.js never loads it, so local builds and the smoke test keep using PGlite). Re-run it to pick up where you left off or to change a value.
 
-Production variables: `DATABASE_URL`, `ANTHROPIC_API_KEY`, `AUTH_RESEND_KEY`, `AUTH_EMAIL_FROM`, `AUTH_SECRET` and `AUTH_URL` (the site's origin, set for Production only so preview deployments build links from their own URL). Every push to `master` deploys to Production, and the Production build applies pending migrations to Neon (and seeds the Example course) before `next build`, so a deploy never runs ahead of its schema. Preview and local builds skip that step. `DATABASE_URL=… npm run db:migrate` still applies them by hand.
+Production variables: `DATABASE_URL`, `ANTHROPIC_API_KEY`, `AUTH_RESEND_KEY`, `AUTH_EMAIL_FROM`, `AUTH_SECRET`, `AUTH_URL` (the site's origin, set for Production only so preview deployments build links from their own URL), `APEDIA_OPERATOR_EMAIL` and `APEDIA_SPEND_ALARM_USD`. Every push to `master` deploys to Production, and the Production build applies pending migrations to Neon (and seeds the Example course) before `next build`, so a deploy never runs ahead of its schema. Preview and local builds skip that step. `DATABASE_URL=… npm run db:migrate` still applies them by hand.
 
 ## Layout
 
-- `src/course/`: the `course` module, the one seam the UI calls. `example-course.json` is the Example course fixture; it doubles as test data. `interview.ts` holds the Interview: anonymous until "Write my course", when the Learner claims it and the Course is written. `course-creation.ts` is the Course creation job that follows (ADR 0004): research search, research structure with the URL rules (`url-rules.ts`), then Up next, one step per call, tracked on a `job` row.
-- `src/teacher/`: the `teacher` module, which owns every Claude call and prompt, with zod-validated outputs. `fake.ts` is the stand-in tests use, fed with the JSON in `fixtures/`.
+- `src/course/`: the `course` module, the one seam the UI calls. `example-course.json` is the Example course fixture; it doubles as test data. `interview.ts` holds the Interview: anonymous until "Write my course", when the Learner claims it and the Course is written. `course-creation.ts` is the Course creation job that follows (ADR 0004): research search, research structure with the URL rules (`url-rules.ts`), then Up next, one step per call, tracked on a `job` row. `limits.ts` holds the per-Learner daily caps; `spend.ts` records the Teacher's calls and raises the spend alarm.
+- `src/teacher/`: the `teacher` module, which owns every Claude call and prompt, with zod-validated outputs, and reports each call's tokens and cost (`pricing.ts`). `fake.ts` is the stand-in tests use, fed with the JSON in `fixtures/`.
 - `src/url-fetcher/`: the network half of the Resource URL check (one GET, 5 s timeout), with a fake for tests.
 - `src/auth/`: Auth.js settings, the magic-link provider and the age gate.
 - `src/db/`: Drizzle schema and database client.

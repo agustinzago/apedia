@@ -33,6 +33,8 @@ export function LessonGeneration({
   const router = useRouter();
   const [view, setView] = useState(initial);
   const [openError, setOpenError] = useState<string | null>(null);
+  /** Set when today's Lessons are used up: says when this one can be written. */
+  const [limitNote, setLimitNote] = useState<string | null>(null);
   const [retryState, retry, retrying] = useActionState(
     async (): Promise<RetryState> => {
       const result = await retryLessonGeneration(courseId, index);
@@ -58,7 +60,8 @@ export function LessonGeneration({
     openLesson(courseId, index)
       .then((opened) => {
         if (cancelled) return;
-        if (opened.error) setOpenError(opened.error);
+        if (opened.limited) setLimitNote(opened.error);
+        else if (opened.error) setOpenError(opened.error);
         else if (opened.view === null) router.refresh();
         else setView(opened.view);
       })
@@ -94,11 +97,13 @@ export function LessonGeneration({
       <div className={styles.writingHeader}>
         <Mascot size={44} />
         <h2 id="writing-heading" className={styles.writingTitle}>
-          {failed
-            ? "Your teacher hit a snag"
-            : view?.status === "done"
-              ? "Your Lesson is ready"
-              : "Your teacher is writing this Lesson"}
+          {limitNote
+            ? "That’s all the new Lessons for today"
+            : failed
+              ? "Your teacher hit a snag"
+              : view?.status === "done"
+                ? "Your Lesson is ready"
+                : "Your teacher is writing this Lesson"}
         </h2>
       </div>
 
@@ -110,7 +115,11 @@ export function LessonGeneration({
         </ol>
       )}
 
-      {openError ? (
+      {limitNote ? (
+        <p className={styles.writingNote} role="status">
+          {limitNote}
+        </p>
+      ) : openError ? (
         <p className={styles.error} role="alert">
           {openError}
         </p>
