@@ -83,6 +83,25 @@ export const verificationToken = pgTable(
   (t) => [primaryKey({ columns: [t.identifier, t.token] })],
 );
 
+// Every magic link sent, for the per-address and per-IP limits. Not tied to
+// a Learner: it holds a keyed hash of the address, never the address, and
+// rows older than a day are pruned.
+export const magicLinkRequest = pgTable(
+  "magic_link_request",
+  {
+    id: id(),
+    // HMAC-SHA256 of the normalised address, keyed with AUTH_SECRET.
+    emailHash: text("email_hash").notNull(),
+    // The first address in x-forwarded-for; null when there is none (local dev).
+    ip: text("ip"),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    index("magic_link_request_email_idx").on(t.emailHash, t.createdAt),
+    index("magic_link_request_ip_idx").on(t.ip, t.createdAt),
+  ],
+);
+
 // Where an Interview is: the question being asked, done, or redirected
 // because the subject is harmful.
 export const interviewStage = pgEnum("interview_stage", [

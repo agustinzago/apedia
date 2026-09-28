@@ -41,6 +41,8 @@ Magic-link sign-in with Auth.js and Resend (ADR 0003). Learners and sessions liv
 
 Outside production the link is always printed to the console and never emailed.
 
+Magic links are limited to 3 an hour and 10 a UTC day per address, and 20 an hour per IP (the first address in Vercel's `x-forwarded-for`; without one, as locally, only the per-address limits apply). Each link sent is recorded in the `magic_link_request` table with an HMAC of the address keyed with `AUTH_SECRET`, never the address itself, and rows older than a day are pruned. Over a limit, the form asks the Learner to check their inbox or try again in an hour, without saying whether the address has an account. `APEDIA_MAGIC_LINKS_PER_EMAIL_PER_HOUR`, `APEDIA_MAGIC_LINKS_PER_EMAIL_PER_DAY` and `APEDIA_MAGIC_LINKS_PER_IP_PER_HOUR` override the defaults in `src/auth/magic-link-limits.ts`.
+
 ## Teacher
 
 Every Claude call lives in `src/teacher/` (an ESLint rule keeps the SDK out of every other module). In production set `ANTHROPIC_API_KEY`; it is only read on the server. `APEDIA_FAKE_TEACHER=1` forces the stand-in Teacher, as the e2e smoke test does. Alongside the stand-in Teacher, Resource URLs are not fetched (its Resources are made up).
@@ -76,7 +78,7 @@ Production variables: `DATABASE_URL`, `ANTHROPIC_API_KEY`, `AUTH_RESEND_KEY`, `A
 - `src/course/`: the `course` module, the one seam the UI calls. `example-course.json` is the Example course fixture; it doubles as test data. `interview.ts` holds the Interview: anonymous until "Write my course", when the Learner claims it and the Course is written. `course-creation.ts` is the Course creation job that follows (ADR 0004): research search, research structure with the URL rules (`url-rules.ts`), then Up next, one step per call, tracked on a `job` row. `limits.ts` holds the per-Learner daily caps; `course-credit.ts` what a Course credit buys; `spend.ts` records the Teacher's calls and raises the spend alarm.
 - `src/teacher/`: the `teacher` module, which owns every Claude call and prompt, with zod-validated outputs, and reports each call's tokens and cost (`pricing.ts`). `fake.ts` is the stand-in tests use, fed with the JSON in `fixtures/`.
 - `src/url-fetcher/`: the network half of the Resource URL check (one GET, 5 s timeout), with a fake for tests.
-- `src/auth/`: Auth.js settings, the magic-link provider and the age gate.
+- `src/auth/`: Auth.js settings, the magic-link provider and its limits, and the age gate.
 - `src/db/`: Drizzle schema and database client.
 - `src/app/`: Next.js routes. They stay thin: call `course`, render. The Interview is `/interview`; the browser keeps its id in a cookie so the answers survive sign-in. `POST /api/jobs/[jobId]` runs a job's next step after responding, then starts the step after it in a fresh invocation; the Path tab polls the job while a Course is prepared. The Course page tabs live in the `(tabs)` route group; the Lesson page (`lessons/[index]`) sits outside it, without the tab bar.
 - `src/app/globals.css`: the notebook design tokens and shared classes.

@@ -1,9 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { DEFAULT_MAGIC_LINK_LIMITS } from "@/auth";
 import { DEFAULT_DAILY_LIMITS } from "@/course";
 import {
   DEFAULT_SPEND_ALARM_USD,
   OPERATOR_PLACEHOLDER,
   dailyLimitsFromEnv,
+  magicLinkLimitsFromEnv,
   operatorFromEnv,
   spendAlarmFromEnv,
 } from "./config";
@@ -26,6 +28,19 @@ describe("server: cost protection from the environment", () => {
         APEDIA_DAILY_CHAT_MESSAGES: "0",
       }),
     ).toEqual({ newCourses: 2, lessonGenerations: 10, chatMessages: 0 });
+  });
+
+  it("reads the magic-link limits, falling back to the defaults for unset or broken values", () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    expect(magicLinkLimitsFromEnv({})).toEqual(DEFAULT_MAGIC_LINK_LIMITS);
+    expect(
+      magicLinkLimitsFromEnv({
+        APEDIA_MAGIC_LINKS_PER_EMAIL_PER_HOUR: "5",
+        APEDIA_MAGIC_LINKS_PER_EMAIL_PER_DAY: "-1",
+        APEDIA_MAGIC_LINKS_PER_IP_PER_HOUR: "50",
+      }),
+    ).toEqual({ perEmailPerHour: 5, perEmailPerDay: 10, perIpPerHour: 50 });
   });
 
   it("emails the operator through Resend in production", async () => {

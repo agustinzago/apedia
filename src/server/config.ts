@@ -1,10 +1,12 @@
+import { DEFAULT_MAGIC_LINK_LIMITS, type MagicLinkLimits } from "@/auth";
 import { DEFAULT_DAILY_LIMITS, type DailyLimits, type SpendAlarm, type SpendAlert } from "@/course";
 
 /**
  * Configuration from the environment. Cost protection: unset values fall
  * back to the MVP spec's: 1 new Course, 10 Lessons and 60 chat questions per
- * Learner per day, and a spend alarm at $20 a day. And the operator, whom
- * the Privacy, Terms and Refund policy pages name.
+ * Learner per day, and a spend alarm at $20 a day. Magic links are limited
+ * to 3 an hour and 10 a UTC day per address, and 20 an hour per IP. And the
+ * operator, whom the Privacy, Terms and Refund policy pages name.
  */
 
 /** Org-wide daily spend, in US dollars, past which the operator is emailed. */
@@ -18,6 +20,16 @@ export function dailyLimitsFromEnv(env: Env = process.env): DailyLimits {
     newCourses: count(env, "APEDIA_DAILY_NEW_COURSES", DEFAULT_DAILY_LIMITS.newCourses),
     lessonGenerations: count(env, "APEDIA_DAILY_LESSONS", DEFAULT_DAILY_LIMITS.lessonGenerations),
     chatMessages: count(env, "APEDIA_DAILY_CHAT_MESSAGES", DEFAULT_DAILY_LIMITS.chatMessages),
+  };
+}
+
+/** APEDIA_MAGIC_LINKS_PER_EMAIL_PER_HOUR, APEDIA_MAGIC_LINKS_PER_EMAIL_PER_DAY and APEDIA_MAGIC_LINKS_PER_IP_PER_HOUR. */
+export function magicLinkLimitsFromEnv(env: Env = process.env): MagicLinkLimits {
+  const fallback = DEFAULT_MAGIC_LINK_LIMITS;
+  return {
+    perEmailPerHour: count(env, "APEDIA_MAGIC_LINKS_PER_EMAIL_PER_HOUR", fallback.perEmailPerHour),
+    perEmailPerDay: count(env, "APEDIA_MAGIC_LINKS_PER_EMAIL_PER_DAY", fallback.perEmailPerDay),
+    perIpPerHour: count(env, "APEDIA_MAGIC_LINKS_PER_IP_PER_HOUR", fallback.perIpPerHour),
   };
 }
 
