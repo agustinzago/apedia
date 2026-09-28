@@ -13,6 +13,8 @@ import { createFinishOperations } from "./finish";
 import { createInterviewOperations } from "./interview";
 import { runJobStep, viewOf, type JobKind, type JobStepResult, type JobView } from "./jobs";
 import { createLessonOperations } from "./lessons";
+import { createDailyCaps, DEFAULT_DAILY_LIMITS, type DailyLimits } from "./limits";
+import { createSpendOperations, type SpendAlarm } from "./spend";
 import {
   LessonContent,
   lessonMinutes,
@@ -33,6 +35,12 @@ export {
 } from "./interview";
 export type { Question, Term } from "./lesson-content";
 export { MAX_QUESTION_LENGTH, type AskTeacherResult } from "./chat";
+export {
+  DEFAULT_DAILY_LIMITS,
+  type DailyLimitReached,
+  type DailyLimits,
+} from "./limits";
+export type { SpendAlarm, SpendAlert } from "./spend";
 export type {
   CourseCreationView,
   RetryCourseCreationResult,
@@ -239,6 +247,9 @@ export function createCourseModule({
   teacher,
   fetchUrl,
   random = Math.random,
+  limits = DEFAULT_DAILY_LIMITS,
+  spendAlarm = null,
+  now = () => new Date(),
 }: {
   db: Db;
   teacher: Teacher;
@@ -246,10 +257,18 @@ export function createCourseModule({
   fetchUrl: UrlFetcher;
   /** Shuffles quiz options. */
   random?: () => number;
+  /** Per-Learner daily caps. */
+  limits?: DailyLimits;
+  /** The org-wide daily spend alarm; null for none. */
+  spendAlarm?: SpendAlarm | null;
+  /** The clock that decides which day it is. */
+  now?: () => Date;
 }) {
-  const creation = createCourseCreationOperations({ db, teacher, fetchUrl });
-  const lessons = createLessonOperations({ db, teacher, random });
+  const caps = createDailyCaps({ db, limits, now });
+  const creation = createCourseCreationOperations({ db, teacher, fetchUrl, caps });
+  const lessons = createLessonOperations({ db, teacher, random, caps });
   const finish = createFinishOperations({ db, teacher });
+  const spend = createSpendOperations({ db, alarm: spendAlarm, now });
 
   /** Returns the course row if the viewer may read it, otherwise null. */
   async function findReadableCourse(courseId: string, viewer: Viewer) {
@@ -285,10 +304,10 @@ export function createCourseModule({
     );
   }
 
-  const chat = createChatOperations({ db, teacher, readResourcesByRef });
+  const chat = createChatOperations({ db, teacher, readResourcesByRef, caps });
 
   return {
-    ...createInterviewOperations({ db, teacher }),
+    ...createInterviewOperations({ db, teacher, caps }),
     readCourseCreation: creation.readCourseCreation,
     retryCourseCreation: creation.retryCourseCreation,
     openLesson: lessons.openLesson,
@@ -299,6 +318,8 @@ export function createCourseModule({
     readFinish: finish.readFinish,
     retryFinish: finish.retryFinish,
     askTeacher: chat.askTeacher,
+    /** Records one call the Teacher made to Claude; wire it to the Teacher's `recordCall`. */
+    recordTeacherCall: spend.recordTeacherCall,
 
     /**
      * Runs the next step of a pending generation job (Course creation,

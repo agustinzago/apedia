@@ -319,6 +319,23 @@ export const ChatAnswer = z.object({
 });
 export type ChatAnswer = z.infer<typeof ChatAnswer>;
 
+/** One call to Claude, as the Teacher reports it so that spend can be tracked. */
+export type TeacherCall = {
+  /** The Teacher operation that made it, such as "writeLesson". */
+  operation: keyof Teacher;
+  model: string;
+  inputTokens: number;
+  outputTokens: number;
+  cacheWriteTokens: number;
+  cacheReadTokens: number;
+  webSearches: number;
+  /** At list prices, in US dollars. */
+  costUsd: number;
+};
+
+/** Where the Teacher reports each call to Claude. */
+export type TeacherCallRecorder = (call: TeacherCall) => Promise<void>;
+
 export interface Teacher {
   /** Haiku: is the subject, with its reason, something to teach? Also detects the visitor's language. */
   checkSafety(input: SafetyCheckInput): Promise<SafetyVerdict>;

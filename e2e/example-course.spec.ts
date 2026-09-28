@@ -59,7 +59,7 @@ test("a visitor walks the Example course to a Lesson and answers its quiz", asyn
   ).toBeVisible();
   await expect(main.getByText("Example course · read-only")).toBeVisible();
 
-  // Column order: sections → New words → Remember → Practice → Check yourself → Read next.
+  // Column order: sections → New words → Remember → Practice → Check yourself → Read next + Ask your teacher.
   const headings = await main.getByRole("heading", { level: 2 }).allTextContents();
   expect(headings).toEqual([
     "One pattern of steps",
@@ -69,6 +69,7 @@ test("a visitor walks the Example course to a Lesson and answers its quiz", asyn
     "Practice: Build G major on one string",
     "Check yourself",
     "Read next",
+    "Ask your teacher",
   ]);
 
   await expect(
@@ -126,5 +127,5 @@ test("a visitor walks the Example course to a Lesson and answers its quiz", asyn
   const finish = main.getByRole("button", { name: "Finish" });
   await expect(finish).toBeVisible();
   await expect(finish).toBeDisabled();
-  await expect(main.getByText(/sample course/)).toBeVisible();
+  await expect(main.getByText(/sample course, so nothing is saved/)).toBeVisible();
 });

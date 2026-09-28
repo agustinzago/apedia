@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import type { InterviewView } from "@/course";
+import { untilReset } from "@/app/daily-limit";
 import { getViewer } from "@/server/auth";
 import { getCourse } from "@/server/course";
 import { forgetInterview, readInterviewId, rememberInterview } from "@/server/interview";
@@ -78,7 +79,12 @@ export async function writeMyCourse(): Promise<WriteState> {
   try {
     const written = await course.writeCourse(interviewId, viewer.learnerId);
     if (!written.ok) {
-      return { error: "Answer every question first, then your teacher can write your course." };
+      return {
+        error:
+          written.reason === "daily-limit"
+            ? `You’ve started ${written.limit === 1 ? "a new course" : `${written.limit} new courses`} today, which is the daily limit. Your answers are saved: come back ${untilReset(written.resetsAt)} and press “Write my course” again.`
+            : "Answer every question first, then your teacher can write your course.",
+      };
     }
     courseId = written.courseId;
     if (written.jobId) await startJobStep(written.jobId, await requestOrigin());

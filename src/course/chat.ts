@@ -5,6 +5,7 @@ import type { ChatMessage, ChatPart, CommunityEntry, LessonResource } from ".";
 import { missionOf } from "./course-creation";
 import { LessonContent } from "./lesson-content";
 import { findOwnLessonIn } from "./lessons";
+import type { DailyCaps, DailyLimitReached } from "./limits";
 
 /**
  * "Ask your teacher": a Lesson's chat. The Teacher answers from the Lesson
@@ -33,7 +34,9 @@ export type AskTeacherResult =
         | "invalid"
         /** The Teacher could not answer just now; nothing was saved. */
         | "unavailable";
-    };
+    }
+  /** The Learner has asked today's questions; nothing was saved. */
+  | DailyLimitReached;
 
 type ChatRow = {
   number: number;
@@ -125,9 +128,11 @@ export function createChatOperations({
   db,
   teacher,
   readResourcesByRef,
+  caps,
 }: {
   db: Db;
   teacher: Teacher;
+  caps: DailyCaps;
   /** The Course's Resources by ref, numbered as the Lesson shows them. */
   readResourcesByRef: (courseId: string) => Promise<Map<string, LessonResource>>;
 }) {
@@ -143,8 +148,9 @@ export function createChatOperations({
 
   return {
     /**
-     * The Learner asks a question in a Lesson's chat. The question and the
-     * answer are saved together, only once the Teacher has answered.
+     * The Learner asks a question in a Lesson's chat, within their daily
+     * limit. The question and the answer are saved together, only once the
+     * Teacher has answered.
      */
     async askTeacher(
       courseId: string,
@@ -161,6 +167,8 @@ export function createChatOperations({
       if (asked === "" || asked.length > MAX_QUESTION_LENGTH) {
         return { ok: false, reason: "invalid" };
       }
+      const limited = await caps.chatMessage(learnerId);
+      if (limited) return limited;
       const content = LessonContent.parse(lesson.content);
 
       const [[course], resources, communities, history, resourcesByRef] = await Promise.all([

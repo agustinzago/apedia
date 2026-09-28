@@ -1,4 +1,4 @@
-import { createClaudeTeacher, type Teacher } from "@/teacher";
+import { createClaudeTeacher, type Teacher, type TeacherCallRecorder } from "@/teacher";
 import { createFakeTeacher } from "@/teacher/fake";
 import { createUrlFetcher, type UrlFetcher } from "@/url-fetcher";
 import { createFakeUrlFetcher } from "@/url-fetcher/fake";
@@ -11,10 +11,14 @@ import { createFakeUrlFetcher } from "@/url-fetcher/fake";
  * The choice is made on the first call, not at startup: in production without
  * a key only what needs the Teacher (the Interview) fails; the rest of the
  * site keeps working.
+ *
+ * Claude's calls, and only Claude's, go to `recordCall`: the stand-in's cost nothing.
  */
-export function createAppTeacher(): Teacher {
+export function createAppTeacher({
+  recordCall,
+}: { recordCall?: TeacherCallRecorder } = {}): Teacher {
   let teacher: Teacher | undefined;
-  const get = () => (teacher ??= chooseTeacher());
+  const get = () => (teacher ??= chooseTeacher(recordCall));
   return {
     checkSafety: async (input) => get().checkSafety(input),
     interviewFollowUp: async (input) => get().interviewFollowUp(input),
@@ -46,9 +50,9 @@ function usesStandInTeacher(): boolean {
   return !process.env.ANTHROPIC_API_KEY && process.env.NODE_ENV !== "production";
 }
 
-function chooseTeacher(): Teacher {
+function chooseTeacher(recordCall: TeacherCallRecorder | undefined): Teacher {
   if (process.env.APEDIA_FAKE_TEACHER === "1") return createFakeTeacher();
-  if (process.env.ANTHROPIC_API_KEY) return createClaudeTeacher();
+  if (process.env.ANTHROPIC_API_KEY) return createClaudeTeacher({ recordCall });
   if (process.env.NODE_ENV !== "production") {
     console.warn(
       "ANTHROPIC_API_KEY is not set: the Teacher is a stand-in that echoes your answers.",

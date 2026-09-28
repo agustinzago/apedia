@@ -4,6 +4,7 @@ import { schema, type Db } from "@/db";
 import type { InterviewMessage } from "@/db/schema";
 import type { Teacher } from "@/teacher";
 import { insertCourseCreationJob } from "./course-creation";
+import type { DailyCaps, DailyLimitReached } from "./limits";
 
 export type { InterviewMessage } from "@/db/schema";
 
@@ -58,7 +59,9 @@ export type WriteCourseResult =
       /** The Course creation job to run, or null for a Course written before jobs existed. */
       jobId: string | null;
     }
-  | { ok: false; reason: "not-found" | "not-yours" | "not-finished" };
+  | { ok: false; reason: "not-found" | "not-yours" | "not-finished" }
+  /** The Learner has started today's new Courses; the Interview keeps for later. */
+  | DailyLimitReached;
 
 export type ClaimResult = "claimed" | "not-found" | "not-yours";
 
@@ -67,7 +70,15 @@ const Answer = z.string().trim().max(1000);
 
 type InterviewRow = typeof schema.interview.$inferSelect;
 
-export function createInterviewOperations({ db, teacher }: { db: Db; teacher: Teacher }) {
+export function createInterviewOperations({
+  db,
+  teacher,
+  caps,
+}: {
+  db: Db;
+  teacher: Teacher;
+  caps: DailyCaps;
+}) {
   async function findRow(interviewId: string): Promise<InterviewRow | null> {
     const [row] = await db
       .select()
@@ -272,7 +283,7 @@ export function createInterviewOperations({ db, teacher }: { db: Db; teacher: Te
      * Interview, with its Mission and the prior-knowledge Learning record
      * 0001, and queues its Course creation job (research, then Up next) for
      * the caller to run. Writing the same Interview again returns the same
-     * Course and job.
+     * Course and job. A new Course counts toward the Learner's daily limit.
      */
     async writeCourse(interviewId: string, learnerId: string): Promise<WriteCourseResult> {
       const row = await findRow(interviewId);
@@ -284,6 +295,8 @@ export function createInterviewOperations({ db, teacher }: { db: Db; teacher: Te
 
       const existing = await findCourseFor(row.id);
       if (existing) return { ok: true, ...existing };
+      const limited = await caps.newCourse(learnerId);
+      if (limited) return limited;
 
       const sittingMinutes = row.sittingMinutes;
       const mission = await teacher.writeMission({

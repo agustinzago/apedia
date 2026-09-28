@@ -1,6 +1,7 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { describe, expect, it, vi } from "vitest";
 import { createClaudeTeacher, SEARCH_MAX_USES, TeacherError } from "./claude";
+import type { TeacherCall } from "./contract";
 import chatFixture from "./fixtures/chat-music-theory.json";
 import finishFixture from "./fixtures/finish-music-theory.json";
 import lessonFixture from "./fixtures/lesson-music-theory.json";
@@ -12,8 +13,8 @@ import safetyRedirect from "./fixtures/safety-redirect.json";
  * `partial` as what had streamed so far.
  */
 function clientStreaming(
-  turns: ({ stop_reason: string; content: unknown[] } | null)[],
-  partial: { content: unknown[] } = { content: [] },
+  turns: ({ stop_reason: string; content: unknown[]; usage?: unknown } | null)[],
+  partial: { content: unknown[]; usage?: unknown } = { content: [] },
 ) {
   const stream = vi.fn(() => {
     const turn = turns.shift() ?? null;
@@ -45,7 +46,11 @@ const mission = {
 };
 
 /** A stand-in Anthropic client whose `messages.parse` returns the given response. */
-function clientReturning(response: { stop_reason: string; parsed_output: unknown }) {
+function clientReturning(response: {
+  stop_reason: string;
+  parsed_output: unknown;
+  usage?: unknown;
+}) {
   const parse = vi.fn().mockResolvedValue(response);
   return { client: { messages: { parse } } as unknown as Anthropic, parse };
 }
@@ -366,6 +371,155 @@ describe("teacher: talking to Claude", () => {
 
       expect(answer.community).toBeNull();
       expect(answer.answer).not.toBe("");
+    });
+  });
+
+  describe("reporting what each call cost", () => {
+    const usage = ({
+      input = 0,
+      output = 0,
+      cacheWrite = null,
+      cacheRead = null,
+      searches = null,
+    }: {
+      input?: number;
+      output?: number;
+      cacheWrite?: number | null;
+      cacheRead?: number | null;
+      searches?: number | null;
+    }) => ({
+      input_tokens: input,
+      output_tokens: output,
+      cache_creation_input_tokens: cacheWrite,
+      cache_read_input_tokens: cacheRead,
+      server_tool_use: searches === null ? null : { web_search_requests: searches, web_fetch_requests: 0 },
+    });
+
+    it("reports tokens and cost at Sonnet's and Haiku's list prices", async () => {
+      const recorded: TeacherCall[] = [];
+      const recordCall = async (call: TeacherCall) => {
+        recorded.push(call);
+      };
+      const sonnet = clientReturning({
+        stop_reason: "end_turn",
+        parsed_output: lessonFixture,
+        usage: usage({ input: 10_000, output: 2_000, cacheWrite: 1_000, cacheRead: 5_000 }),
+      });
+      await createClaudeTeacher({ client: sonnet.client, recordCall }).writeLesson(writeLessonInput);
+
+      // Declined, but the tokens were spent.
+      const haiku = clientReturning({
+        stop_reason: "refusal",
+        parsed_output: null,
+        usage: usage({ input: 1_000, output: 100 }),
+      });
+      await createClaudeTeacher({ client: haiku.client, recordCall }).checkSafety({
+        subject: "Something harmful",
+        why: "…",
+      });
+
+      expect(recorded).toEqual([
+        {
+          operation: "writeLesson",
+          model: "claude-sonnet-5",
+          inputTokens: 10_000,
+          outputTokens: 2_000,
+          cacheWriteTokens: 1_000,
+          cacheReadTokens: 5_000,
+          webSearches: 0,
+          // $2/M in, $10/M out; cache writes 1.25×, reads 0.1× the input price.
+          costUsd: expect.closeTo(0.02 + 0.02 + 0.0025 + 0.001, 10),
+        },
+        {
+          operation: "checkSafety",
+          model: "claude-haiku-4-5-20251001",
+          inputTokens: 1_000,
+          outputTokens: 100,
+          cacheWriteTokens: 0,
+          cacheReadTokens: 0,
+          webSearches: 0,
+          // $1/M in, $5/M out.
+          costUsd: expect.closeTo(0.001 + 0.0005, 10),
+        },
+      ]);
+    });
+
+    it("reports each research turn with its web searches, including one cut off at the deadline", async () => {
+      const recorded: TeacherCall[] = [];
+      const recordCall = async (call: TeacherCall) => {
+        recorded.push(call);
+      };
+      const { client } = clientStreaming(
+        [
+          {
+            stop_reason: "pause_turn",
+            content: [{ type: "server_tool_use", id: "s1", name: "web_search", input: {} }],
+            usage: usage({ input: 5_000, output: 500, searches: 3 }),
+          },
+          null,
+        ],
+        { content: [], usage: usage({ input: 8_000, output: 200, searches: 2 }) },
+      );
+
+      await createClaudeTeacher({ client, recordCall, searchDeadlineMs: 50 }).researchSearch({
+        subject: "Music theory",
+        language: "en",
+        mission,
+      });
+
+      expect(recorded).toEqual([
+        expect.objectContaining({
+          operation: "researchSearch",
+          model: "claude-sonnet-5",
+          webSearches: 3,
+          // $0.01 a search.
+          costUsd: expect.closeTo(0.01 + 0.005 + 0.03, 10),
+        }),
+        expect.objectContaining({
+          operation: "researchSearch",
+          webSearches: 2,
+          costUsd: expect.closeTo(0.016 + 0.002 + 0.02, 10),
+        }),
+      ]);
+    });
+
+    it("still answers when recording fails", async () => {
+      const error = vi.spyOn(console, "error").mockImplementation(() => {});
+      const { client } = clientReturning({
+        stop_reason: "end_turn",
+        parsed_output: chatFixture,
+        usage: usage({ input: 100, output: 50 }),
+      });
+      const teacher = createClaudeTeacher({
+        client,
+        recordCall: async () => {
+          throw new Error("The database is down.");
+        },
+      });
+
+      await expect(
+        teacher.askTeacher({
+          subject: "Music theory",
+          language: "en",
+          mission,
+          lesson: {
+            index: 1,
+            title: "The notes",
+            goal: "Name the twelve notes",
+            hook: "…",
+            sections: [],
+            keyIdea: "There are twelve notes.",
+            practice: { title: "Name them", steps: [] },
+          },
+          resources: [],
+          communities: [],
+          mayPointToCommunities: false,
+          history: [],
+          question: "Why twelve?",
+        }),
+      ).resolves.toEqual(chatFixture);
+      expect(error).toHaveBeenCalled();
+      error.mockRestore();
     });
   });
 });

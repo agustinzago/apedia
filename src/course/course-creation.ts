@@ -16,6 +16,7 @@ import {
   type JobStepResult,
   type JobView,
 } from "./jobs";
+import type { DailyCaps, DailyLimitReached } from "./limits";
 import { bookUrlProblem, publicUrl, urlKey, verdictFor } from "./url-rules";
 
 /**
@@ -36,7 +37,9 @@ export type CourseCreationView = JobView;
 
 export type RetryCourseCreationResult =
   | { ok: true; jobId: string }
-  | { ok: false; reason: "not-found" | "not-yours" | "nothing-to-retry" };
+  | { ok: false; reason: "not-found" | "not-yours" | "nothing-to-retry" }
+  /** Research would run again, and the Learner has started today's new Courses. */
+  | DailyLimitReached;
 
 type CourseRow = typeof schema.course.$inferSelect;
 
@@ -83,10 +86,12 @@ export function createCourseCreationOperations({
   db,
   teacher,
   fetchUrl,
+  caps,
 }: {
   db: Db;
   teacher: Teacher;
   fetchUrl: UrlFetcher;
+  caps: DailyCaps;
 }) {
   type Run = JobRun;
 
@@ -301,7 +306,9 @@ export function createCourseCreationOperations({
      * "Try again" after a failure: the job resumes from the step that
      * failed, keeping what earlier steps found. A job whose runner was cut
      * off counts as failed. A Course that never had a job (written before
-     * jobs existed) gets one.
+     * jobs existed) gets one. Running research again for a Course that has
+     * no Resources yet makes it count as a new Course, so it must fit
+     * today's limit.
      */
     async retryCourseCreation(
       courseId: string,
@@ -315,13 +322,25 @@ export function createCourseCreationOperations({
       if (course.learnerId !== learnerId) return { ok: false, reason: "not-yours" };
 
       const job = await findCreationJob(db, course.id);
-      if (!job) {
-        const [lesson] = await db
+      const [[lesson], [resource]] = await Promise.all([
+        db
           .select({ id: schema.lesson.id })
           .from(schema.lesson)
           .where(eq(schema.lesson.courseId, course.id))
-          .limit(1);
-        if (lesson) return { ok: false, reason: "nothing-to-retry" };
+          .limit(1),
+        db
+          .select({ id: schema.resource.id })
+          .from(schema.resource)
+          .where(eq(schema.resource.courseId, course.id))
+          .limit(1),
+      ]);
+      if (!job && lesson) return { ok: false, reason: "nothing-to-retry" };
+      if (!resource && job?.status !== "pending" && job?.status !== "done") {
+        const limited = await caps.newCourse(learnerId, { except: course.id });
+        if (limited) return limited;
+      }
+
+      if (!job) {
         await db
           .insert(schema.job)
           .values({ courseId: course.id, kind: "course_creation", step: "search" })

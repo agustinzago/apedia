@@ -1,6 +1,6 @@
 /**
  * Walks through getting Apedia live (issue #7, ADRs 0001 and 0003): Neon,
- * Anthropic, Resend, Auth.js, then Vercel. Checks each value, records it in
+ * Anthropic, Resend, the spend alarm, Auth.js, then Vercel. Checks each value, records it in
  * .env.wizard (gitignored, and not a file Next.js loads, so local builds never
  * see production values), copies the values to Vercel's Production
  * environment, migrates Neon and deploys. Safe to re-run: recorded values are
@@ -20,9 +20,11 @@ import {
   databaseUrlProblem,
   generateAuthSecret,
   mask,
+  operatorEmailProblem,
   parseFromAddress,
   parseSiteUrl,
   resendKeyProblem,
+  spendThresholdProblem,
   type Check,
 } from "./wizard/checks";
 import { parseEnvFile, serializeEnvFile, type EnvValues } from "./wizard/env-file";
@@ -38,11 +40,18 @@ const VARIABLES = [
   "AUTH_EMAIL_FROM",
   "AUTH_SECRET",
   "AUTH_URL",
+  "APEDIA_OPERATOR_EMAIL",
+  "APEDIA_SPEND_ALARM_USD",
 ] as const;
 type Variable = (typeof VARIABLES)[number];
 
 /** The ones that are not secret, so the wizard may show them in full. */
-const PLAIN: ReadonlySet<Variable> = new Set(["AUTH_EMAIL_FROM", "AUTH_URL"]);
+const PLAIN: ReadonlySet<Variable> = new Set([
+  "AUTH_EMAIL_FROM",
+  "AUTH_URL",
+  "APEDIA_OPERATOR_EMAIL",
+  "APEDIA_SPEND_ALARM_USD",
+]);
 
 const values: EnvValues = existsSync(ENV_FILE) ? parseEnvFile(readFileSync(ENV_FILE, "utf8")) : {};
 
@@ -217,7 +226,7 @@ vercel.com, and access to the DNS of the domain Apedia sends email from.
 Values are recorded in ${ENV_FILE} as you go; re-run any time to pick up
 where you left off.`);
 
-  heading("1/6  Neon database", [
+  heading("1/7  Neon database", [
     "At console.neon.tech create a project in the region of your Vercel functions",
     "(Vercel's default, iad1, is AWS US East 1 in Neon), then Connect → copy the",
     "connection string. The pooled one (host with -pooler) is fine.",
@@ -233,7 +242,7 @@ where you left off.`);
     }
   }
 
-  heading("2/6  Anthropic API key", [
+  heading("2/7  Anthropic API key", [
     "At console.anthropic.com → API keys, create a key for Apedia. It only ever lives",
     "in Vercel's server environment: never in the client and never in the repo.",
   ]);
@@ -242,7 +251,7 @@ where you left off.`);
     verify: (key) => checkAnthropicKey(key),
   });
 
-  heading("3/6  Resend sending domain", [
+  heading("3/7  Resend sending domain", [
     "At resend.com/domains add the domain Apedia sends from (a subdomain like",
     "mail.your-domain.com keeps your main domain's reputation apart), add the DNS",
     "records Resend shows, and press Verify. Then create an API key at",
@@ -262,7 +271,19 @@ where you left off.`);
     },
   });
 
-  heading("4/6  Auth.js secret", ["Signs Learners' sessions. The wizard generates one."]);
+  heading("4/7  Spend alarm", [
+    "Apedia emails you, through the same Resend domain, the first time a day's",
+    "Claude spend passes a threshold. Per-Learner daily limits keep one Learner",
+    "under about $1.70 a day; the threshold guards against a surge of sign-ups.",
+  ]);
+  await obtain("APEDIA_OPERATOR_EMAIL", "Your email, for the alarm", {
+    problem: operatorEmailProblem,
+  });
+  await obtain("APEDIA_SPEND_ALARM_USD", "Daily threshold in US dollars, e.g. 20", {
+    problem: spendThresholdProblem,
+  });
+
+  heading("5/7  Auth.js secret", ["Signs Learners' sessions. The wizard generates one."]);
   if (values.AUTH_SECRET && (await confirm(`   Keep the recorded AUTH_SECRET (${mask(values.AUTH_SECRET)})?`))) {
     console.log("   ✓ Kept. (Changing it signs every Learner out.)");
   } else {
@@ -270,7 +291,7 @@ where you left off.`);
     console.log("   ✓ Generated.");
   }
 
-  heading("5/6  Site URL", [
+  heading("6/7  Site URL", [
     "The address Learners open; magic links point here. Your own domain, or the",
     "project's production domain in Vercel (e.g. https://apedia.vercel.app).",
     "It is set for Production only, so preview deployments keep their own URLs.",
@@ -284,7 +305,7 @@ where you left off.`);
   const origin = (parseSiteUrl(siteUrl) as { origin: string }).origin;
   if (origin !== siteUrl) record("AUTH_URL", origin);
 
-  heading("6/6  Vercel", [
+  heading("7/7  Vercel", [
     "Links this folder to a Vercel project (create it when asked), connects it to",
     "the GitHub repo so every push to master deploys to Production, copies the",
     "values above into the Production environment, and deploys.",
