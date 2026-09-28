@@ -78,6 +78,20 @@
       "when": 1790624814925,
       "tag": "0010_mission_change_and_done",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1790627353171,
+      "tag": "0011_resource_broken_outcome",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1790627357615,
+      "tag": "0012_success_metrics",
+      "breakpoints": true
     }
   ]
 }

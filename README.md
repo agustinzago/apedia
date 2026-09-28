@@ -51,6 +51,10 @@ Per Learner per day (UTC), `course` allows 1 new Course, 10 Lesson generations a
 
 Every call the Teacher makes to Claude is recorded in the `teacher_call` table: operation, model, input and output tokens, web searches and cost at list prices (`src/teacher/pricing.ts`). The first time a day's org-wide spend reaches `APEDIA_SPEND_ALARM_USD` (default $20), the operator is emailed once through Resend at `APEDIA_OPERATOR_EMAIL`; outside production the alert is printed to the console. Calls made by the stand-in Teacher are not recorded.
 
+## Success metrics
+
+`SELECT * FROM success_metrics;` returns one row with the four success metrics, derived from the timestamps the app already writes: the share of Interviews that reach a finished Lesson 1, the share of Learners who open Lesson 2 within 7 days of finishing Lesson 1, the median Lesson time (finished minus opened) against the sitting length, and the share of cited Resources whose latest URL check found them broken. Each metric's definition is in `drizzle/0012_success_metrics.sql`. Nothing re-checks Resource URLs yet, so the broken share stays 0 until something writes `check_outcome = 'broken'`.
+
 ## Go live
 
 Apedia runs on Vercel with Neon Postgres (ADR 0001) and sends magic links through Resend (ADR 0003). To provision it:

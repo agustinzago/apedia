@@ -1,0 +1,1 @@
+ALTER TYPE "public"."resource_check_outcome" ADD VALUE 'broken';
