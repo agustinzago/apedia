@@ -1,6 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { DEFAULT_DAILY_LIMITS } from "@/course";
-import { DEFAULT_SPEND_ALARM_USD, dailyLimitsFromEnv, spendAlarmFromEnv } from "./config";
+import {
+  DEFAULT_SPEND_ALARM_USD,
+  OPERATOR_PLACEHOLDER,
+  dailyLimitsFromEnv,
+  operatorFromEnv,
+  spendAlarmFromEnv,
+} from "./config";
 
 const alert = { day: "2026-09-28", spentUsd: 21.5, thresholdUsd: 20 };
 
@@ -84,5 +90,35 @@ describe("server: cost protection from the environment", () => {
     expect(send).not.toHaveBeenCalled();
     expect(log).toHaveBeenCalledTimes(2);
     expect(log.mock.calls[0][0]).toContain("Apedia spend passed $20.00");
+  });
+});
+
+describe("server: the operator from the environment", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("reads the operator's name and public contact address", () => {
+    expect(
+      operatorFromEnv({
+        APEDIA_OPERATOR_NAME: " Ada Lovelace ",
+        APEDIA_CONTACT_EMAIL: "hello@apedia.app",
+      }),
+    ).toEqual({ name: "Ada Lovelace", contactEmail: "hello@apedia.app" });
+  });
+
+  it("shows placeholders while unset, rather than publish the spend alarm's address", () => {
+    expect(operatorFromEnv({ APEDIA_OPERATOR_EMAIL: "ops@example.com" })).toEqual(
+      OPERATOR_PLACEHOLDER,
+    );
+  });
+
+  it("complains in production while either is unset", () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    operatorFromEnv({ NODE_ENV: "production", APEDIA_OPERATOR_NAME: "Ada Lovelace" });
+
+    expect(error).toHaveBeenCalledOnce();
+    expect(error.mock.calls[0][0]).toContain("APEDIA_CONTACT_EMAIL");
   });
 });

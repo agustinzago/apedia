@@ -1,9 +1,10 @@
 import { DEFAULT_DAILY_LIMITS, type DailyLimits, type SpendAlarm, type SpendAlert } from "@/course";
 
 /**
- * Cost protection, configured from the environment. Unset values fall back
- * to the MVP spec's: 1 new Course, 10 Lessons and 60 chat questions per
- * Learner per day, and a spend alarm at $20 a day.
+ * Configuration from the environment. Cost protection: unset values fall
+ * back to the MVP spec's: 1 new Course, 10 Lessons and 60 chat questions per
+ * Learner per day, and a spend alarm at $20 a day. And the operator, whom
+ * the Privacy, Terms and Refund policy pages name.
  */
 
 /** Org-wide daily spend, in US dollars, past which the operator is emailed. */
@@ -77,6 +78,35 @@ export function alertEmail({ day, spentUsd, thresholdUsd }: SpendAlert) {
       "",
       "Per-Learner caps are set by APEDIA_DAILY_NEW_COURSES, APEDIA_DAILY_LESSONS and APEDIA_DAILY_CHAT_MESSAGES; the threshold by APEDIA_SPEND_ALARM_USD.",
     ].join("\n"),
+  };
+}
+
+/** Who runs Apedia, as the public pages name them. */
+export type Operator = { name: string; contactEmail: string };
+
+/** Shown while APEDIA_OPERATOR_NAME or APEDIA_CONTACT_EMAIL is unset, so the gap is plain to see. */
+export const OPERATOR_PLACEHOLDER: Operator = {
+  name: "[APEDIA_OPERATOR_NAME is not set]",
+  contactEmail: "contact-email-not-set@example.invalid",
+};
+
+/**
+ * APEDIA_OPERATOR_NAME and APEDIA_CONTACT_EMAIL: the name and address the
+ * Privacy, Terms and Refund policy pages publish, which Polar requires. The
+ * contact does not fall back to APEDIA_OPERATOR_EMAIL: that address was
+ * given for private alerts, and publishing it is the operator's choice.
+ */
+export function operatorFromEnv(env: Env = process.env): Operator {
+  const name = env.APEDIA_OPERATOR_NAME?.trim();
+  const contactEmail = env.APEDIA_CONTACT_EMAIL?.trim();
+  if (env.NODE_ENV === "production" && !(name && contactEmail)) {
+    console.error(
+      "APEDIA_OPERATOR_NAME or APEDIA_CONTACT_EMAIL is not set: the Privacy, Terms and Refund policy pages show a placeholder.",
+    );
+  }
+  return {
+    name: name || OPERATOR_PLACEHOLDER.name,
+    contactEmail: contactEmail || OPERATOR_PLACEHOLDER.contactEmail,
   };
 }
 

@@ -62,6 +62,11 @@ function SignInForm({ next, onStartOver }: { next: string; onStartOver: () => vo
         <input type="checkbox" name="over13" className={styles.checkbox} />
         I’m 13 or older
       </label>
+      <p className={styles.small}>
+        Signing in means you accept the{" "}
+        <Link href="/terms" target="_blank">Terms</Link> and{" "}
+        <Link href="/privacy" target="_blank">Privacy</Link> policy.
+      </p>
       <button type="submit" className="button-ink" disabled={pending}>
         {pending ? "Sending…" : "Email me a sign-in link"}
       </button>

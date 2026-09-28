@@ -1,6 +1,6 @@
 /**
  * Walks through getting Apedia live (issue #7, ADRs 0001 and 0003): Neon,
- * Anthropic, Resend, the spend alarm, Auth.js, then Vercel. Checks each value, records it in
+ * Anthropic, Resend, the operator and spend alarm, Auth.js, then Vercel. Checks each value, records it in
  * .env.wizard (gitignored, and not a file Next.js loads, so local builds never
  * see production values), copies the values to Vercel's Production
  * environment, migrates Neon and deploys. Safe to re-run: recorded values are
@@ -21,6 +21,7 @@ import {
   generateAuthSecret,
   mask,
   operatorEmailProblem,
+  operatorNameProblem,
   parseFromAddress,
   parseSiteUrl,
   resendKeyProblem,
@@ -40,6 +41,8 @@ const VARIABLES = [
   "AUTH_EMAIL_FROM",
   "AUTH_SECRET",
   "AUTH_URL",
+  "APEDIA_OPERATOR_NAME",
+  "APEDIA_CONTACT_EMAIL",
   "APEDIA_OPERATOR_EMAIL",
   "APEDIA_SPEND_ALARM_USD",
 ] as const;
@@ -49,6 +52,8 @@ type Variable = (typeof VARIABLES)[number];
 const PLAIN: ReadonlySet<Variable> = new Set([
   "AUTH_EMAIL_FROM",
   "AUTH_URL",
+  "APEDIA_OPERATOR_NAME",
+  "APEDIA_CONTACT_EMAIL",
   "APEDIA_OPERATOR_EMAIL",
   "APEDIA_SPEND_ALARM_USD",
 ]);
@@ -271,11 +276,21 @@ where you left off.`);
     },
   });
 
-  heading("4/7  Spend alarm", [
-    "Apedia emails you, through the same Resend domain, the first time a day's",
-    "Claude spend passes a threshold. Per-Learner daily limits keep one Learner",
-    "under about $1.70 a day; the threshold guards against a surge of sign-ups.",
+  heading("4/7  You, the operator", [
+    "The Privacy, Terms and Refund policy pages name who runs Apedia and give an",
+    "address to write to; Polar requires both. Both are shown to the public.",
+    "",
+    "Apedia also emails you, through the same Resend domain, the first time a",
+    "day's Claude spend passes a threshold. Per-Learner daily limits keep one",
+    "Learner under about $1.70 a day; the threshold guards against a surge of",
+    "sign-ups. That address stays private; it may be the same as the public one.",
   ]);
+  await obtain("APEDIA_OPERATOR_NAME", "Your name, or your business's", {
+    problem: operatorNameProblem,
+  });
+  await obtain("APEDIA_CONTACT_EMAIL", "Public contact email", {
+    problem: operatorEmailProblem,
+  });
   await obtain("APEDIA_OPERATOR_EMAIL", "Your email, for the alarm", {
     problem: operatorEmailProblem,
   });

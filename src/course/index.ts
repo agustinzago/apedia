@@ -36,6 +36,7 @@ export {
 } from "./interview";
 export type { Question, Term } from "./lesson-content";
 export { MAX_QUESTION_LENGTH, type AskTeacherResult } from "./chat";
+export { COURSE_CREDIT } from "./course-credit";
 export {
   DEFAULT_DAILY_LIMITS,
   type DailyLimitReached,
