@@ -40,3 +40,15 @@ export const loadLesson = cache(async (courseId: string, index: number) => {
   const [course, viewer] = await Promise.all([getCourse(), getViewer()]);
   return course.readLesson(courseId, index, viewer);
 });
+
+/** The Resources tab for whoever is asking. */
+export const loadResources = cache(async (courseId: string) => {
+  const [course, viewer] = await Promise.all([getCourse(), getViewer()]);
+  return course.readResources(courseId, viewer);
+});
+
+/** The Communities tab for whoever is asking. */
+export const loadCommunities = cache(async (courseId: string) => {
+  const [course, viewer] = await Promise.all([getCourse(), getViewer()]);
+  return course.readCommunities(courseId, viewer);
+});
