@@ -169,6 +169,39 @@ function run(command: string[], options: { input?: string; env?: EnvValues } = {
   return result.status === 0;
 }
 
+/**
+ * Adds one variable to Vercel's Production environment. One that is already
+ * there (say, DATABASE_URL managed by the Neon integration) is kept unless the
+ * person chooses to replace it.
+ */
+async function setInVercel(
+  vercel: string[],
+  name: Variable,
+  value: string,
+): Promise<"set" | "kept" | "failed"> {
+  const add = () => {
+    const result = spawnSync(vercel[0], [...vercel.slice(1), "env", "add", name, "production"], {
+      input: value,
+      stdio: ["pipe", "inherit", "pipe"],
+    });
+    return { ok: result.status === 0, error: result.stderr?.toString() ?? "" };
+  };
+  const first = add();
+  if (first.ok) return "set";
+  if (!/already exists/i.test(first.error)) {
+    process.stderr.write(first.error);
+    return "failed";
+  }
+  if (!(await confirm(`   ${name} is already set in Production. Replace it?`, false))) return "kept";
+  const removed = spawnSync(vercel[0], [...vercel.slice(1), "env", "rm", name, "production", "--yes"], {
+    stdio: ["ignore", "inherit", "inherit"],
+  });
+  if (removed.status !== 0) return "failed";
+  const second = add();
+  if (!second.ok) process.stderr.write(second.error);
+  return second.ok ? "set" : "failed";
+}
+
 /** The Vercel CLI: installed, or through npx. */
 function vercelCli(): string[] {
   const installed = spawnSync("vercel", ["--version"], { stdio: "ignore" }).status === 0;
@@ -266,19 +299,25 @@ where you left off.`);
       // Fails harmlessly when the project is already connected.
       run([...vercel, "git", "connect"]);
     }
+    let allSet = true;
     for (const name of VARIABLES) {
       const value = values[name];
       if (value === undefined) continue;
-      // Replace, so a re-run updates values instead of failing on duplicates.
-      spawnSync(vercel[0], [...vercel.slice(1), "env", "rm", name, "production", "--yes"], {
-        stdio: "ignore",
-      });
-      const ok = run([...vercel, "env", "add", name, "production"], { input: value });
-      console.log(ok ? `   ✓ ${name} set in Production.` : `   ✗ Could not set ${name}.`);
+      const outcome = await setInVercel(vercel, name, value);
+      if (outcome === "set") console.log(`   ✓ ${name} set in Production.`);
+      if (outcome === "kept") console.log(`   ✓ ${name} already in Production; kept as it is.`);
+      if (outcome === "failed") {
+        console.log(`   ✗ Could not set ${name}.`);
+        allSet = false;
+      }
     }
     console.log(`
    In the Vercel dashboard, check Settings → Git → Production Branch is "master",
    and, if you use your own domain, add it under Settings → Domains.`);
+    if (!allSet) {
+      console.log("   ✗ Not deploying: set the variables marked ✗ first, then re-run.");
+      process.exit(1);
+    }
     if (await confirm("   Deploy to Production now?")) run([...vercel, "deploy", "--prod"]);
   }
 
