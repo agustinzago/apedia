@@ -1,6 +1,8 @@
+import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import { schema, type Db } from "@/db";
 import { createFakeTeacher } from "@/teacher/fake";
+import { createFakeUrlFetcher } from "@/url-fetcher/fake";
 import { createTestDb } from "@/test/db";
 import { createCourseModule, EXAMPLE_COURSE_ID, type CourseModule } from ".";
 
@@ -12,7 +14,11 @@ describe("course: reading the Example course's Path", () => {
 
   beforeEach(async () => {
     db = await createTestDb();
-    course = createCourseModule({ db, teacher: createFakeTeacher() });
+    course = createCourseModule({
+      db,
+      teacher: createFakeTeacher(),
+      fetchUrl: createFakeUrlFetcher(),
+    });
     await course.ensureExampleCourse();
   });
 
@@ -47,6 +53,7 @@ describe("course: reading the Example course's Path", () => {
       index: 3,
       title: "The major scale",
       goal: "Build a major scale from any note on one string",
+      minutes: null,
       started: true,
     });
   });
@@ -105,7 +112,11 @@ describe("course: reading an Example course Lesson", () => {
 
   beforeEach(async () => {
     db = await createTestDb();
-    course = createCourseModule({ db, teacher: createFakeTeacher() });
+    course = createCourseModule({
+      db,
+      teacher: createFakeTeacher(),
+      fetchUrl: createFakeUrlFetcher(),
+    });
     await course.ensureExampleCourse();
   });
 
@@ -224,7 +235,11 @@ describe("course: listing a Learner's Courses", () => {
 
   beforeEach(async () => {
     db = await createTestDb();
-    course = createCourseModule({ db, teacher: createFakeTeacher() });
+    course = createCourseModule({
+      db,
+      teacher: createFakeTeacher(),
+      fetchUrl: createFakeUrlFetcher(),
+    });
     await course.ensureExampleCourse();
     await db.insert(schema.learner).values([
       { id: "ana", email: "ana@example.com" },
@@ -260,13 +275,228 @@ describe("course: listing a Learner's Courses", () => {
   });
 });
 
+describe("course: the Resources and Communities tabs", () => {
+  let db: Db;
+  let course: CourseModule;
+
+  beforeEach(async () => {
+    db = await createTestDb();
+    course = createCourseModule({
+      db,
+      teacher: createFakeTeacher(),
+      fetchUrl: createFakeUrlFetcher(),
+    });
+    await course.ensureExampleCourse();
+    await db.insert(schema.learner).values([
+      { id: "owner", email: "owner@example.com" },
+      { id: "other", email: "other@example.com" },
+    ]);
+    await db.insert(schema.course).values({
+      id: "chess",
+      learnerId: "owner",
+      subject: "Chess",
+      title: "Chess for weekend games",
+      language: "en",
+      missionWhy: "Beat my brother",
+      missionSuccess: ["Win a game against my brother"],
+      missionConstraints: [],
+      missionOutOfScope: [],
+      sittingMinutes: 10,
+    });
+    await db.insert(schema.resource).values([
+      {
+        courseId: "chess",
+        ref: "r10",
+        kind: "site",
+        title: "Lichess practice",
+        author: "Lichess",
+        url: "https://lichess.org/practice",
+        why: "Free drills for each tactic.",
+        language: "en",
+      },
+      {
+        courseId: "chess",
+        ref: "r2",
+        kind: "book",
+        title: "Chess Fundamentals",
+        author: "José Raúl Capablanca",
+        url: "https://openlibrary.org/works/OL1234W",
+        why: "The classic first book.",
+        language: "en",
+      },
+    ]);
+    await db.insert(schema.community).values([
+      {
+        courseId: "chess",
+        name: "Your local chess club",
+        where: "Libraries and cafés near you",
+        url: null,
+        why: "Play slow games face to face.",
+        offline: true,
+      },
+      {
+        courseId: "chess",
+        name: "r/chessbeginners",
+        where: "Reddit, online",
+        url: "https://www.reddit.com/r/chessbeginners/",
+        why: "Post a game and ask where it went wrong.",
+        offline: false,
+      },
+    ]);
+  });
+
+  it("lists the Example course's Resources in number order, with their real URLs, to a visitor", async () => {
+    const tab = await course.readResources(EXAMPLE_COURSE_ID, visitor);
+
+    expect(tab?.resources.map((r) => r.number)).toEqual([1, 2, 3, 4, 5]);
+    expect(tab?.resources[0]).toEqual({
+      number: 1,
+      kind: "site",
+      title: "musictheory.net — Lessons",
+      author: "Ricci Adams",
+      url: "https://www.musictheory.net/lessons",
+      why: expect.stringContaining("interactive lessons"),
+    });
+    expect(tab?.gaps).toEqual([expect.stringContaining("ear training")]);
+  });
+
+  it("numbers a Learner's Resources by their number, not as text", async () => {
+    const tab = await course.readResources("chess", { learnerId: "owner" });
+
+    expect(tab?.resources.map((r) => [r.number, r.title])).toEqual([
+      [2, "Chess Fundamentals"],
+      [10, "Lichess practice"],
+    ]);
+    expect(tab?.gaps).toEqual([]);
+  });
+
+  it("lists the Example course's Communities, online first and offline marked, without an opt-out", async () => {
+    const tab = await course.readCommunities(EXAMPLE_COURSE_ID, visitor);
+
+    expect(tab?.communities.map((c) => [c.name, c.offline])).toEqual([
+      ["JustinGuitar Community", false],
+      ["r/musictheory", false],
+      ["A local acoustic jam or open-mic night", true],
+    ]);
+    expect(tab?.communities[2].url).toBeNull();
+    expect(tab).toMatchObject({ optedOut: false, canOptOut: false });
+  });
+
+  it("lists a Learner's Communities with the opt-out available", async () => {
+    const tab = await course.readCommunities("chess", { learnerId: "owner" });
+
+    expect(tab).toEqual({
+      communities: [
+        {
+          name: "r/chessbeginners",
+          where: "Reddit, online",
+          url: "https://www.reddit.com/r/chessbeginners/",
+          why: "Post a game and ask where it went wrong.",
+          offline: false,
+        },
+        {
+          name: "Your local chess club",
+          where: "Libraries and cafés near you",
+          url: null,
+          why: "Play slow games face to face.",
+          offline: true,
+        },
+      ],
+      optedOut: false,
+      canOptOut: true,
+    });
+  });
+
+  it("shows a Learner's Resources and Communities to nobody else", async () => {
+    for (const viewer of [visitor, { learnerId: "other" }]) {
+      expect(await course.readResources("chess", viewer)).toBeNull();
+      expect(await course.readCommunities("chess", viewer)).toBeNull();
+    }
+    expect(await course.readResources("no-such-course", visitor)).toBeNull();
+    expect(await course.readCommunities("no-such-course", visitor)).toBeNull();
+  });
+
+  it("keeps \"Not for me\" per Course, and can turn Communities back on", async () => {
+    expect(await course.setCommunityOptOut("chess", "owner", true)).toEqual({ ok: true });
+    expect(await course.readCommunities("chess", { learnerId: "owner" })).toMatchObject({
+      optedOut: true,
+    });
+
+    // Opting out of one Course leaves the others alone.
+    await db.insert(schema.course).values({
+      id: "spanish",
+      learnerId: "owner",
+      subject: "Spanish",
+      title: "Spanish for a trip",
+      language: "en",
+      missionWhy: "Order food in Madrid",
+      missionSuccess: ["Order a meal in Spanish"],
+      missionConstraints: [],
+      missionOutOfScope: [],
+      sittingMinutes: 10,
+    });
+    expect(await course.readCommunities("spanish", { learnerId: "owner" })).toMatchObject({
+      optedOut: false,
+    });
+
+    expect(await course.setCommunityOptOut("chess", "owner", false)).toEqual({ ok: true });
+    expect(await course.readCommunities("chess", { learnerId: "owner" })).toMatchObject({
+      optedOut: false,
+    });
+  });
+
+  it("lets only the Course's own Learner change \"Not for me\"", async () => {
+    expect(await course.setCommunityOptOut("chess", "other", true)).toEqual({
+      ok: false,
+      reason: "not-found",
+    });
+    expect(await course.setCommunityOptOut("no-such-course", "owner", true)).toEqual({
+      ok: false,
+      reason: "not-found",
+    });
+    expect(await course.readCommunities("chess", { learnerId: "owner" })).toMatchObject({
+      optedOut: false,
+    });
+  });
+
+  it("never changes the Example course's opt-out", async () => {
+    expect(await course.setCommunityOptOut(EXAMPLE_COURSE_ID, "owner", true)).toEqual({
+      ok: false,
+      reason: "read-only",
+    });
+    expect(await course.readCommunities(EXAMPLE_COURSE_ID, visitor)).toMatchObject({
+      optedOut: false,
+    });
+  });
+
+  it("seeds the Example course's Communities and Gaps once, including into one seeded before they existed", async () => {
+    const exampleCount = async () => [
+      await db.$count(schema.community, eq(schema.community.courseId, EXAMPLE_COURSE_ID)),
+      await db.$count(schema.gap, eq(schema.gap.courseId, EXAMPLE_COURSE_ID)),
+    ];
+    expect(await exampleCount()).toEqual([3, 1]);
+
+    await course.ensureExampleCourse();
+    expect(await exampleCount()).toEqual([3, 1]);
+
+    await db.delete(schema.community).where(eq(schema.community.courseId, EXAMPLE_COURSE_ID));
+    await db.delete(schema.gap).where(eq(schema.gap.courseId, EXAMPLE_COURSE_ID));
+    await course.ensureExampleCourse();
+    expect(await exampleCount()).toEqual([3, 1]);
+  });
+});
+
 describe("course: reading a Reference sheet", () => {
   let db: Db;
   let course: CourseModule;
 
   beforeEach(async () => {
     db = await createTestDb();
-    course = createCourseModule({ db, teacher: createFakeTeacher() });
+    course = createCourseModule({
+      db,
+      teacher: createFakeTeacher(),
+      fetchUrl: createFakeUrlFetcher(),
+    });
     await course.ensureExampleCourse();
   });
 

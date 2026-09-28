@@ -35,7 +35,7 @@ The smoke test builds the app and serves it on port 3100 with a fresh in-memory 
 
 Magic-link sign-in with Auth.js and Resend (ADR 0003). Learners and sessions live in Postgres through the Drizzle adapter. In production set:
 
-- `AUTH_SECRET`: `npx auth secret` generates one.
+- `AUTH_SECRET`: 32 random bytes, base64: `openssl rand -base64 32`. (Not `npx auth secret`: the `auth` package on npm is now Better Auth's CLI.)
 - `AUTH_RESEND_KEY`: a Resend API key.
 - `AUTH_EMAIL_FROM`: the sender on a domain verified in Resend, e.g. `Apedia <sign-in@example.com>`.
 
@@ -43,15 +43,29 @@ Outside production the link is always printed to the console and never emailed.
 
 ## Teacher
 
-Every Claude call lives in `src/teacher/` (an ESLint rule keeps the SDK out of every other module). In production set `ANTHROPIC_API_KEY`; it is only read on the server. `APEDIA_FAKE_TEACHER=1` forces the stand-in Teacher, as the e2e smoke test does.
+Every Claude call lives in `src/teacher/` (an ESLint rule keeps the SDK out of every other module). In production set `ANTHROPIC_API_KEY`; it is only read on the server. `APEDIA_FAKE_TEACHER=1` forces the stand-in Teacher, as the e2e smoke test does. Alongside the stand-in Teacher, Resource URLs are not fetched (its Resources are made up).
+
+## Go live
+
+Apedia runs on Vercel with Neon Postgres (ADR 0001) and sends magic links through Resend (ADR 0003). To provision it:
+
+```sh
+npm run wizard
+```
+
+The wizard walks through Neon, Anthropic, Resend, the Auth.js secret and the site URL, checking each value against its service as you enter it. It migrates Neon, links the Vercel project, sets every variable in Vercel's Production environment, deploys, and checks that the live site offers sign-in. Values are recorded in `.env.wizard` (gitignored; Next.js never loads it, so local builds and the smoke test keep using PGlite). Re-run it to pick up where you left off or to change a value.
+
+Production variables: `DATABASE_URL`, `ANTHROPIC_API_KEY`, `AUTH_RESEND_KEY`, `AUTH_EMAIL_FROM`, `AUTH_SECRET` and `AUTH_URL` (the site's origin, set for Production only so preview deployments build links from their own URL). Every push to `master` deploys to Production. After adding a migration, run `DATABASE_URL=… npm run db:migrate` before (or right after) the deploy that needs it.
 
 ## Layout
 
-- `src/course/`: the `course` module, the one seam the UI calls. `example-course.json` is the Example course fixture; it doubles as test data. `interview.ts` holds the Interview: anonymous until "Write my course", when the Learner claims it and the Course is written.
+- `src/course/`: the `course` module, the one seam the UI calls. `example-course.json` is the Example course fixture; it doubles as test data. `interview.ts` holds the Interview: anonymous until "Write my course", when the Learner claims it and the Course is written. `course-creation.ts` is the Course creation job that follows (ADR 0004): research search, research structure with the URL rules (`url-rules.ts`), then Up next, one step per call, tracked on a `job` row.
 - `src/teacher/`: the `teacher` module, which owns every Claude call and prompt, with zod-validated outputs. `fake.ts` is the stand-in tests use, fed with the JSON in `fixtures/`.
+- `src/url-fetcher/`: the network half of the Resource URL check (one GET, 5 s timeout), with a fake for tests.
 - `src/auth/`: Auth.js settings, the magic-link provider and the age gate.
 - `src/db/`: Drizzle schema and database client.
-- `src/app/`: Next.js routes. They stay thin: call `course`, render. The Interview is `/interview`; the browser keeps its id in a cookie so the answers survive sign-in. The Course page tabs live in the `(tabs)` route group; the Lesson page (`lessons/[index]`) sits outside it, without the tab bar.
+- `src/app/`: Next.js routes. They stay thin: call `course`, render. The Interview is `/interview`; the browser keeps its id in a cookie so the answers survive sign-in. `POST /api/jobs/[jobId]` runs a job's next step after responding, then starts the step after it in a fresh invocation; the Path tab polls the job while a Course is prepared. The Course page tabs live in the `(tabs)` route group; the Lesson page (`lessons/[index]`) sits outside it, without the tab bar.
 - `src/app/globals.css`: the notebook design tokens and shared classes.
 - `e2e/`: the Playwright smoke test.
+- `scripts/`: `migrate.ts` (Neon migrations) and `wizard.ts` (go live), with the wizard's checks in `wizard/`.
 - `design/`: prototype HTML and the mascot.

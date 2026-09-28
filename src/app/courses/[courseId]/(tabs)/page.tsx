@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { CoursePath, FinishedLesson, UpNextLesson } from "@/course";
 import { loadCoursePath } from "@/server/course";
+import { CourseCreation } from "./course-creation";
 import styles from "./course.module.css";
 
 const shortDate = new Intl.DateTimeFormat("en-GB", {
@@ -38,10 +39,7 @@ export default async function PathTab({
             )}
           </ol>
           {course.preparing ? (
-            <p className={`sketchy ${styles.preparing}`} role="status">
-              Your teacher is preparing this Course: finding trustworthy
-              sources and choosing your first Lesson.
-            </p>
+            <CourseCreation courseId={course.id} initial={course.creation} />
           ) : (
             course.finishedLessons.length === 0 &&
             !course.upNext && <p className={styles.muted}>No Lessons yet.</p>
@@ -149,6 +147,7 @@ function UpNextItem({
         <span className={styles.lessonMeta}>
           <span>
             Lesson {lesson.index}
+            {lesson.minutes !== null && ` · about ${lesson.minutes} min`}
             {lesson.started && " · started"}
           </span>
           <span className={styles.upNextLabel}>Up next</span>

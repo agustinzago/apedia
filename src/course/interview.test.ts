@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import { schema, type Db } from "@/db";
 import { createFakeTeacher, type FakeTeacher, type FakeTeacherReplies } from "@/teacher/fake";
+import { createFakeUrlFetcher } from "@/url-fetcher/fake";
 import followUpVague from "@/teacher/fixtures/follow-up-vague.json";
 import missionEs from "@/teacher/fixtures/mission-es.json";
 import missionMusicTheory from "@/teacher/fixtures/mission-music-theory.json";
@@ -18,7 +19,7 @@ describe("course: the Interview, from subject to Course", () => {
   const setUp = async (replies: FakeTeacherReplies = {}) => {
     db = await createTestDb();
     teacher = createFakeTeacher(replies);
-    course = createCourseModule({ db, teacher });
+    course = createCourseModule({ db, teacher, fetchUrl: createFakeUrlFetcher() });
     await db.insert(schema.learner).values([
       { id: "ana", email: "ana@example.com" },
       { id: "ben", email: "ben@example.com" },
@@ -270,7 +271,7 @@ describe("course: a harmful subject at Interview start", () => {
   it("shows a kind redirect and runs nothing else", async () => {
     const db = await createTestDb();
     const teacher = createFakeTeacher({ checkSafety: safetyRedirect });
-    const course = createCourseModule({ db, teacher });
+    const course = createCourseModule({ db, teacher, fetchUrl: createFakeUrlFetcher() });
 
     const started = await course.startInterview({
       subject: "Making explosives",
@@ -314,7 +315,7 @@ describe("course: the Interview's one follow-up", () => {
         nextQuestion: input.nextQuestion,
       }),
     });
-    course = createCourseModule({ db, teacher });
+    course = createCourseModule({ db, teacher, fetchUrl: createFakeUrlFetcher() });
   });
 
   it("asks one follow-up for a vague answer, then moves on", async () => {
@@ -361,7 +362,7 @@ describe("course: the Interview's one follow-up", () => {
         nextQuestion: input.nextQuestion,
       }),
     });
-    course = createCourseModule({ db, teacher });
+    course = createCourseModule({ db, teacher, fetchUrl: createFakeUrlFetcher() });
 
     const started = await course.startInterview({ subject: "Chess", why: "Beat my brother" });
     await course.answerInterview(started.id, "The moves");
@@ -376,7 +377,7 @@ describe("course: the Interview's one follow-up", () => {
 
   it("does not ask a follow-up when the Teacher finds the answer clear", async () => {
     teacher = createFakeTeacher();
-    course = createCourseModule({ db, teacher });
+    course = createCourseModule({ db, teacher, fetchUrl: createFakeUrlFetcher() });
 
     const started = await course.startInterview({ subject: "Chess", why: "Beat my brother" });
 

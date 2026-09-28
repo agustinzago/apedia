@@ -3,6 +3,7 @@ import { z } from "zod";
 import { schema, type Db } from "@/db";
 import type { InterviewMessage } from "@/db/schema";
 import type { Teacher } from "@/teacher";
+import { insertCourseCreationJob } from "./course-creation";
 
 export type { InterviewMessage } from "@/db/schema";
 
@@ -51,7 +52,12 @@ export type InterviewView = {
 };
 
 export type WriteCourseResult =
-  | { ok: true; courseId: string }
+  | {
+      ok: true;
+      courseId: string;
+      /** The Course creation job to run, or null for a Course written before jobs existed. */
+      jobId: string | null;
+    }
   | { ok: false; reason: "not-found" | "not-yours" | "not-finished" };
 
 export type ClaimResult = "claimed" | "not-found" | "not-yours";
@@ -264,7 +270,9 @@ export function createInterviewOperations({ db, teacher }: { db: Db; teacher: Te
     /**
      * "Write my course": creates the Course from the Learner's finished
      * Interview, with its Mission and the prior-knowledge Learning record
-     * 0001. Writing the same Interview again returns the same Course.
+     * 0001, and queues its Course creation job (research, then Up next) for
+     * the caller to run. Writing the same Interview again returns the same
+     * Course and job.
      */
     async writeCourse(interviewId: string, learnerId: string): Promise<WriteCourseResult> {
       const row = await findRow(interviewId);
@@ -275,7 +283,7 @@ export function createInterviewOperations({ db, teacher }: { db: Db; teacher: Te
       }
 
       const existing = await findCourseFor(row.id);
-      if (existing) return { ok: true, courseId: existing };
+      if (existing) return { ok: true, ...existing };
 
       const sittingMinutes = row.sittingMinutes;
       const mission = await teacher.writeMission({
@@ -287,7 +295,7 @@ export function createInterviewOperations({ db, teacher }: { db: Db; teacher: Te
         sittingMinutes,
       });
 
-      const courseId = await db.transaction(async (tx) => {
+      const written = await db.transaction(async (tx) => {
         const [created] = await tx
           .insert(schema.course)
           .values({
@@ -314,19 +322,26 @@ export function createInterviewOperations({ db, teacher }: { db: Db; teacher: Te
           title: mission.priorKnowledge.title.trim(),
           body: mission.priorKnowledge.body.trim(),
         });
-        return created.id;
+        const jobId = await insertCourseCreationJob(tx, created.id);
+        return { courseId: created.id, jobId };
       });
 
-      return { ok: true, courseId: courseId ?? (await findCourseFor(row.id))! };
+      return { ok: true, ...(written ?? (await findCourseFor(row.id))!) };
     },
   };
 
-  async function findCourseFor(interviewId: string): Promise<string | null> {
-    const [course] = await db
-      .select({ id: schema.course.id })
+  async function findCourseFor(
+    interviewId: string,
+  ): Promise<{ courseId: string; jobId: string | null } | null> {
+    const [found] = await db
+      .select({ courseId: schema.course.id, jobId: schema.job.id })
       .from(schema.course)
+      .leftJoin(
+        schema.job,
+        and(eq(schema.job.courseId, schema.course.id), eq(schema.job.kind, "course_creation")),
+      )
       .where(eq(schema.course.interviewId, interviewId));
-    return course?.id ?? null;
+    return found ?? null;
   }
 }
 

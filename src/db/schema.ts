@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import {
   boolean,
   index,
@@ -11,6 +12,7 @@ import {
   uniqueIndex,
   type AnyPgColumn,
 } from "drizzle-orm/pg-core";
+import type { SearchFindings } from "@/teacher/contract";
 
 const id = () =>
   text("id")
@@ -165,6 +167,9 @@ export const lesson = pgTable(
     title: text("title").notNull(),
     // Starts with an observable verb.
     goal: text("goal").notNull(),
+    // How long the Teacher expects one sitting of it to take. Null for
+    // Lessons chosen before Up next carried minutes.
+    minutes: integer("minutes"),
     // Written on first open; null until then. Shape is owned by the teacher module.
     content: jsonb("content"),
     openedAt: timestamp("opened_at", { withTimezone: true }),
@@ -235,6 +240,13 @@ export const resourceKind = pgEnum("resource_kind", [
   "site",
 ]);
 
+// ok: the URL answered below 400. blocked: 403 or 429, kept because the URL
+// came from the web search results (bot walls are common on live sites).
+export const resourceCheckOutcome = pgEnum("resource_check_outcome", [
+  "ok",
+  "blocked",
+]);
+
 export const resource = pgTable(
   "resource",
   {
@@ -252,6 +264,10 @@ export const resource = pgTable(
     why: text("why").notNull(),
     // BCP 47 tag of the Resource's language.
     language: text("language").notNull(),
+    // What the URL check found. Null for Resources that were never checked
+    // (the Example course's).
+    checkOutcome: resourceCheckOutcome("check_outcome"),
+    verifiedAt: timestamp("verified_at", { withTimezone: true }),
     createdAt: createdAt(),
   },
   (t) => [uniqueIndex("resource_course_ref_uq").on(t.courseId, t.ref)],
@@ -297,5 +313,87 @@ export const referenceSection = pgTable(
       t.courseId,
       t.position,
     ),
+  ],
+);
+
+export const community = pgTable(
+  "community",
+  {
+    id: id(),
+    courseId: text("course_id")
+      .notNull()
+      .references(() => course.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    // Where it meets: a website, an app, or a kind of place nearby.
+    where: text("where").notNull(),
+    url: text("url"),
+    why: text("why").notNull(),
+    offline: boolean("offline").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [index("community_course_idx").on(t.courseId)],
+);
+
+export const gap = pgTable(
+  "gap",
+  {
+    id: id(),
+    courseId: text("course_id")
+      .notNull()
+      .references(() => course.id, { onDelete: "cascade" }),
+    description: text("description").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [index("gap_course_idx").on(t.courseId)],
+);
+
+export const jobKind = pgEnum("job_kind", ["course_creation"]);
+
+// pending: waiting for a runner. running: a runner holds it (see runId).
+// failed: stopped at `step`; a retry resumes there.
+export const jobStatus = pgEnum("job_status", [
+  "pending",
+  "running",
+  "failed",
+  "done",
+]);
+
+export type JobProgressMessage = { at: string; text: string };
+
+// Generation work that outlives the request that started it (ADR 0004). Each
+// step runs in its own function invocation, so each must fit its limit.
+export const job = pgTable(
+  "job",
+  {
+    id: id(),
+    courseId: text("course_id")
+      .notNull()
+      .references(() => course.id, { onDelete: "cascade" }),
+    kind: jobKind("kind").notNull(),
+    status: jobStatus("status").notNull().default("pending"),
+    // The step to run next, or the one that failed. Its values depend on kind.
+    step: text("step").notNull(),
+    // Calm messages for the Learner, oldest first.
+    progress: jsonb("progress")
+      .$type<JobProgressMessage[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    searchOutput: jsonb("search_output").$type<SearchFindings>(),
+    // For the operator; the Learner sees a friendly message instead.
+    error: text("error"),
+    // Set when a runner claims the job; only that runner may advance it.
+    runId: text("run_id"),
+    startedAt: timestamp("started_at", { withTimezone: true }),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    finishedAt: timestamp("finished_at", { withTimezone: true }),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    index("job_course_idx").on(t.courseId),
+    uniqueIndex("job_course_creation_uq")
+      .on(t.courseId)
+      .where(sql`${t.kind} = 'course_creation'`),
   ],
 );

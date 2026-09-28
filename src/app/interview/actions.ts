@@ -5,6 +5,7 @@ import type { InterviewView } from "@/course";
 import { getViewer } from "@/server/auth";
 import { getCourse } from "@/server/course";
 import { forgetInterview, readInterviewId, rememberInterview } from "@/server/interview";
+import { requestOrigin, startJobStep } from "@/server/jobs";
 
 export type InterviewState = {
   /** Null until the first answer starts the Interview. */
@@ -52,7 +53,10 @@ export async function sendAnswer(
 
 export type WriteState = { error: string | null };
 
-/** "Write my course": sign in first if needed, then claim the Interview and write the Course. */
+/**
+ * "Write my course": sign in first if needed, then claim the Interview, write
+ * the Course and start preparing it. The Path tab shows the progress.
+ */
 export async function writeMyCourse(): Promise<WriteState> {
   const [course, viewer, interviewId] = await Promise.all([
     getCourse(),
@@ -77,6 +81,7 @@ export async function writeMyCourse(): Promise<WriteState> {
       return { error: "Answer every question first, then your teacher can write your course." };
     }
     courseId = written.courseId;
+    if (written.jobId) await startJobStep(written.jobId, await requestOrigin());
   } catch (error) {
     console.error(error);
     return { error: "Your teacher couldn’t write your course just now. Please try again." };
