@@ -1,8 +1,8 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import type { InterviewView } from "@/course";
-import { untilReset } from "@/app/daily-limit";
+import type { InterviewView, SpendPaused } from "@/course";
+import { breatherNote, salesPausedNote, untilReset } from "@/app/daily-limit";
 import { getViewer } from "@/server/auth";
 import { getCourse } from "@/server/course";
 import { forgetInterview, readInterviewId, rememberInterview } from "@/server/interview";
@@ -31,18 +31,25 @@ export async function sendAnswer(
   const minutes = form.get("minutes");
   if (previous.view !== null && !interviewId) redirect("/");
 
-  let view: InterviewView | null;
+  let view: InterviewView | SpendPaused | null;
   try {
     if (previous.view === null) {
       view = await course.startInterview({
         subject: String(form.get("subject") ?? ""),
         why: answer,
       });
+      if ("reason" in view) return { ...previous, error: salesPausedNote(view.resumesAt) };
       await rememberInterview(view.id);
     } else if (minutes !== null) {
       view = await course.chooseSittingLength(interviewId!, Number(minutes), viewer.learnerId);
     } else {
       view = await course.answerInterview(interviewId!, answer, viewer.learnerId);
+      if (view && "reason" in view) {
+        return {
+          ...previous,
+          error: `${breatherNote(view.resumesAt)} Your answers so far are saved.`,
+        };
+      }
     }
   } catch (error) {
     console.error(error);
@@ -83,7 +90,9 @@ export async function writeMyCourse(): Promise<WriteState> {
         error:
           written.reason === "daily-limit"
             ? `You’ve started ${written.limit === 1 ? "a new course" : `${written.limit} new courses`} today, which is the daily limit. Your answers are saved: come back ${untilReset(written.resetsAt)} and press “Write my course” again.`
-            : "Answer every question first, then your teacher can write your course.",
+            : written.reason === "paused"
+              ? `Apedia is taking a breather today. Your answers are saved: come back ${untilReset(written.resumesAt)} and press “Write my course” again.`
+              : "Answer every question first, then your teacher can write your course.",
       };
     }
     courseId = written.courseId;

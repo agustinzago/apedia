@@ -53,7 +53,12 @@ export function parseFromAddress(value: string): { domain: string } | { problem:
   return { domain };
 }
 
-/** Where the spend alarm is emailed. */
+/** Who runs Apedia, as the public pages name them. */
+export function operatorNameProblem(value: string): string | undefined {
+  return value.trim() ? undefined : "Give the name Polar knows you by: yours, or your business's.";
+}
+
+/** Where the spend alarm is emailed, or the public contact address. */
 export function operatorEmailProblem(value: string): string | undefined {
   return /^[^<>\s@]+@[^<>\s@]+\.[^<>\s@]+$/.test(value)
     ? undefined

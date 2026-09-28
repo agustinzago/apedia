@@ -142,6 +142,7 @@ describe("course: writing the Up next Lesson and answering its quiz", () => {
         jobId,
         status: "done",
         stalled: false,
+        resumesAt: null,
         progress: [
           "Writing “Why these chords belong together”.",
           "Checking the quiz.",

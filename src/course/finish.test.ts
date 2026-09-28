@@ -145,6 +145,7 @@ describe("course: finishing a Lesson", () => {
         jobId: pressed.finishing.jobId,
         status: "done",
         stalled: false,
+        resumesAt: null,
         progress: [
           "Weighing what you showed in “Why these chords belong together”.",
           "Writing down what you learned.",

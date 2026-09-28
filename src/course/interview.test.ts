@@ -9,7 +9,21 @@ import missionMusicTheory from "@/teacher/fixtures/mission-music-theory.json";
 import safetyAllowEs from "@/teacher/fixtures/safety-allow-es.json";
 import safetyRedirect from "@/teacher/fixtures/safety-redirect.json";
 import { createTestDb } from "@/test/db";
-import { createCourseModule, type CourseModule } from ".";
+import { createCourseModule, type CourseModule, type SpendPaused } from ".";
+
+/** Nothing is spent in these tests, so the spend limits never pause the Interview. */
+function unpaused<T>(result: T | SpendPaused): T {
+  if (result !== null && typeof result === "object" && "reason" in result) {
+    throw new Error("The Interview was paused.");
+  }
+  return result;
+}
+
+const start = async (course: CourseModule, input: { subject: string; why: string }) =>
+  unpaused(await course.startInterview(input));
+
+const answer = async (course: CourseModule, interviewId: string, text: string) =>
+  unpaused(await course.answerInterview(interviewId, text));
 
 describe("course: the Interview, from subject to Course", () => {
   let db: Db;
@@ -28,7 +42,7 @@ describe("course: the Interview, from subject to Course", () => {
 
   /** Answers all four questions; returns the Interview id. */
   const interviewAbout = async (subject = "Music theory") => {
-    const started = await course.startInterview({
+    const started = await start(course, {
       subject,
       why: "To understand the songs I already play on guitar",
     });
@@ -43,7 +57,7 @@ describe("course: the Interview, from subject to Course", () => {
   });
 
   it("asks four questions in order, the last with sitting-length chips, and stores them anonymously", async () => {
-    const started = await course.startInterview({
+    const started = await start(course, {
       subject: "Music theory",
       why: "To understand the songs I already play on guitar",
     });
@@ -59,11 +73,11 @@ describe("course: the Interview, from subject to Course", () => {
     expect(started.messages[2].text).toMatch(/^Why do you want to learn Music theory\?/);
     expect(started.messages[4].text).toMatch(/^What do you already know about it\?/);
 
-    const third = await course.answerInterview(started.id, "A few open chords");
+    const third = await answer(course, started.id, "A few open chords");
     expect(third).toMatchObject({ stage: "success", questionNumber: 3 });
     expect(third?.messages.at(-1)?.text).toMatch(/a month from now/);
 
-    const fourth = await course.answerInterview(started.id, "Work out a song's chords");
+    const fourth = await answer(course, started.id, "Work out a song's chords");
     expect(fourth).toMatchObject({ stage: "sitting", questionNumber: 4 });
     expect(fourth?.messages.at(-1)?.text).toBe("Last question. How long is one sitting?");
 
@@ -84,7 +98,7 @@ describe("course: the Interview, from subject to Course", () => {
   });
 
   it("offers only 5, 10, 20 and 30 minute sittings", async () => {
-    const started = await course.startInterview({ subject: "Chess", why: "Beat my brother" });
+    const started = await start(course, { subject: "Chess", why: "Beat my brother" });
     await course.answerInterview(started.id, "The moves");
     await course.answerInterview(started.id, "Win a game");
 
@@ -179,7 +193,7 @@ describe("course: the Interview, from subject to Course", () => {
       writeMission: missionEs,
     });
 
-    const started = await course.startInterview({
+    const started = await start(course, {
       subject: "Ajedrez",
       why: "Quiero ganarle a mi hermano los domingos",
     });
@@ -237,7 +251,7 @@ describe("course: the Interview, from subject to Course", () => {
       reason: "not-found",
     });
 
-    const unfinished = await course.startInterview({ subject: "Chess", why: "Beat my brother" });
+    const unfinished = await start(course, { subject: "Chess", why: "Beat my brother" });
     await course.claimInterview(unfinished.id, "ana");
     expect(await course.writeCourse(unfinished.id, "ana")).toEqual({
       ok: false,
@@ -273,7 +287,7 @@ describe("course: a harmful subject at Interview start", () => {
     const teacher = createFakeTeacher({ checkSafety: safetyRedirect });
     const course = createCourseModule({ db, teacher, fetchUrl: createFakeUrlFetcher() });
 
-    const started = await course.startInterview({
+    const started = await start(course, {
       subject: "Making explosives",
       why: "To hurt someone",
     });
@@ -319,7 +333,7 @@ describe("course: the Interview's one follow-up", () => {
   });
 
   it("asks one follow-up for a vague answer, then moves on", async () => {
-    const started = await course.startInterview({ subject: "Chess", why: "idk" });
+    const started = await start(course, { subject: "Chess", why: "idk" });
 
     expect(started).toMatchObject({ stage: "why", questionNumber: 1 });
     expect(started.messages.at(-1)).toEqual({
@@ -327,7 +341,7 @@ describe("course: the Interview's one follow-up", () => {
       text: "Could you tell me a little more?",
     });
 
-    const next = await course.answerInterview(started.id, "To beat my brother on Sundays");
+    const next = await answer(course, started.id, "To beat my brother on Sundays");
     expect(next).toMatchObject({ stage: "know", questionNumber: 2 });
     expect(next?.messages.at(-1)?.text).toMatch(/^What do you already know/);
     expect(teacher.calls.at(-1)).toMatchObject({
@@ -340,10 +354,10 @@ describe("course: the Interview's one follow-up", () => {
   });
 
   it("never asks a second follow-up, even for more vague answers", async () => {
-    const started = await course.startInterview({ subject: "Chess", why: "idk" });
+    const started = await start(course, { subject: "Chess", why: "idk" });
     await course.answerInterview(started.id, "fun");
-    const third = await course.answerInterview(started.id, "");
-    const fourth = await course.answerInterview(started.id, "stuff");
+    const third = await answer(course, started.id, "");
+    const fourth = await answer(course, started.id, "stuff");
 
     expect(third).toMatchObject({ stage: "success" });
     expect(fourth).toMatchObject({ stage: "sitting" });
@@ -364,14 +378,14 @@ describe("course: the Interview's one follow-up", () => {
     });
     course = createCourseModule({ db, teacher, fetchUrl: createFakeUrlFetcher() });
 
-    const started = await course.startInterview({ subject: "Chess", why: "Beat my brother" });
+    const started = await start(course, { subject: "Chess", why: "Beat my brother" });
     await course.answerInterview(started.id, "The moves");
-    const vague = await course.answerInterview(started.id, "be good");
+    const vague = await answer(course, started.id, "be good");
 
     expect(vague).toMatchObject({ stage: "success", questionNumber: 3 });
     expect(vague?.messages.at(-1)?.text).toBe(followUpVague.followUp);
 
-    const done = await course.answerInterview(started.id, "Win one game against him");
+    const done = await answer(course, started.id, "Win one game against him");
     expect(done).toMatchObject({ stage: "sitting" });
   });
 
@@ -379,7 +393,7 @@ describe("course: the Interview's one follow-up", () => {
     teacher = createFakeTeacher();
     course = createCourseModule({ db, teacher, fetchUrl: createFakeUrlFetcher() });
 
-    const started = await course.startInterview({ subject: "Chess", why: "Beat my brother" });
+    const started = await start(course, { subject: "Chess", why: "Beat my brother" });
 
     expect(started).toMatchObject({ stage: "know" });
   });

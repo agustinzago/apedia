@@ -17,6 +17,7 @@ import {
   type JobView,
 } from "./jobs";
 import type { DailyCaps, DailyLimitReached } from "./limits";
+import type { Spend, SpendPaused } from "./spend";
 import { bookUrlProblem, publicUrl, urlKey, verdictFor } from "./url-rules";
 
 /**
@@ -39,7 +40,9 @@ export type RetryCourseCreationResult =
   | { ok: true; jobId: string }
   | { ok: false; reason: "not-found" | "not-yours" | "nothing-to-retry" }
   /** Research would run again, and the Learner has started today's new Courses. */
-  | DailyLimitReached;
+  | DailyLimitReached
+  /** The Teacher is paused for the day; the job stays where it stopped. */
+  | SpendPaused;
 
 type CourseRow = typeof schema.course.$inferSelect;
 
@@ -87,11 +90,13 @@ export function createCourseCreationOperations({
   teacher,
   fetchUrl,
   caps,
+  spend,
 }: {
   db: Db;
   teacher: Teacher;
   fetchUrl: UrlFetcher;
   caps: DailyCaps;
+  spend: Spend;
 }) {
   type Run = JobRun;
 
@@ -308,7 +313,8 @@ export function createCourseCreationOperations({
      * off counts as failed. A Course that never had a job (written before
      * jobs existed) gets one. Running research again for a Course that has
      * no Resources yet makes it count as a new Course, so it must fit
-     * today's limit.
+     * today's limit. A job the spend stop paused resumes the same way, once
+     * the day resets.
      */
     async retryCourseCreation(
       courseId: string,
@@ -339,6 +345,8 @@ export function createCourseCreationOperations({
         const limited = await caps.newCourse(learnerId, { except: course.id });
         if (limited) return limited;
       }
+      const paused = await spend.teacherCall();
+      if (paused) return paused;
 
       if (!job) {
         await db

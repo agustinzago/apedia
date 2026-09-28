@@ -92,6 +92,13 @@
       "when": 1790627357615,
       "tag": "0012_success_metrics",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1790631934019,
+      "tag": "0013_magic_link_limits",
+      "breakpoints": true
     }
   ]
 }

@@ -14,6 +14,7 @@ import {
   proposedMission,
   type ProposalView,
 } from "./proposals";
+import type { Spend, SpendPaused } from "./spend";
 
 /**
  * "Ask your teacher": a Lesson's chat. The Teacher answers from the Lesson
@@ -50,7 +51,9 @@ export type AskTeacherResult =
         | "unavailable";
     }
   /** The Learner has asked today's questions; nothing was saved. */
-  | DailyLimitReached;
+  | DailyLimitReached
+  /** The Teacher is paused for the day; nothing was saved. */
+  | SpendPaused;
 
 type ChatRow = {
   number: number;
@@ -143,10 +146,12 @@ export function createChatOperations({
   teacher,
   readResourcesByRef,
   caps,
+  spend,
 }: {
   db: Db;
   teacher: Teacher;
   caps: DailyCaps;
+  spend: Spend;
   /** The Course's Resources by ref, numbered as the Lesson shows them. */
   readResourcesByRef: (courseId: string) => Promise<Map<string, LessonResource>>;
 }) {
@@ -163,7 +168,7 @@ export function createChatOperations({
   return {
     /**
      * The Learner asks a question in a Lesson's chat, within their daily
-     * limit. The question and the answer are saved together, only once the
+     * limit and the spend stop. The question and the answer are saved together, only once the
      * Teacher has answered.
      */
     async askTeacher(
@@ -182,7 +187,7 @@ export function createChatOperations({
       if (asked === "" || asked.length > MAX_QUESTION_LENGTH) {
         return { ok: false, reason: "invalid" };
       }
-      const limited = await caps.chatMessage(learnerId);
+      const limited = (await caps.chatMessage(learnerId)) ?? (await spend.teacherCall());
       if (limited) return limited;
       const content = LessonContent.parse(lesson.content);
 

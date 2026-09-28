@@ -8,6 +8,7 @@ import {
   generateAuthSecret,
   mask,
   operatorEmailProblem,
+  operatorNameProblem,
   parseFromAddress,
   parseSiteUrl,
   resendKeyProblem,
@@ -63,7 +64,9 @@ describe("shape checks", () => {
     expect(parseFromAddress("Apedia <onboarding@resend.dev>")).toHaveProperty("problem");
   });
 
-  it("wants a plain operator address and a positive spend threshold", () => {
+  it("wants an operator name, a plain operator address and a positive spend threshold", () => {
+    expect(operatorNameProblem("Ada Lovelace")).toBeUndefined();
+    expect(operatorNameProblem("  ")).toBeDefined();
     expect(operatorEmailProblem("ops@apedia.app")).toBeUndefined();
     expect(operatorEmailProblem("Ops <ops@apedia.app>")).toBeDefined();
     expect(operatorEmailProblem("ops")).toBeDefined();

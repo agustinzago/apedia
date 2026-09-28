@@ -19,6 +19,7 @@ import {
   proposalContext,
   proposedMission,
 } from "./proposals";
+import type { Spend, SpendPaused } from "./spend";
 
 /**
  * Finish (ADR 0002, ADR 0004): once every quiz question is answered, a
@@ -48,11 +49,14 @@ export type FinishLessonResult =
   | {
       ok: false;
       reason: "not-found" | "read-only" | "not-written" | "unanswered" | "finished" | "done";
-    };
+    }
+  /** The Teacher is paused for the day; the answers keep. */
+  | SpendPaused;
 
 export type RetryFinishResult =
   | { ok: true; jobId: string }
-  | { ok: false; reason: "not-found" | "read-only" | "nothing-to-retry" | "done" };
+  | { ok: false; reason: "not-found" | "read-only" | "nothing-to-retry" | "done" }
+  | SpendPaused;
 
 /** A quiz attempt as a record's evidence, by its id ("L2Q3"). */
 type AttemptFact = { lessonIndex: number; correct: boolean; at: Date };
@@ -73,7 +77,15 @@ const attemptId = (lessonIndex: number, questionIndex: number) =>
 /** How terms and titles are compared: case and spacing aside. */
 const keyOf = (text: string) => text.trim().replace(/\s+/g, " ").toLocaleLowerCase();
 
-export function createFinishOperations({ db, teacher }: { db: Db; teacher: Teacher }) {
+export function createFinishOperations({
+  db,
+  teacher,
+  spend,
+}: {
+  db: Db;
+  teacher: Teacher;
+  spend: Spend;
+}) {
   const findFinishJob = (lessonId: string) => findLessonJob(db, lessonId, "finish");
 
   /** Everything the Teacher weighs, and the evidence its records may cite. */
@@ -406,7 +418,8 @@ export function createFinishOperations({ db, teacher }: { db: Db; teacher: Teach
 
     /**
      * The Learner presses Finish: starts the Lesson's Finish job, once every
-     * quiz question has an answer. Pressing it again reports on that job.
+     * quiz question has an answer, unless the Teacher is paused for the day.
+     * Pressing it again reports on that job.
      */
     async finishLesson(
       courseId: string,
@@ -427,6 +440,10 @@ export function createFinishOperations({ db, teacher }: { db: Db; teacher: Teach
         .where(eq(schema.quizAttempt.lessonId, lesson.id));
       if (!quiz.every((_, i) => answered.some((a) => a.questionIndex === i))) {
         return { ok: false, reason: "unanswered" };
+      }
+      if (!(await findFinishJob(lesson.id))) {
+        const paused = await spend.teacherCall();
+        if (paused) return paused;
       }
 
       await db
@@ -455,7 +472,7 @@ export function createFinishOperations({ db, teacher }: { db: Db; teacher: Teach
       return job ? viewOf(job) : null;
     },
 
-    /** "Try again" after a Finish failed, or its runner was cut off. */
+    /** "Try again" after a Finish failed, the spend stop paused it, or its runner was cut off. */
     async retryFinish(
       courseId: string,
       lessonIndex: number,
@@ -466,6 +483,8 @@ export function createFinishOperations({ db, teacher }: { db: Db; teacher: Teach
       const job = await findFinishJob(found.lesson.id);
       if (!job || found.lesson.finishedAt !== null) return { ok: false, reason: "nothing-to-retry" };
       if (found.course.status === "done") return { ok: false, reason: "done" };
+      const paused = await spend.teacherCall();
+      if (paused) return paused;
       await resumeJob(db, job.id, "Trying again.");
       // Pending, running or done: nothing to reset; starting it again is harmless.
       return { ok: true, jobId: job.id };

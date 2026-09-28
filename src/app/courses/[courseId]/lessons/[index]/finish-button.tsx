@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useState } from "react";
 import type { JobView } from "@/course";
+import { pausedJobNote } from "@/app/daily-limit";
 import { Mascot } from "@/components/mascot";
 import { checkFinish, finishLesson, retryFinish, type RetryState } from "./actions";
 import styles from "./lesson.module.css";
@@ -53,6 +54,7 @@ export function FinishButton({
           progress: current?.progress ?? [],
           status: "working",
           stalled: false,
+          resumesAt: null,
         }));
       }
       return result;
@@ -97,6 +99,7 @@ export function FinishButton({
   }
 
   const failed = status === "failed";
+  const pausedUntil = view.resumesAt;
   return (
     <section
       data-noprint
@@ -108,9 +111,11 @@ export function FinishButton({
         <h2 id="finishing-heading" className={styles.writingTitle}>
           {failed
             ? "Your teacher hit a snag"
-            : status === "done"
-              ? "Lesson finished"
-              : "Your teacher is weighing this Lesson"}
+            : pausedUntil
+              ? "Your teacher is taking a breather"
+              : status === "done"
+                ? "Lesson finished"
+                : "Your teacher is weighing this Lesson"}
         </h2>
       </div>
 
@@ -122,13 +127,19 @@ export function FinishButton({
         </ol>
       )}
 
-      {failed ? (
+      {failed || pausedUntil ? (
         <form action={retry} className={styles.writingRetry}>
-          <p className={styles.writingNote} role="alert">
-            This Lesson couldn’t be finished just now. Your answers are saved: please try again.
-          </p>
+          {pausedUntil ? (
+            <p className={styles.writingNote} role="status">
+              {pausedJobNote(pausedUntil)}
+            </p>
+          ) : (
+            <p className={styles.writingNote} role="alert">
+              This Lesson couldn’t be finished just now. Your answers are saved: please try again.
+            </p>
+          )}
           <button type="submit" className="button-ink" disabled={retrying}>
-            {retrying ? "Starting…" : "Try again"}
+            {retrying ? "Starting…" : pausedUntil ? "Pick up where it stopped" : "Try again"}
           </button>
           {retryState.error && (
             <p className={styles.error} role="alert">

@@ -1,0 +1,102 @@
+.main {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 56px var(--gutter) 96px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.title {
+  font-size: clamp(40px, 6vw, 56px);
+  line-height: 1.05;
+}
+
+.title :global(.highlight) {
+  padding: 0 10px;
+}
+
+.updated {
+  margin-top: -12px;
+  font-size: 17px;
+  color: var(--ink-muted);
+}
+
+.lede {
+  font-size: 21px;
+  color: var(--ink-secondary);
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-top: 24px;
+  border-top: 1.5px dashed var(--rule);
+}
+
+.sectionTitle {
+  font-size: 30px;
+  line-height: 1.2;
+}
+
+.list {
+  margin: 0;
+  padding-left: 1.2em;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.section a {
+  overflow-wrap: anywhere;
+  text-underline-offset: 4px;
+}
+
+/* The one thing to take away from a page, e.g. how to get a refund. */
+.note {
+  padding: 18px 22px;
+}
+
+@media print {
+  .main {
+    max-width: none;
+    padding: 0;
+    gap: 10pt;
+  }
+
+  .title {
+    font-size: 26pt;
+  }
+
+  .updated {
+    margin-top: -4pt;
+    font-size: 10pt;
+  }
+
+  .lede {
+    font-size: 12pt;
+  }
+
+  .section {
+    gap: 6pt;
+    padding-top: 10pt;
+    break-inside: avoid;
+  }
+
+  .sectionTitle {
+    font-size: 16pt;
+    break-after: avoid;
+  }
+
+  .note {
+    box-shadow: none;
+    border: 1px solid var(--rule);
+  }
+
+  /* On paper a link is only useful with its address written out. */
+  .main a[href^="http"]::after {
+    content: " (" attr(href) ")";
+    color: var(--ink-muted);
+  }
+}
