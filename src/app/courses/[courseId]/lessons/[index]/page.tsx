@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import type { LessonResource, LessonSection, LessonView } from "@/course";
+import { MAX_QUESTION_LENGTH, type LessonResource, type LessonSection, type LessonView } from "@/course";
 import { loadLesson } from "@/server/course";
+import { AskTeacher } from "./ask-teacher";
 import { FinishButton } from "./finish-button";
 import { LessonGeneration } from "./lesson-generation";
 import { Quiz } from "./quiz";
@@ -124,7 +125,22 @@ export default async function LessonPage({
             readOnly={lesson.readOnly}
           />
 
-          {content.readNext && <ReadNext resource={content.readNext} />}
+          <div className={styles.end}>
+            {content.readNext && <ReadNext resource={content.readNext} />}
+            <AskTeacher
+              courseId={lesson.course.id}
+              lessonIndex={lesson.index}
+              initial={lesson.chat}
+              maxLength={MAX_QUESTION_LENGTH}
+              closedNote={
+                lesson.readOnly
+                  ? "This is a sample course, so the chat is off. Start your own course to ask your teacher."
+                  : lesson.finishedAt
+                    ? "This Lesson is finished, so its chat is closed."
+                    : null
+              }
+            />
+          </div>
 
           <FinishBar lesson={lesson} />
         </>

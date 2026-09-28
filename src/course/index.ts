@@ -7,6 +7,7 @@ import {
   readCreationView,
   type CourseCreationView,
 } from "./course-creation";
+import { createChatOperations, readChat } from "./chat";
 import { EXAMPLE_COURSE_ID, seedExampleCourse } from "./example-course";
 import { createFinishOperations } from "./finish";
 import { createInterviewOperations } from "./interview";
@@ -31,6 +32,7 @@ export {
   type WriteCourseResult,
 } from "./interview";
 export type { Question, Term } from "./lesson-content";
+export { MAX_QUESTION_LENGTH, type AskTeacherResult } from "./chat";
 export type {
   CourseCreationView,
   RetryCourseCreationResult,
@@ -158,6 +160,17 @@ export type LessonSection = {
   citations: LessonResource[];
 };
 
+/** A piece of a chat message: plain text, or a citation shown as a numbered link. */
+export type ChatPart = { text: string } | { cite: LessonResource };
+
+/** One message in a Lesson's "Ask your teacher" chat. */
+export type ChatMessage = {
+  from: "teacher" | "learner";
+  parts: ChatPart[];
+  /** The Community a Teacher answer suggests; null otherwise. */
+  community: CommunityEntry | null;
+};
+
 /** What the Lesson page shows. */
 export type LessonView = {
   course: { id: string; subject: string; title: string; isExample: boolean };
@@ -179,6 +192,8 @@ export type LessonView = {
   } | null;
   /** Quiz answers already recorded, in question order. */
   answers: { questionIndex: number; chosenOption: number }[];
+  /** The Lesson's "Ask your teacher" chat, oldest first. */
+  chat: ChatMessage[];
   /** True for the read-only Example course: answers are not saved and Finish is off. */
   readOnly: boolean;
   /** The Lesson generation job while the Lesson is unwritten; null if there is none. */
@@ -270,6 +285,8 @@ export function createCourseModule({
     );
   }
 
+  const chat = createChatOperations({ db, teacher, readResourcesByRef });
+
   return {
     ...createInterviewOperations({ db, teacher }),
     readCourseCreation: creation.readCourseCreation,
@@ -281,6 +298,7 @@ export function createCourseModule({
     finishLesson: finish.finishLesson,
     readFinish: finish.readFinish,
     retryFinish: finish.retryFinish,
+    askTeacher: chat.askTeacher,
 
     /**
      * Runs the next step of a pending generation job (Course creation,
@@ -590,10 +608,10 @@ export function createCourseModule({
         .where(eq(schema.quizAttempt.lessonId, lesson.id))
         .orderBy(asc(schema.quizAttempt.questionIndex));
 
+      const resources = await readResourcesByRef(course.id);
       let content: LessonView["content"] = null;
       if (lesson.content !== null) {
         const c = LessonContent.parse(lesson.content);
-        const resources = await readResourcesByRef(course.id);
         const cite = (ref: string) => resources.get(ref) ?? [];
         content = {
           hook: c.hook,
@@ -638,6 +656,7 @@ export function createCourseModule({
         finishedAt: lesson.finishedAt,
         content,
         answers,
+        chat: await readChat(db, lesson.id, resources),
         readOnly: course.isExample,
         generation,
         finishing,

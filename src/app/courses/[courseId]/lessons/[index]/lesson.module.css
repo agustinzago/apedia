@@ -310,11 +310,17 @@
 
 /* ---- Read next and Finish ---- */
 
+.end {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  align-items: start;
+  gap: 24px;
+}
+
 .readNext {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  max-width: 420px;
   padding: 20px 22px;
 }
 
@@ -341,6 +347,125 @@
 
 .readNextLink {
   margin-top: 4px;
+  font-size: 18px;
+}
+
+/* ---- Ask your teacher ---- */
+
+.ask {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  padding: 20px 22px;
+  background: var(--card);
+  border: 2px dashed var(--ink);
+  border-radius: var(--sketch-radius);
+}
+
+.askHead {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.askTitle {
+  font-size: 21px;
+}
+
+.askNote {
+  font-size: 17px;
+  color: var(--ink-muted);
+}
+
+.chat {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 420px;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.chatRow {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.chatRow[data-from="learner"] {
+  justify-content: flex-end;
+}
+
+.chatBubble {
+  max-width: 90%;
+  padding: 6px 12px;
+  font-size: 18px;
+  line-height: 1.45;
+  background: var(--sticky-yellow);
+  border-radius: var(--sketch-radius-small);
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+.chatRow[data-from="learner"] .chatBubble {
+  background: var(--blue-tint);
+}
+
+.chatEnd {
+  height: 0;
+}
+
+.chatCommunity {
+  display: flex;
+  flex-direction: column;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1.5px dashed var(--rule);
+  white-space: normal;
+}
+
+.chatCommunityKicker {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--green-deep);
+}
+
+.chatCommunityName {
+  font-weight: 700;
+}
+
+.chatCommunityWhere {
+  font-size: 16px;
+  color: var(--ink-muted);
+}
+
+.askForm {
+  display: flex;
+  gap: 8px;
+}
+
+.askInput {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 4px;
+  font: inherit;
+  font-size: 18px;
+  color: var(--blue);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid var(--ink);
+}
+
+.askInput:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+
+.askButton {
+  padding: 4px 14px;
   font-size: 18px;
 }
 

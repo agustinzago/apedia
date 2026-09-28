@@ -1,4 +1,5 @@
 import {
+  ChatAnswer,
   FinishDraft,
   InterviewReply,
   LessonDraft,
@@ -8,6 +9,7 @@ import {
   SafetyVerdict,
   SearchFindings,
   UpNextDraft,
+  type AskTeacherInput,
   type FinishLessonInput,
   type InterviewFollowUpInput,
   type PickUpNextInput,
@@ -44,6 +46,7 @@ export type FakeTeacherReplies = {
   writeLesson?: Reply<WriteLessonInput>;
   rewriteQuestion?: Reply<RewriteQuestionInput>;
   finishLesson?: Reply<FinishLessonInput>;
+  askTeacher?: Reply<AskTeacherInput>;
 };
 
 export type FakeTeacherCall =
@@ -55,7 +58,8 @@ export type FakeTeacherCall =
   | { op: "pickUpNext"; input: PickUpNextInput }
   | { op: "writeLesson"; input: WriteLessonInput }
   | { op: "rewriteQuestion"; input: RewriteQuestionInput }
-  | { op: "finishLesson"; input: FinishLessonInput };
+  | { op: "finishLesson"; input: FinishLessonInput }
+  | { op: "askTeacher"; input: AskTeacherInput };
 
 export type FakeTeacher = Teacher & {
   /** Every call made, in order. */
@@ -173,6 +177,19 @@ export function createFakeTeacher(replies: FakeTeacherReplies = {}): FakeTeacher
     async finishLesson(input) {
       calls.push({ op: "finishLesson", input });
       return FinishDraft.parse(reply(replies.finishLesson, input, defaultFinish));
+    },
+
+    async askTeacher(input) {
+      calls.push({ op: "askTeacher", input });
+      return ChatAnswer.parse(
+        reply(replies.askTeacher, input, (i) => {
+          const [first] = i.lesson.sections.flatMap((s) => s.citations);
+          return {
+            answer: `Good question. Look again at “${i.lesson.sections[0]?.heading ?? i.lesson.title}”: ${i.lesson.keyIdea}${first ? ` [${first}]` : ""}`,
+            community: null,
+          };
+        }),
+      );
     },
   };
 }

@@ -1,6 +1,6 @@
 "use server";
 
-import type { JobView } from "@/course";
+import type { ChatMessage, JobView } from "@/course";
 import { getViewer } from "@/server/auth";
 import { getCourse } from "@/server/course";
 import { requestOrigin, startJobStep } from "@/server/jobs";
@@ -144,4 +144,32 @@ export async function retryFinish(courseId: string, index: number): Promise<Retr
   }
   await startJobStep(retried.jobId, await requestOrigin());
   return { error: null };
+}
+
+export type AskState = { ok: true; messages: ChatMessage[] } | { ok: false; error: string };
+
+/** "Ask your teacher": the question and the Teacher's answer, saved to the Lesson's chat. */
+export async function askTeacher(
+  courseId: string,
+  index: number,
+  question: string,
+): Promise<AskState> {
+  const [course, viewer] = await Promise.all([getCourse(), getViewer()]);
+  if (viewer.learnerId === null) return { ok: false, error: "Sign in again to ask your teacher." };
+
+  const asked = await course.askTeacher(courseId, index, question, viewer.learnerId);
+  if (!asked.ok) {
+    return {
+      ok: false,
+      error:
+        asked.reason === "unavailable"
+          ? "Your teacher couldn’t answer just now. Please ask again in a moment."
+          : asked.reason === "invalid"
+            ? "Write a question first, a little shorter if it’s long."
+            : asked.reason === "finished"
+              ? "This Lesson is finished, so its chat is closed."
+              : "This Lesson’s chat isn’t yours to use.",
+    };
+  }
+  return { ok: true, messages: asked.messages };
 }
