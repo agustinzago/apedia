@@ -1,6 +1,12 @@
 import { and, asc, count, desc, eq, inArray } from "drizzle-orm";
 import { schema, type Db } from "@/db";
 import type { Teacher } from "@/teacher";
+import type { UrlFetcher } from "@/url-fetcher";
+import {
+  createCourseCreationOperations,
+  readCreationView,
+  type CourseCreationView,
+} from "./course-creation";
 import { EXAMPLE_COURSE_ID, seedExampleCourse } from "./example-course";
 import { createInterviewOperations } from "./interview";
 import {
@@ -22,6 +28,11 @@ export {
   type WriteCourseResult,
 } from "./interview";
 export type { Question, Term } from "./lesson-content";
+export type {
+  CourseCreationView,
+  JobStepResult,
+  RetryCourseCreationResult,
+} from "./course-creation";
 
 export type Mission = {
   why: string;
@@ -43,6 +54,8 @@ export type UpNextLesson = {
   index: number;
   title: string;
   goal: string;
+  /** Expected length of one sitting; null for Lessons chosen before Up next carried minutes. */
+  minutes: number | null;
   started: boolean;
 };
 
@@ -68,6 +81,8 @@ export type CoursePath = {
   mission: Mission;
   /** True while a new Course waits for its Resources and first Lesson. */
   preparing: boolean;
+  /** The Course creation job, while preparing; null if there is none to show. */
+  creation: CourseCreationView | null;
   finishedLessons: FinishedLesson[];
   upNext: UpNextLesson | null;
   /** Newest first. */
@@ -135,7 +150,16 @@ export async function ensureExampleCourse(db: Db): Promise<void> {
   await seedExampleCourse(db);
 }
 
-export function createCourseModule({ db, teacher }: { db: Db; teacher: Teacher }) {
+export function createCourseModule({
+  db,
+  teacher,
+  fetchUrl,
+}: {
+  db: Db;
+  teacher: Teacher;
+  /** The network half of the Resource URL check. */
+  fetchUrl: UrlFetcher;
+}) {
   /** Returns the course row if the viewer may read it, otherwise null. */
   async function findReadableCourse(courseId: string, viewer: Viewer) {
     const [row] = await db
@@ -172,6 +196,7 @@ export function createCourseModule({ db, teacher }: { db: Db; teacher: Teacher }
 
   return {
     ...createInterviewOperations({ db, teacher }),
+    ...createCourseCreationOperations({ db, teacher, fetchUrl }),
 
     /** Makes sure the read-only Example course is in the database. Safe to call repeatedly. */
     async ensureExampleCourse(): Promise<void> {
@@ -212,6 +237,7 @@ export function createCourseModule({ db, teacher }: { db: Db; teacher: Teacher }
           index: schema.lesson.index,
           title: schema.lesson.title,
           goal: schema.lesson.goal,
+          minutes: schema.lesson.minutes,
           openedAt: schema.lesson.openedAt,
           finishedAt: schema.lesson.finishedAt,
         })
@@ -264,6 +290,7 @@ export function createCourseModule({ db, teacher }: { db: Db; teacher: Teacher }
             index: next.index,
             title: next.title,
             goal: next.goal,
+            minutes: next.minutes,
             started: next.openedAt !== null,
           }
         : null;
@@ -281,6 +308,10 @@ export function createCourseModule({ db, teacher }: { db: Db; teacher: Teacher }
         .where(eq(schema.learningRecord.courseId, course.id))
         .orderBy(desc(schema.learningRecord.number));
 
+      // Research and the first Lesson arrive with the Course creation job.
+      const preparing =
+        !course.isExample && course.status === "active" && lessons.length === 0;
+
       return {
         id: course.id,
         subject: course.subject,
@@ -294,9 +325,8 @@ export function createCourseModule({ db, teacher }: { db: Db; teacher: Teacher }
           sittingMinutes: course.sittingMinutes,
           outOfScope: course.missionOutOfScope,
         },
-        // Research and the first Lesson arrive with the Course creation job.
-        preparing:
-          !course.isExample && course.status === "active" && lessons.length === 0,
+        preparing,
+        creation: preparing ? await readCreationView(db, course.id) : null,
         finishedLessons,
         upNext,
         learningRecords: records.map(({ supersededById, ...r }) => ({

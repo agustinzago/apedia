@@ -29,6 +29,13 @@
       "when": 1790373188064,
       "tag": "0003_interview",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1790605680436,
+      "tag": "0004_course_creation_job",
+      "breakpoints": true
     }
   ]
 }

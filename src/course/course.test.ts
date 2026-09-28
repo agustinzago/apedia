@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { schema, type Db } from "@/db";
 import { createFakeTeacher } from "@/teacher/fake";
+import { createFakeUrlFetcher } from "@/url-fetcher/fake";
 import { createTestDb } from "@/test/db";
 import { createCourseModule, EXAMPLE_COURSE_ID, type CourseModule } from ".";
 
@@ -12,7 +13,11 @@ describe("course: reading the Example course's Path", () => {
 
   beforeEach(async () => {
     db = await createTestDb();
-    course = createCourseModule({ db, teacher: createFakeTeacher() });
+    course = createCourseModule({
+      db,
+      teacher: createFakeTeacher(),
+      fetchUrl: createFakeUrlFetcher(),
+    });
     await course.ensureExampleCourse();
   });
 
@@ -47,6 +52,7 @@ describe("course: reading the Example course's Path", () => {
       index: 3,
       title: "The major scale",
       goal: "Build a major scale from any note on one string",
+      minutes: null,
       started: true,
     });
   });
@@ -105,7 +111,11 @@ describe("course: reading an Example course Lesson", () => {
 
   beforeEach(async () => {
     db = await createTestDb();
-    course = createCourseModule({ db, teacher: createFakeTeacher() });
+    course = createCourseModule({
+      db,
+      teacher: createFakeTeacher(),
+      fetchUrl: createFakeUrlFetcher(),
+    });
     await course.ensureExampleCourse();
   });
 
@@ -224,7 +234,11 @@ describe("course: listing a Learner's Courses", () => {
 
   beforeEach(async () => {
     db = await createTestDb();
-    course = createCourseModule({ db, teacher: createFakeTeacher() });
+    course = createCourseModule({
+      db,
+      teacher: createFakeTeacher(),
+      fetchUrl: createFakeUrlFetcher(),
+    });
     await course.ensureExampleCourse();
     await db.insert(schema.learner).values([
       { id: "ana", email: "ana@example.com" },

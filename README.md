@@ -43,7 +43,7 @@ Outside production the link is always printed to the console and never emailed.
 
 ## Teacher
 
-Every Claude call lives in `src/teacher/` (an ESLint rule keeps the SDK out of every other module). In production set `ANTHROPIC_API_KEY`; it is only read on the server. `APEDIA_FAKE_TEACHER=1` forces the stand-in Teacher, as the e2e smoke test does.
+Every Claude call lives in `src/teacher/` (an ESLint rule keeps the SDK out of every other module). In production set `ANTHROPIC_API_KEY`; it is only read on the server. `APEDIA_FAKE_TEACHER=1` forces the stand-in Teacher, as the e2e smoke test does. Alongside the stand-in Teacher, Resource URLs are not fetched (its Resources are made up).
 
 ## Go live
 
@@ -59,11 +59,12 @@ Production variables: `DATABASE_URL`, `ANTHROPIC_API_KEY`, `AUTH_RESEND_KEY`, `A
 
 ## Layout
 
-- `src/course/`: the `course` module, the one seam the UI calls. `example-course.json` is the Example course fixture; it doubles as test data. `interview.ts` holds the Interview: anonymous until "Write my course", when the Learner claims it and the Course is written.
+- `src/course/`: the `course` module, the one seam the UI calls. `example-course.json` is the Example course fixture; it doubles as test data. `interview.ts` holds the Interview: anonymous until "Write my course", when the Learner claims it and the Course is written. `course-creation.ts` is the Course creation job that follows (ADR 0004): research search, research structure with the URL rules (`url-rules.ts`), then Up next, one step per call, tracked on a `job` row.
 - `src/teacher/`: the `teacher` module, which owns every Claude call and prompt, with zod-validated outputs. `fake.ts` is the stand-in tests use, fed with the JSON in `fixtures/`.
+- `src/url-fetcher/`: the network half of the Resource URL check (one GET, 5 s timeout), with a fake for tests.
 - `src/auth/`: Auth.js settings, the magic-link provider and the age gate.
 - `src/db/`: Drizzle schema and database client.
-- `src/app/`: Next.js routes. They stay thin: call `course`, render. The Interview is `/interview`; the browser keeps its id in a cookie so the answers survive sign-in. The Course page tabs live in the `(tabs)` route group; the Lesson page (`lessons/[index]`) sits outside it, without the tab bar.
+- `src/app/`: Next.js routes. They stay thin: call `course`, render. The Interview is `/interview`; the browser keeps its id in a cookie so the answers survive sign-in. `POST /api/jobs/[jobId]` runs a job's next step after responding, then starts the step after it in a fresh invocation; the Path tab polls the job while a Course is prepared. The Course page tabs live in the `(tabs)` route group; the Lesson page (`lessons/[index]`) sits outside it, without the tab bar.
 - `src/app/globals.css`: the notebook design tokens and shared classes.
 - `e2e/`: the Playwright smoke test.
 - `scripts/`: `migrate.ts` (Neon migrations) and `wizard.ts` (go live), with the wizard's checks in `wizard/`.

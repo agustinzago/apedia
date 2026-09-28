@@ -4,13 +4,22 @@ import type { z } from "zod";
 import {
   InterviewReply,
   MissionDraft,
+  ResearchDraft,
   SafetyVerdict,
+  UpNextDraft,
+  type MissionInput,
+  type SearchFindings,
   type Teacher,
 } from "./contract";
 
 /** The only file that talks to Claude. The API key stays on the server. */
 
 const HAIKU = "claude-haiku-4-5-20251001";
+const SONNET = "claude-sonnet-5";
+
+/** Research search limits (ADR 0004): the step must fit one 300 s function run. */
+export const SEARCH_MAX_USES = 8;
+export const SEARCH_DEADLINE_MS = 240_000;
 
 /** Carried by every generation prompt. */
 const SAFETY_RULES = `Safety rules: Learners are 13 or older. Never help anyone harm themselves or others: no weapons or explosives, no making drugs or poisons, no breaking into systems or accounts that are not theirs, no self-harm, no sexual content, no evading the law. If a request drifts there, steer kindly back to safe ground.`;
@@ -33,13 +42,16 @@ export class TeacherError extends Error {
 /** The real Teacher, backed by Claude. Reads ANTHROPIC_API_KEY unless a client is given. */
 export function createClaudeTeacher({
   client = new Anthropic(),
-}: { client?: Anthropic } = {}): Teacher {
+  searchDeadlineMs = SEARCH_DEADLINE_MS,
+}: { client?: Anthropic; searchDeadlineMs?: number } = {}): Teacher {
+  type Request = { system: string; user: string; maxTokens: number; model?: string };
+
   async function ask<T>(
     schema: z.ZodType<T>,
-    request: { system: string; user: string; maxTokens: number },
+    request: Request,
   ): Promise<{ output: T | null; refused: boolean }> {
     const response = await client.messages.parse({
-      model: HAIKU,
+      model: request.model ?? HAIKU,
       max_tokens: request.maxTokens,
       system: request.system,
       messages: [{ role: "user", content: request.user }],
@@ -54,10 +66,7 @@ export function createClaudeTeacher({
     return { output: schema.parse(response.parsed_output), refused: false };
   }
 
-  async function mustAnswer<T>(
-    schema: z.ZodType<T>,
-    request: { system: string; user: string; maxTokens: number },
-  ): Promise<T> {
+  async function mustAnswer<T>(schema: z.ZodType<T>, request: Request): Promise<T> {
     const { output } = await ask(schema, request);
     if (output === null) throw new TeacherError("The Teacher declined to answer.");
     return output;
@@ -146,5 +155,177 @@ ${TONE}`,
 <sitting_minutes>${sittingMinutes}</sitting_minutes>`,
       });
     },
+
+    async researchSearch({ subject, language, mission }) {
+      const system = `You are the Teacher in Apedia, researching a short course for one Learner. Use web search to find trustworthy Resources and Communities for their Mission.
+
+Find:
+- 8 to 15 candidate Resources: official documentation, established books, university or open courseware, and reputable sites and articles. Prefer free ones. Prefer ones in the language tagged "${language}" (BCP 47) where good ones exist; English ones are fine otherwise. Skip content farms, thin listicles and paywalled pages.
+- For a book, find its page on openlibrary.org or on its publisher's own website. Never a store (such as Amazon) and never Goodreads.
+- 3 to 5 Communities where the Learner could practise with other people: online ones, and at least one kind of offline place (a club, a class, a meetup).
+
+You have at most ${SEARCH_MAX_USES} searches; plan them. Then write a plain list of your candidates. For each give the exact URL as it appeared in the search results, the title, the author or organisation, the kind (book, docs, course, article, site, or community), its language, and one line on why it fits the Mission. List only URLs that appeared in your search results.
+
+${SAFETY_RULES}`;
+      const messages: Anthropic.MessageParam[] = [
+        {
+          role: "user",
+          content: `${DATA_NOTE}
+
+<subject>${subject}</subject>
+${missionXml(mission)}`,
+        },
+      ];
+
+      // Streamed so that a run cut off at the deadline keeps what it found.
+      const deadline = Date.now() + searchDeadlineMs;
+      const content: Anthropic.ContentBlock[] = [];
+      let searches = 0;
+      while (searches < SEARCH_MAX_USES && Date.now() < deadline) {
+        const stream = client.messages.stream({
+          model: SONNET,
+          max_tokens: 16000,
+          system,
+          messages,
+          tools: [
+            {
+              type: "web_search_20260209",
+              name: "web_search",
+              max_uses: SEARCH_MAX_USES - searches,
+              // Called directly rather than from code, so every result
+              // reaches the response in full: the URL check relies on them.
+              allowed_callers: ["direct"],
+            },
+          ],
+        });
+        let timedOut = false;
+        const timer = setTimeout(() => {
+          timedOut = true;
+          stream.abort();
+        }, deadline - Date.now());
+
+        let message: Anthropic.Message;
+        try {
+          message = await stream.finalMessage();
+        } catch (error) {
+          if (!timedOut) throw error;
+          content.push(...(stream.currentMessage?.content ?? []));
+          break;
+        } finally {
+          clearTimeout(timer);
+        }
+
+        content.push(...message.content);
+        if (message.stop_reason === "refusal") {
+          throw new TeacherError("The Teacher declined to research this subject.");
+        }
+        if (message.stop_reason !== "pause_turn") break;
+        // The server-side search loop paused; resend its turn to continue.
+        searches += message.content.filter((b) => b.type === "server_tool_use").length;
+        messages.push({ role: "assistant", content: message.content });
+      }
+      return findingsFrom(content);
+    },
+
+    async researchStructure({ subject, language, mission, findings }) {
+      return mustAnswer(ResearchDraft, {
+        model: SONNET,
+        maxTokens: 16000,
+        system: `You are the Teacher in Apedia. From your research notes and the web search results below, choose the Course's Resources, Communities and Gaps. Write every "why", "where" and gap description in the language tagged "${language}" (BCP 47); keep titles and author names as published.
+
+- "resources": 5 to 10, best first. Use only URLs that appear in <search_results>, copied exactly. "kind" is book, docs, course, article or site. A book's URL must be on openlibrary.org or on its publisher's own website: never a store (such as Amazon) and never Goodreads. "author" is a person or an organisation. "language" is the BCP 47 tag of the Resource's language. "why" is one line on why it serves this Mission.
+- "communities": 2 or 3 real places to practise with other people, at least one of them offline ("offline": true). For an offline one with no specific place in the results, describe the kind of place to look for nearby in "where" and set "url" to null.
+- "gaps": the parts of the Mission that no chosen Resource covers. Often empty; do not invent.
+
+${SAFETY_RULES}
+${TONE}`,
+        user: `${DATA_NOTE}
+
+<subject>${subject}</subject>
+${missionXml(mission)}
+<search_results>
+${findings.results.map((r) => `- ${r.url} (${r.title})`).join("\n")}
+</search_results>
+<research_notes>${findings.text}</research_notes>`,
+      });
+    },
+
+    async pickUpNext({
+      subject,
+      language,
+      mission,
+      learningRecords,
+      finishedLessons,
+      resources,
+      feedback,
+    }) {
+      return mustAnswer(UpNextDraft, {
+        model: SONNET,
+        maxTokens: 4096,
+        system: `You are the Teacher in Apedia. There is no lesson plan: you choose only the single Lesson to teach next. Pick it from the Mission's success item with the most leverage (the one that unlocks the others, or matters most to their reason) and from the Learning records, so it sits just beyond what the Learner can already do. It gives one tangible win in one sitting and must not repeat a finished Lesson.
+
+- "title": at most 6 words.
+- "goal": one sentence of at most 12 words saying what they will be able to do, starting with an observable verb such as name, play, write, spot, build or explain. Never start with "understand", "learn", "know" or their equivalents in any language ("comprender", "aprender", "entender", "saber"…).
+- "minutes": reading plus practice, at most ${mission.sittingMinutes}.
+
+Write the title and goal in the language tagged "${language}" (BCP 47).
+
+${SAFETY_RULES}
+${TONE}`,
+        user: `${DATA_NOTE}
+
+<subject>${subject}</subject>
+${missionXml(mission)}
+<learning_records>
+${learningRecords.map((r) => `- ${String(r.number).padStart(4, "0")} (${r.kind}) ${r.title}: ${r.body}`).join("\n")}
+</learning_records>
+<finished_lessons>
+${finishedLessons.map((l) => `- ${l.title}: ${l.goal}`).join("\n")}
+</finished_lessons>
+<resources>
+${resources.map((r) => `- (${r.kind}) ${r.title}: ${r.why}`).join("\n")}
+</resources>${feedback ? `\n\nYour previous answer was rejected: ${feedback} Choose again.` : ""}`,
+      });
+    },
+  };
+}
+
+function missionXml(mission: MissionInput): string {
+  const list = (items: string[]) => items.map((item) => `- ${item}`).join("\n");
+  return `<mission>
+<why>${mission.why}</why>
+<success_looks_like>
+${list(mission.successLooksLike)}
+</success_looks_like>
+<constraints>
+${list(mission.constraints)}
+</constraints>
+<out_of_scope>
+${list(mission.outOfScope)}
+</out_of_scope>
+</mission>`;
+}
+
+/** The text the Teacher wrote and every page the web search returned, once each. */
+function findingsFrom(content: Anthropic.ContentBlock[]): SearchFindings {
+  const results = new Map<string, string>();
+  const notes: string[] = [];
+  for (const block of content) {
+    if (block.type === "web_search_tool_result" && Array.isArray(block.content)) {
+      for (const result of block.content) {
+        if (!results.has(result.url)) results.set(result.url, result.title);
+      }
+    } else if (block.type === "text") {
+      notes.push(block.text);
+      for (const citation of block.citations ?? []) {
+        if (citation.type === "web_search_result_location" && !results.has(citation.url)) {
+          results.set(citation.url, citation.title ?? "");
+        }
+      }
+    }
+  }
+  return {
+    text: notes.join("").trim(),
+    results: [...results].map(([url, title]) => ({ url, title })),
   };
 }

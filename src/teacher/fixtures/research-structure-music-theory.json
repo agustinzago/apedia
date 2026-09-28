@@ -1,0 +1,77 @@
+{
+  "resources": [
+    {
+      "kind": "site",
+      "title": "musictheory.net — Lessons",
+      "author": "Ricci Adams",
+      "url": "https://www.musictheory.net/lessons",
+      "why": "Short, free interactive lessons on steps, scales and chords.",
+      "language": "en"
+    },
+    {
+      "kind": "book",
+      "title": "Open Music Theory",
+      "author": "Mark Gotham and others",
+      "url": "https://viva.pressbooks.pub/openmusictheory/",
+      "why": "A free, peer-reviewed textbook for checking a definition in full.",
+      "language": "en"
+    },
+    {
+      "kind": "book",
+      "title": "Music Theory for Guitarists",
+      "author": "Tom Kolb",
+      "url": "https://openlibrary.org/works/OL3301425W",
+      "why": "Explains keys and chords on the guitar neck, where you already play.",
+      "language": "en"
+    },
+    {
+      "kind": "book",
+      "title": "Music Theory for Guitarists (store page)",
+      "author": "Tom Kolb",
+      "url": "https://www.amazon.com/dp/0793574009",
+      "why": "The same book, on a store.",
+      "language": "en"
+    },
+    {
+      "kind": "course",
+      "title": "Fundamentals of Music Theory",
+      "author": "University of Edinburgh",
+      "url": "https://www.coursera.org/learn/edinburgh-music-theory",
+      "why": "A university course that builds keys and chords step by step.",
+      "language": "en"
+    },
+    {
+      "kind": "course",
+      "title": "Practical Music Theory",
+      "author": "Justin Sandercoe",
+      "url": "https://www.justinguitar.com/categories/practical-music-theory",
+      "why": "Theory taught on the guitar, with songs you may know.",
+      "language": "en"
+    },
+    {
+      "kind": "article",
+      "title": "Chord progressions for guitar",
+      "author": "Guitar Theory Blog",
+      "url": "https://guitar-theory-blog.example/chord-progressions",
+      "why": "Common progressions, with examples.",
+      "language": "en"
+    }
+  ],
+  "communities": [
+    {
+      "name": "r/musictheory",
+      "where": "Reddit",
+      "url": "https://www.reddit.com/r/musictheory/",
+      "why": "Ask why a song's chords work and get answers from people who teach it.",
+      "offline": false
+    },
+    {
+      "name": "Open mic and jam nights",
+      "where": "Bars, cafés and music shops near you; look for weekly jam nights",
+      "url": null,
+      "why": "Playing songs with others is where keys and chords start to click.",
+      "offline": true
+    }
+  ],
+  "gaps": [{ "description": "Hearing a song's key by ear, without the chord chart" }]
+}

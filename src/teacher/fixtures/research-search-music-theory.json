@@ -1,0 +1,12 @@
+{
+  "text": "Candidates for a guitarist who wants to see why a song's chords belong together: musictheory.net's lessons and Open Music Theory for definitions, JustinGuitar's practical theory course, Coursera's Edinburgh course, and r/musictheory for questions.",
+  "results": [
+    { "url": "https://www.musictheory.net/lessons", "title": "Lessons – musictheory.net" },
+    { "url": "https://viva.pressbooks.pub/openmusictheory/", "title": "Open Music Theory" },
+    { "url": "https://openlibrary.org/works/OL3301425W", "title": "Music Theory for Guitarists – Open Library" },
+    { "url": "https://www.coursera.org/learn/edinburgh-music-theory", "title": "Fundamentals of Music Theory | Coursera" },
+    { "url": "https://www.justinguitar.com/categories/practical-music-theory", "title": "Practical Music Theory | JustinGuitar" },
+    { "url": "https://www.amazon.com/dp/0793574009", "title": "Music Theory for Guitarists: Amazon.com" },
+    { "url": "https://www.reddit.com/r/musictheory/", "title": "r/musictheory" }
+  ]
+}

@@ -1,8 +1,14 @@
 import {
   InterviewReply,
   MissionDraft,
+  ResearchDraft,
   SafetyVerdict,
+  SearchFindings,
+  UpNextDraft,
   type InterviewFollowUpInput,
+  type PickUpNextInput,
+  type ResearchSearchInput,
+  type ResearchStructureInput,
   type SafetyCheckInput,
   type Teacher,
   type WriteMissionInput,
@@ -18,7 +24,7 @@ import {
  * smoke test, where there is no API key.
  */
 
-/** Fixture JSON, or a function of the input returning it. Validated when used. */
+/** Fixture JSON, or a function of the input returning it (a thrown error fails the call). Validated when used. */
 type Json = Record<string, unknown>;
 type Reply<I> = Json | ((input: I) => Json);
 
@@ -26,12 +32,18 @@ export type FakeTeacherReplies = {
   checkSafety?: Reply<SafetyCheckInput>;
   interviewFollowUp?: Reply<InterviewFollowUpInput>;
   writeMission?: Reply<WriteMissionInput>;
+  researchSearch?: Reply<ResearchSearchInput>;
+  researchStructure?: Reply<ResearchStructureInput>;
+  pickUpNext?: Reply<PickUpNextInput>;
 };
 
 export type FakeTeacherCall =
   | { op: "checkSafety"; input: SafetyCheckInput }
   | { op: "interviewFollowUp"; input: InterviewFollowUpInput }
-  | { op: "writeMission"; input: WriteMissionInput };
+  | { op: "writeMission"; input: WriteMissionInput }
+  | { op: "researchSearch"; input: ResearchSearchInput }
+  | { op: "researchStructure"; input: ResearchStructureInput }
+  | { op: "pickUpNext"; input: PickUpNextInput };
 
 export type FakeTeacher = Teacher & {
   /** Every call made, in order. */
@@ -83,5 +95,65 @@ export function createFakeTeacher(replies: FakeTeacherReplies = {}): FakeTeacher
         })),
       );
     },
+
+    async researchSearch(input) {
+      calls.push({ op: "researchSearch", input });
+      return SearchFindings.parse(
+        reply(replies.researchSearch, input, (i) => ({
+          text: `Candidates for ${i.subject}.`,
+          results: defaultResources(i.subject).map(({ url, title }) => ({ url, title })),
+        })),
+      );
+    },
+
+    async researchStructure(input) {
+      calls.push({ op: "researchStructure", input });
+      return ResearchDraft.parse(
+        reply(replies.researchStructure, input, (i) => ({
+          resources: defaultResources(i.subject),
+          communities: [
+            {
+              name: `${i.subject} learners`,
+              where: "An online forum",
+              url: "https://example.org/community",
+              why: "Friendly people who answer beginners’ questions.",
+              offline: false,
+            },
+            {
+              name: "A local club",
+              where: "A library or community centre near you",
+              url: null,
+              why: "Practise face to face.",
+              offline: true,
+            },
+          ],
+          gaps: [],
+        })),
+      );
+    },
+
+    async pickUpNext(input) {
+      calls.push({ op: "pickUpNext", input });
+      return UpNextDraft.parse(
+        reply(replies.pickUpNext, input, (i) => ({
+          title: `First steps in ${i.subject}`.split(/\s+/).slice(0, 6).join(" "),
+          goal: `Name the first idea you need for: ${i.mission.successLooksLike[0] ?? i.subject}`,
+          minutes: i.mission.sittingMinutes,
+        })),
+      );
+    },
   };
+}
+
+/** What the stand-in Teacher "finds": pages on example.org, one per kind. */
+function defaultResources(subject: string) {
+  const slug = encodeURIComponent(subject.toLowerCase().replace(/\s+/g, "-"));
+  return (["site", "docs", "course", "article", "site"] as const).map((kind, i) => ({
+    kind,
+    title: `${subject}: ${kind} ${i + 1}`,
+    author: "Example author",
+    url: `https://example.org/${slug}/${i + 1}`,
+    why: `A trustworthy ${kind} on ${subject}.`,
+    language: "en",
+  }));
 }
