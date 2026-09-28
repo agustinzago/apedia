@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { CoursePath, FinishedLesson, UpNextLesson } from "@/course";
 import { loadCoursePath } from "@/server/course";
+import { ProposalCard } from "../proposal-card";
 import { CourseCreation } from "./course-creation";
 import styles from "./course.module.css";
 
@@ -21,6 +22,9 @@ export default async function PathTab({
   return (
     <div className={styles.path}>
       <div className={styles.pathMain}>
+        {course.proposals.map((proposal) => (
+          <ProposalCard key={proposal.id} courseId={course.id} proposal={proposal} />
+        ))}
         <MissionCard course={course} />
         <section aria-labelledby="lessons-heading">
           <h2 id="lessons-heading" className={styles.sectionTitle}>
@@ -38,7 +42,9 @@ export default async function PathTab({
               <UpNextItem courseId={course.id} lesson={course.upNext} />
             )}
           </ol>
-          {course.preparing ? (
+          {course.doneAt ? (
+            <DoneNote doneAt={course.doneAt} />
+          ) : course.preparing ? (
             <CourseCreation courseId={course.id} initial={course.creation} />
           ) : (
             course.finishedLessons.length === 0 &&
@@ -48,6 +54,16 @@ export default async function PathTab({
       </div>
       <LearningRecords course={course} />
     </div>
+  );
+}
+
+function DoneNote({ doneAt }: { doneAt: Date }) {
+  return (
+    <p className={`sketchy ${styles.doneNote}`}>
+      <span className={styles.doneMark}>Done ✓</span>
+      You marked this Course Done on {shortDate.format(doneAt)}. Your Lessons and
+      Reference sheet stay here whenever you want them.
+    </p>
   );
 }
 

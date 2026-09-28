@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { schema, type Db } from "@/db";
-import type { AskTeacherInput, FinishDraft } from "@/teacher";
+import type { AskTeacherInput, ChatAnswer, FinishDraft } from "@/teacher";
 import { createFakeTeacher, type FakeTeacher } from "@/teacher/fake";
 import chatFixture from "@/teacher/fixtures/chat-music-theory.json";
 import finishFixture from "@/teacher/fixtures/finish-music-theory.json";
@@ -16,7 +16,7 @@ const ana = { learnerId: "ana" };
 const firstToLast = () => 0;
 const RIGHT = 3;
 
-type ChatReply = (input: AskTeacherInput) => { answer: string; community: number | null };
+type ChatReply = (input: AskTeacherInput) => ChatAnswer;
 
 describe("course: asking your teacher", () => {
   let db: Db;
@@ -214,7 +214,7 @@ describe("course: asking your teacher", () => {
     });
 
     it("drops a Community number that is not on the list", async () => {
-      answers = [() => ({ answer: "I’m not sure.", community: 7 })];
+      answers = [() => ({ answer: "I’m not sure.", community: 7, missionChange: null })];
       const asked = await course.askTeacher("c1", 1, "What do pros do?", "ana");
       expect(asked.ok && asked.messages[1].community).toBeNull();
     });
@@ -265,7 +265,7 @@ describe("course: asking your teacher", () => {
 
   describe("Finish", () => {
     it("receives this Lesson's chat by id, and may write a record on the Learner's own words", async () => {
-      answers = [() => ({ answer: "Close! The home chord names the key [r3].", community: null })];
+      answers = [() => ({ answer: "Close! The home chord names the key [r3].", community: null, missionChange: null })];
       await course.askTeacher("c1", 1, "So the chord a song ends on names its key?", "ana");
       await course.askTeacher("c1", 1, "Thanks!", "ana");
       finishDraft = {

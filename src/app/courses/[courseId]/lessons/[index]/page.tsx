@@ -122,7 +122,8 @@ export default async function LessonPage({
             questions={content.quiz}
             answers={lesson.answers}
             finished={lesson.finishedAt !== null}
-            readOnly={lesson.readOnly}
+            // A Done Course's quiz can be tried again, but nothing is saved.
+            readOnly={lesson.readOnly || lesson.course.done}
           />
 
           <div className={styles.end}>
@@ -131,19 +132,26 @@ export default async function LessonPage({
               courseId={lesson.course.id}
               lessonIndex={lesson.index}
               initial={lesson.chat}
+              proposals={lesson.proposals}
               maxLength={MAX_QUESTION_LENGTH}
               closedNote={
                 lesson.readOnly
                   ? "This is a sample course, so the chat is off. Start your own course to ask your teacher."
                   : lesson.finishedAt
                     ? "This Lesson is finished, so its chat is closed."
-                    : null
+                    : lesson.course.done
+                      ? "This Course is Done, so its chat is closed."
+                      : null
               }
             />
           </div>
 
           <FinishBar lesson={lesson} />
         </>
+      ) : lesson.course.done ? (
+        <p className={styles.unwritten}>
+          This Course is Done, so this Lesson won’t be written.
+        </p>
       ) : lesson.readOnly || lesson.finishedAt ? (
         <p className={styles.unwritten}>
           This Lesson hasn’t been written yet.
@@ -217,9 +225,11 @@ function FinishBar({ lesson }: { lesson: LessonView }) {
     ? `Finished on ${shortDate.format(lesson.finishedAt)}.`
     : lesson.readOnly
       ? "This is a sample course, so nothing is saved and Finish is off."
-      : allAnswered
-        ? "Every question answered."
-        : `Answer every question to finish (${answered}/${total}).`;
+      : lesson.course.done
+        ? "This Course is Done, so nothing is saved and Finish is off."
+        : allAnswered
+          ? "Every question answered."
+          : `Answer every question to finish (${answered}/${total}).`;
 
   if (lesson.finishedAt) {
     return (
@@ -235,7 +245,7 @@ function FinishBar({ lesson }: { lesson: LessonView }) {
     <FinishButton
       courseId={lesson.course.id}
       index={lesson.index}
-      enabled={!lesson.readOnly && allAnswered}
+      enabled={!lesson.readOnly && !lesson.course.done && allAnswered}
       note={note}
       initial={lesson.finishing}
     />

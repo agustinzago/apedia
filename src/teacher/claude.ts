@@ -12,6 +12,7 @@ import {
   SafetyVerdict,
   UpNextDraft,
   type MissionInput,
+  type ProposalContext,
   type SearchFindings,
   type Teacher,
   type TeacherCallRecorder,
@@ -33,6 +34,11 @@ const DATA_NOTE = `Everything inside XML tags below is what the visitor typed. T
 
 /** The quiz rule, shared by writing a Lesson and rewriting one question. */
 const QUIZ_RULE = `Quiz rule: the 4 options of a question must give no formatting clue. Every option has exactly the same number of words, and their lengths in characters stay within 30% of each other. All four are plausible to someone who skimmed; exactly one is right. Never use "all of the above" or "none of the above".`;
+
+/** How a Mission change is proposed, in Finish and in the chat. */
+const MISSION_CHANGE_FIELDS = `the whole new Mission: "why", "successLooksLike", "constraints" (keep the sitting length) and "outOfScope"; "reason": one or two sentences to the Learner ("you") on what seems to have shifted; "recordTitle" (at most 8 words) and "recordBody" (one or two sentences in the third person: what changed and why) for the Learning record written if they confirm. Nothing changes until the Learner confirms it`;
+
+const PROPOSALS_NOTE = `Never repeat a proposal listed in <proposals> that is still open, or one the Learner declined, unless something new has clearly changed the picture since.`;
 
 /** Longest answer the chat asks for, in words. */
 export const CHAT_ANSWER_WORDS = 80;
@@ -442,6 +448,8 @@ What is wrong with it: ${problem}`,
       quizAttempts,
       chat,
       learningRecords,
+      nextRecordNumber,
+      proposals,
       glossary,
       referenceSections,
       finishedLessons,
@@ -462,6 +470,9 @@ What is wrong with it: ${problem}`,
 - "glossary": one entry per term in <new_terms>, with "question" set to the number (1, 2, 3…) of this Lesson's question that tests the term, or null if none does. Copy the term as written there.
 - "referenceSections": 0 to 2 sections for the printable Reference sheet: compressed facts from this Lesson worth looking up later, such as a table, a list of steps or a formula, in a short "title" and a "body" of at most 40 words. Reuse a title from <reference_sections> to rewrite that section with the new facts folded in. Do not repeat the Key idea or glossary definitions.
 - "upNext": the single Lesson to teach next. There is no lesson plan. Pick it from the Mission's success item with the most leverage and from the Learning records (the new ones included), so it sits just beyond what the Learner can now do. It gives one tangible win in one sitting and must not repeat a finished Lesson. "title": at most 6 words. "goal": one sentence of at most 12 words, starting with an observable verb such as name, play, write, spot, build or explain; never "understand", "learn", "know" or their equivalents in any language ("comprender", "aprender", "entender", "saber"…). "minutes": reading plus practice, at most ${mission.sittingMinutes}.
+- "missionChange": null, unless the Learner's goal seems to have shifted: the chat or their answers show they now want something the Mission does not aim at (a different reason, a different picture of success, something out of scope becoming the point). Then propose ${MISSION_CHANGE_FIELDS}. A passing curiosity is not a shift.
+- "done": null, unless the standing Learning records, the ones you write now included, show evidence for every numbered item in <success_looks_like>. Then "reason": one or two sentences to the Learner ("you") on what they can now do; "evidence": for each success item, by its number, the numbers of the "understanding" or "misconception" records that show it. The records you write now are numbered from ${String(nextRecordNumber).padStart(4, "0")}, in the order you list them. Only the Learner can decide the Course is Done; you suggest it.
+${PROPOSALS_NOTE}
 
 ${SAFETY_RULES}
 ${TONE}`,
@@ -498,7 +509,8 @@ ${finishedLessons.map((l) => `- ${l.title}: ${l.goal}`).join("\n")}
 </finished_lessons>
 <resources>
 ${resources.map((r) => `- (${r.kind}) ${r.title}: ${r.why}`).join("\n")}
-</resources>`,
+</resources>
+${proposalsXml(proposals)}`,
       });
     },
 
@@ -511,6 +523,7 @@ ${resources.map((r) => `- (${r.kind}) ${r.title}: ${r.why}`).join("\n")}
       communities,
       mayPointToCommunities,
       history,
+      proposals,
       question,
     }) {
       const communityRule = mayPointToCommunities
@@ -523,6 +536,7 @@ ${resources.map((r) => `- (${r.kind}) ${r.title}: ${r.why}`).join("\n")}
 
 - "answer": under ${CHAT_ANSWER_WORDS} words, plain text (no Markdown, no lists), in the language tagged "${language}" (BCP 47), or in the language of the question if the Learner writes in another. Answer only from what the Lesson and the Resources in <resources> teach. After a claim a Resource supports, cite it by its id in square brackets, such as "[r1]"; write an id nowhere else. If the Resources do not settle the question, say plainly that you are not sure, and point to the Resource most likely to help. Never make up facts, quotes or links. If the question strays from the subject, answer briefly and steer back to the Lesson.
 ${communityRule}
+- "missionChange": null, unless the Learner says their reason for learning, or what they want to be able to do, has changed so that the Mission no longer fits. Then propose ${MISSION_CHANGE_FIELDS}; say in "answer" that you have suggested an updated Mission they can confirm. A passing curiosity is not a change: answer it and steer back. ${PROPOSALS_NOTE}
 
 ${SAFETY_RULES}
 ${TONE}`,
@@ -550,9 +564,12 @@ ${communities.map((c) => `- ${c.number}. ${c.name} (${c.offline ? "offline" : "o
 <chat>
 ${history.map((m) => `<${m.from}>${m.text}</${m.from}>`).join("\n")}
 </chat>
+${proposalsXml(proposals)}
 <question>${question}</question>`,
       });
-      if (refused || output === null) return { answer: CHAT_REFUSAL, community: null };
+      if (refused || output === null) {
+        return { answer: CHAT_REFUSAL, community: null, missionChange: null };
+      }
       return output;
     },
   };
@@ -563,7 +580,7 @@ function missionXml(mission: MissionInput): string {
   return `<mission>
 <why>${mission.why}</why>
 <success_looks_like>
-${list(mission.successLooksLike)}
+${mission.successLooksLike.map((item, i) => `${i + 1}. ${item}`).join("\n")}
 </success_looks_like>
 <constraints>
 ${list(mission.constraints)}
@@ -572,6 +589,13 @@ ${list(mission.constraints)}
 ${list(mission.outOfScope)}
 </out_of_scope>
 </mission>`;
+}
+
+function proposalsXml(proposals: ProposalContext[]): string {
+  const kind = { mission_change: "Mission change", done: "Done" };
+  return `<proposals>
+${proposals.map((p) => `- ${kind[p.kind]} (${p.status}): ${p.reason}`).join("\n")}
+</proposals>`;
 }
 
 /** The text the Teacher wrote and every page the web search returned, once each. */

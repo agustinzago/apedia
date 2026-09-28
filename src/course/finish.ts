@@ -12,6 +12,13 @@ import { missionOf, upNextProblem } from "./course-creation";
 import { resumeJob, viewOf, type JobRow, type JobRun, type JobStepResult, type JobView } from "./jobs";
 import { LessonContent, type Question } from "./lesson-content";
 import { findLessonJob, findOwnLessonIn, type LessonRow } from "./lessons";
+import {
+  doneEvidence,
+  insertProposal,
+  missionChangeProblem,
+  proposalContext,
+  proposedMission,
+} from "./proposals";
 
 /**
  * Finish (ADR 0002, ADR 0004): once every quiz question is answered, a
@@ -19,7 +26,10 @@ import { findLessonJob, findOwnLessonIn, type LessonRow } from "./lessons";
  * the Learning records it earned, promotes Glossary terms, grows the
  * Reference sheet and picks the next Up next, whose content waits for its
  * first open. The evidence rules are asked for in the prompt and checked
- * here: a record or term that breaks them is dropped, and logged.
+ * here: a record or term that breaks them is dropped, and logged. The Teacher
+ * may also propose a Mission change or suggest Done, which wait for the
+ * Learner (see ./proposals); Done only when every success item has a
+ * standing record behind it.
  */
 
 export type FinishStep = "finish";
@@ -37,12 +47,12 @@ export type FinishLessonResult =
     }
   | {
       ok: false;
-      reason: "not-found" | "read-only" | "not-written" | "unanswered" | "finished";
+      reason: "not-found" | "read-only" | "not-written" | "unanswered" | "finished" | "done";
     };
 
 export type RetryFinishResult =
   | { ok: true; jobId: string }
-  | { ok: false; reason: "not-found" | "read-only" | "nothing-to-retry" };
+  | { ok: false; reason: "not-found" | "read-only" | "nothing-to-retry" | "done" };
 
 /** A quiz attempt as a record's evidence, by its id ("L2Q3"). */
 type AttemptFact = { lessonIndex: number; correct: boolean; at: Date };
@@ -143,7 +153,10 @@ export function createFinishOperations({ db, teacher }: { db: Db; teacher: Teach
       evidence.attempts.set(id, { lessonIndex: entry.lesson.index, correct: a.correct, at: a.at });
     }
 
-    const chat = await chatEvidence(db, lesson.id);
+    const [chat, proposals] = await Promise.all([
+      chatEvidence(db, lesson.id),
+      proposalContext(db, courseId),
+    ]);
     for (const m of chat) if (m.from === "learner") evidence.learnerChat.add(m.id);
 
     const input: FinishLessonInput = {
@@ -165,6 +178,8 @@ export function createFinishOperations({ db, teacher }: { db: Db; teacher: Teach
         title: r.title,
         body: r.body,
       })),
+      nextRecordNumber: (last ?? 0) + 1,
+      proposals,
       glossary,
       referenceSections: sections.map((s) => ({ title: s.title, body: s.body })),
       finishedLessons: [...counted.values()].map(({ lesson: l }) => ({
@@ -235,12 +250,16 @@ export function createFinishOperations({ db, teacher }: { db: Db; teacher: Teach
 
       await run.say("Writing down what you learned.");
       const standing = new Set(input.learningRecords.map((r) => r.number));
-      const records = draft.learningRecords.flatMap((record) => {
+      // Each kept record by the number the Teacher cites it by (from
+      // `nextRecordNumber`, in draft order), with the number it will get.
+      const cited = new Map<number, { number: number; kind: RecordKind }>();
+      const records = draft.learningRecords.flatMap((record, i) => {
         const problem = recordProblem(record, evidence, lesson.index);
         if (problem !== null) {
           console.warn(`Lesson ${lesson.id}: dropping the record “${record.title}”: ${problem}`);
           return [];
         }
+        cited.set(input.nextRecordNumber + i, { number: lastNumber + cited.size + 1, kind: record.kind });
         // Each standing record is replaced at most once.
         const supersedes = [...new Set(record.supersedes)].filter((n) => standing.delete(n));
         return [
@@ -261,8 +280,9 @@ export function createFinishOperations({ db, teacher }: { db: Db; teacher: Teach
       });
       const sectionChanges = referenceSectionChanges(draft, sections);
 
+      const kept = input.learningRecords.filter((r) => standing.has(r.number));
       const next = await nextLesson(input, draft, [
-        ...input.learningRecords.filter((r) => standing.has(r.number)),
+        ...kept,
         ...records.map((r, i) => ({
           number: lastNumber + i + 1,
           kind: r.kind,
@@ -270,6 +290,16 @@ export function createFinishOperations({ db, teacher }: { db: Db; teacher: Teach
           body: r.body,
         })),
       ]);
+      const proposals = proposalsFrom(draft, {
+        courseId: course.id,
+        lessonId: lesson.id,
+        mission: input.mission,
+        standing: [
+          ...kept.map((r) => ({ number: r.number, kind: r.kind as RecordKind })),
+          ...[...cited].map(([number, { kind }]) => ({ number, kind })),
+        ],
+        renumber: (n) => cited.get(n)?.number ?? n,
+      });
 
       await db.transaction(async (tx) => {
         await run.advance(null, `Up next: “${next.title.trim()}”.`, {}, tx);
@@ -286,6 +316,8 @@ export function createFinishOperations({ db, teacher }: { db: Db; teacher: Teach
           .from(schema.learningRecord)
           .where(eq(schema.learningRecord.courseId, course.id));
         let number = last ?? 0;
+        // Records written since the Teacher was given the numbers move these along.
+        const shift = number - lastNumber;
         for (const record of records) {
           const [row] = await tx
             .insert(schema.learningRecord)
@@ -335,6 +367,13 @@ export function createFinishOperations({ db, teacher }: { db: Db; teacher: Teach
           }
         }
 
+        // A Course confirmed Done meanwhile gets no Up next and no proposals.
+        const [{ status }] = await tx
+          .select({ status: schema.course.status })
+          .from(schema.course)
+          .where(eq(schema.course.id, course.id));
+        if (status === "done") return;
+
         // Up next's content is written on its first open, not now.
         await tx
           .insert(schema.lesson)
@@ -346,6 +385,21 @@ export function createFinishOperations({ db, teacher }: { db: Db; teacher: Teach
             minutes: next.minutes,
           })
           .onConflictDoNothing();
+
+        for (const proposal of proposals) {
+          await insertProposal(
+            tx,
+            proposal.kind === "done"
+              ? {
+                  ...proposal,
+                  evidence: proposal.evidence.map((e) => ({
+                    ...e,
+                    records: e.records.map((n) => (n > lastNumber ? n + shift : n)),
+                  })),
+                }
+              : proposal,
+          );
+        }
       });
       return "stop";
     },
@@ -364,6 +418,7 @@ export function createFinishOperations({ db, teacher }: { db: Db; teacher: Teach
       const { lesson } = found;
       if (lesson.finishedAt !== null) return { ok: false, reason: "finished" };
       if (lesson.content === null) return { ok: false, reason: "not-written" };
+      if (found.course.status === "done") return { ok: false, reason: "done" };
 
       const { quiz } = LessonContent.parse(lesson.content);
       const answered = await db
@@ -410,6 +465,7 @@ export function createFinishOperations({ db, teacher }: { db: Db; teacher: Teach
       if (!found.ok) return found;
       const job = await findFinishJob(found.lesson.id);
       if (!job || found.lesson.finishedAt !== null) return { ok: false, reason: "nothing-to-retry" };
+      if (found.course.status === "done") return { ok: false, reason: "done" };
       await resumeJob(db, job.id, "Trying again.");
       // Pending, running or done: nothing to reset; starting it again is harmless.
       return { ok: true, jobId: job.id };
@@ -524,6 +580,63 @@ function referenceSectionChanges(
     );
   }
   return changes;
+}
+
+type RecordKind = (typeof schema.learningRecordKind.enumValues)[number];
+
+type FinishProposal = Parameters<typeof insertProposal>[1];
+
+/**
+ * The Mission change and Done suggestion a Finish may raise, each only if it
+ * keeps the rules; one that breaks them is dropped, and logged. Done rests on
+ * the records standing once this Finish is written, cited by the numbers the
+ * Teacher gave them; `renumber` turns those into the numbers they get.
+ */
+function proposalsFrom(
+  draft: Pick<FinishDraft, "missionChange" | "done">,
+  {
+    courseId,
+    lessonId,
+    mission,
+    standing,
+    renumber,
+  }: {
+    courseId: string;
+    lessonId: string;
+    mission: FinishLessonInput["mission"];
+    standing: { number: number; kind: RecordKind }[];
+    renumber: (cited: number) => number;
+  },
+): FinishProposal[] {
+  const proposals: FinishProposal[] = [];
+  const base = { courseId, lessonId, source: "finish" as const };
+  if (draft.missionChange) {
+    const problem = missionChangeProblem(draft.missionChange, mission);
+    if (problem === null) {
+      proposals.push({
+        ...base,
+        kind: "mission_change",
+        reason: draft.missionChange.reason,
+        mission: proposedMission(draft.missionChange),
+      });
+    } else {
+      console.warn(`Lesson ${lessonId}: dropping the proposed Mission change: ${problem}`);
+    }
+  }
+  if (draft.done) {
+    const checked = doneEvidence(draft.done, mission.successLooksLike, standing);
+    if (checked.ok) {
+      proposals.push({
+        ...base,
+        kind: "done",
+        reason: draft.done.reason,
+        evidence: checked.evidence.map((e) => ({ ...e, records: e.records.map(renumber) })),
+      });
+    } else {
+      console.warn(`Lesson ${lessonId}: dropping the Done suggestion: ${checked.problem}`);
+    }
+  }
+  return proposals;
 }
 
 /** Why Up next repeats a finished Lesson, or null. */

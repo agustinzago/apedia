@@ -1,6 +1,6 @@
 "use server";
 
-import type { ChatMessage, DailyLimitReached, JobView } from "@/course";
+import type { ChatMessage, DailyLimitReached, JobView, ProposalView } from "@/course";
 import { untilReset } from "@/app/daily-limit";
 import { getViewer } from "@/server/auth";
 import { getCourse } from "@/server/course";
@@ -12,6 +12,8 @@ export type OpenState = {
   /** True when today's Lessons are used up: the error says when the next can be written. */
   limited: boolean;
 };
+
+const DONE_NOTE = "This Course is Done, so no new Lessons are written.";
 
 /** Today's Lessons are used up. */
 function lessonLimitNote({ limit, resetsAt }: DailyLimitReached): string {
@@ -32,7 +34,9 @@ export async function openLesson(courseId: string, index: number): Promise<OpenS
   if (!opened.ok) {
     return opened.reason === "daily-limit"
       ? { view: null, error: lessonLimitNote(opened), limited: true }
-      : { view: null, error: "This Lesson isn’t yours to open.", limited: false };
+      : opened.reason === "done"
+        ? { view: null, error: DONE_NOTE, limited: false }
+        : { view: null, error: "This Lesson isn’t yours to open.", limited: false };
   }
   if (opened.start && opened.generation) {
     await startJobStep(opened.generation.jobId, await requestOrigin());
@@ -69,7 +73,9 @@ export async function retryLessonGeneration(courseId: string, index: number): Pr
           ? lessonLimitNote(retried)
           : retried.reason === "nothing-to-retry"
             ? "This Lesson is already written. Reload the page to see it."
-            : "This Lesson isn’t yours to write.",
+            : retried.reason === "done"
+              ? DONE_NOTE
+              : "This Lesson isn’t yours to write.",
     };
   }
   await startJobStep(retried.jobId, await requestOrigin());
@@ -103,7 +109,9 @@ export async function answerQuestion(
       error:
         answered.reason === "finished"
           ? "This Lesson is finished, so its answers can’t change."
-          : "Your answer couldn’t be saved. Reload the page and try again.",
+          : answered.reason === "done"
+            ? "This Course is Done, so answers are no longer saved."
+            : "Your answer couldn’t be saved. Reload the page and try again.",
     };
   }
   return {
@@ -129,7 +137,9 @@ export async function finishLesson(courseId: string, index: number): Promise<Fin
           ? "Answer every question first."
           : finished.reason === "finished"
             ? "This Lesson is already finished. Reload the page to see it."
-            : "This Lesson isn’t yours to finish.",
+            : finished.reason === "done"
+              ? "This Course is Done, so Lessons are no longer finished."
+              : "This Lesson isn’t yours to finish.",
     };
   }
   if (finished.start) await startJobStep(finished.finishing.jobId, await requestOrigin());
@@ -158,14 +168,18 @@ export async function retryFinish(courseId: string, index: number): Promise<Retr
       error:
         retried.reason === "nothing-to-retry"
           ? "This Lesson is already finished. Reload the page to see it."
-          : "This Lesson isn’t yours to finish.",
+          : retried.reason === "done"
+            ? "This Course is Done, so Lessons are no longer finished."
+            : "This Lesson isn’t yours to finish.",
     };
   }
   await startJobStep(retried.jobId, await requestOrigin());
   return { error: null };
 }
 
-export type AskState = { ok: true; messages: ChatMessage[] } | { ok: false; error: string };
+export type AskState =
+  | { ok: true; messages: ChatMessage[]; proposal: ProposalView | null }
+  | { ok: false; error: string };
 
 /** "Ask your teacher": the question and the Teacher's answer, saved to the Lesson's chat. */
 export async function askTeacher(
@@ -189,8 +203,10 @@ export async function askTeacher(
               ? "Write a question first, a little shorter if it’s long."
               : asked.reason === "finished"
                 ? "This Lesson is finished, so its chat is closed."
-                : "This Lesson’s chat isn’t yours to use.",
+                : asked.reason === "done"
+                  ? "This Course is Done, so its chat is closed."
+                  : "This Lesson’s chat isn’t yours to use.",
     };
   }
-  return { ok: true, messages: asked.messages };
+  return { ok: true, messages: asked.messages, proposal: asked.proposal };
 }

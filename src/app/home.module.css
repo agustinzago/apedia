@@ -123,6 +123,10 @@
   font-size: 16px;
 }
 
+.courseDone {
+  color: var(--green-deep);
+}
+
 .courseTitle {
   font-family: var(--font-heading);
   font-weight: 700;

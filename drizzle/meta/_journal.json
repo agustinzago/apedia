@@ -71,6 +71,13 @@
       "when": 1790622904191,
       "tag": "0009_daily_caps",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1790624814925,
+      "tag": "0010_mission_change_and_done",
+      "breakpoints": true
     }
   ]
 }

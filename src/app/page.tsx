@@ -52,7 +52,12 @@ function YourCourses({ courses }: { courses: CourseSummary[] | null }) {
       {courses.map((course) => (
         <li key={course.id}>
           <Link href={`/courses/${course.id}`} className={`sketchy ${styles.courseCard}`}>
-            <span className={styles.courseSubject}>{course.subject}</span>
+            <span className={styles.courseSubject}>
+              {course.subject}
+              {course.status === "done" && (
+                <span className={styles.courseDone}> · Done ✓</span>
+              )}
+            </span>
             <span className={styles.courseTitle}>{course.title}</span>
           </Link>
         </li>

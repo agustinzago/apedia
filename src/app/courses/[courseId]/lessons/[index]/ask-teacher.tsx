@@ -1,32 +1,38 @@
 "use client";
 
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
-import type { ChatMessage, CommunityEntry } from "@/course";
+import type { ChatMessage, CommunityEntry, ProposalView } from "@/course";
 import { Mascot } from "@/components/mascot";
+import { ProposalCard } from "../../proposal-card";
 import { askTeacher } from "./actions";
 import styles from "./lesson.module.css";
 
 /**
  * Ask your teacher: the Lesson's chat. A question is saved with its answer
  * once the Teacher has replied, so the chat is there on the next visit.
- * Citations show as numbered links to the Course's Resources.
+ * Citations show as numbered links to the Course's Resources. A Mission
+ * change the Teacher proposes shows under the chat, to confirm or not.
  */
 export function AskTeacher({
   courseId,
   lessonIndex,
   initial,
+  proposals: initialProposals,
   maxLength,
   closedNote,
 }: {
   courseId: string;
   lessonIndex: number;
   initial: ChatMessage[];
+  /** Mission changes proposed in this chat, waiting for the Learner. */
+  proposals: ProposalView[];
   maxLength: number;
   /** Why the chat takes no questions (read-only or finished); null while it is open. */
   closedNote: string | null;
 }) {
   const inputId = useId();
   const [messages, setMessages] = useState(initial);
+  const [proposals, setProposals] = useState(initialProposals);
   const [draft, setDraft] = useState("");
   const [asking, setAsking] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -57,6 +63,11 @@ export function AskTeacher({
       return;
     }
     setMessages((current) => [...current, ...asked.messages]);
+    const { proposal } = asked;
+    // A newer proposal takes the place of an earlier one of its kind.
+    if (proposal) {
+      setProposals((current) => [...current.filter((p) => p.kind !== proposal.kind), proposal]);
+    }
   }
 
   if (closedNote !== null && messages.length === 0) {
@@ -93,6 +104,9 @@ export function AskTeacher({
           <li ref={end} aria-hidden className={styles.chatEnd} />
         </ol>
       )}
+      {proposals.map((proposal) => (
+        <ProposalCard key={proposal.id} courseId={courseId} proposal={proposal} />
+      ))}
       {closedNote !== null ? (
         <p className={styles.askNote}>{closedNote}</p>
       ) : (

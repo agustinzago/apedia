@@ -21,6 +21,9 @@ export default async function CourseLayout({
               Example course · read-only
             </span>
           )}
+          {course.status === "done" && (
+            <span className={styles.doneTag}>Done ✓</span>
+          )}
         </span>
         <h1 className={styles.title}>{course.title}</h1>
       </div>
