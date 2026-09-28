@@ -111,6 +111,37 @@ export type LessonResource = {
   why: string;
 };
 
+/** What the Resources tab shows. */
+export type CourseResources = {
+  /** In number order. */
+  resources: LessonResource[];
+  /** Parts of the Mission no Resource covers yet. */
+  gaps: string[];
+};
+
+export type CommunityEntry = {
+  name: string;
+  where: string;
+  /** Null for places with no single address, such as a local jam. */
+  url: string | null;
+  why: string;
+  offline: boolean;
+};
+
+/** What the Communities tab shows. */
+export type CourseCommunities = {
+  /** Online first, then offline. */
+  communities: CommunityEntry[];
+  /** The Learner said "Not for me": the Teacher stops pointing them to Communities. */
+  optedOut: boolean;
+  /** False for the read-only Example course. */
+  canOptOut: boolean;
+};
+
+export type SetCommunityOptOutResult =
+  | { ok: true }
+  | { ok: false; reason: "not-found" | "read-only" };
+
 export type LessonSection = {
   heading: string;
   body: string;
@@ -174,7 +205,7 @@ export function createCourseModule({
     return null;
   }
 
-  async function readResources(courseId: string) {
+  async function readResourcesByRef(courseId: string) {
     const rows = await db
       .select()
       .from(schema.resource)
@@ -336,6 +367,70 @@ export function createCourseModule({
       };
     },
 
+    /** The Resources tab: numbered Resources and the Gaps. Null if not found or not the viewer's. */
+    async readResources(
+      courseId: string,
+      viewer: Viewer,
+    ): Promise<CourseResources | null> {
+      const course = await findReadableCourse(courseId, viewer);
+      if (!course) return null;
+
+      const resources = [...(await readResourcesByRef(course.id)).values()].sort(
+        (a, b) => a.number - b.number,
+      );
+      const gaps = await db
+        .select({ description: schema.gap.description })
+        .from(schema.gap)
+        .where(eq(schema.gap.courseId, course.id))
+        .orderBy(asc(schema.gap.createdAt), asc(schema.gap.description));
+
+      return { resources, gaps: gaps.map((g) => g.description) };
+    },
+
+    /** The Communities tab, with the Learner's opt-out. Null if not found or not the viewer's. */
+    async readCommunities(
+      courseId: string,
+      viewer: Viewer,
+    ): Promise<CourseCommunities | null> {
+      const course = await findReadableCourse(courseId, viewer);
+      if (!course) return null;
+
+      const communities = await db
+        .select({
+          name: schema.community.name,
+          where: schema.community.where,
+          url: schema.community.url,
+          why: schema.community.why,
+          offline: schema.community.offline,
+        })
+        .from(schema.community)
+        .where(eq(schema.community.courseId, course.id))
+        .orderBy(asc(schema.community.offline), asc(schema.community.name));
+
+      return {
+        communities,
+        optedOut: course.communityOptOut,
+        canOptOut: !course.isExample,
+      };
+    },
+
+    /** "Not for me" on the Communities tab, or turning Communities back on. Only the Course's own Learner may. */
+    async setCommunityOptOut(
+      courseId: string,
+      learnerId: string,
+      optedOut: boolean,
+    ): Promise<SetCommunityOptOutResult> {
+      const course = await findReadableCourse(courseId, { learnerId });
+      if (!course) return { ok: false, reason: "not-found" };
+      if (course.isExample) return { ok: false, reason: "read-only" };
+
+      await db
+        .update(schema.course)
+        .set({ communityOptOut: optedOut })
+        .where(eq(schema.course.id, course.id));
+      return { ok: true };
+    },
+
     /** One Lesson, with its citations resolved to Resources. Null if not found or not the viewer's. */
     async readLesson(
       courseId: string,
@@ -368,7 +463,7 @@ export function createCourseModule({
       let content: LessonView["content"] = null;
       if (lesson.content !== null) {
         const c = LessonContent.parse(lesson.content);
-        const resources = await readResources(course.id);
+        const resources = await readResourcesByRef(course.id);
         const cite = (ref: string) => resources.get(ref) ?? [];
         content = {
           hook: c.hook,

@@ -1,5 +1,37 @@
 import { expect, test } from "@playwright/test";
 
+test("a visitor reads the Example course's Resources and Communities", async ({
+  page,
+}) => {
+  await page.goto("/courses/example-music-theory");
+
+  await page.getByRole("link", { name: "Resources", exact: true }).click();
+  const main = page.getByRole("main");
+  await expect(
+    main.getByRole("heading", { level: 2, name: "Trusted resources" }),
+  ).toBeVisible();
+  await expect(main.getByRole("heading", { level: 3 })).toHaveCount(5);
+  await expect(
+    main.getByRole("link", { name: "Open musictheory.net — Lessons on musictheory.net" }),
+  ).toHaveAttribute("href", "https://www.musictheory.net/lessons");
+  await expect(main.getByText(/ear training/)).toBeVisible();
+
+  await page.getByRole("link", { name: "Communities", exact: true }).click();
+  await expect(
+    main.getByRole("heading", { level: 2, name: "Practise with people" }),
+  ).toBeVisible();
+  await expect(main.getByRole("link", { name: "r/musictheory" })).toHaveAttribute(
+    "href",
+    "https://www.reddit.com/r/musictheory/",
+  );
+  const offline = main
+    .getByRole("listitem")
+    .filter({ hasText: "A local acoustic jam or open-mic night" });
+  await expect(offline.getByText("offline", { exact: true })).toBeVisible();
+  // The Example course is read-only: no "Not for me".
+  await expect(main.getByRole("button", { name: "Not for me" })).toHaveCount(0);
+});
+
 test("a visitor walks the Example course to a Lesson and answers its quiz", async ({
   page,
 }) => {

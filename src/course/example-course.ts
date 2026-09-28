@@ -1,3 +1,4 @@
+import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { schema, type Db } from "@/db";
 import fixtureJson from "./example-course.json";
@@ -124,6 +125,25 @@ export async function seedExampleCourse(db: Db): Promise<void> {
           })),
         )
         .onConflictDoNothing();
+    }
+
+    // Likewise for Communities and Gaps, which have no natural key to
+    // conflict on: seeded only while the Course has none.
+    if (
+      fx.communities.length > 0 &&
+      (await tx.$count(schema.community, eq(schema.community.courseId, fx.id))) === 0
+    ) {
+      await tx.insert(schema.community).values(
+        fx.communities.map((c) => ({ ...c, courseId: fx.id, createdAt: fx.createdAt })),
+      );
+    }
+    if (
+      fx.gaps.length > 0 &&
+      (await tx.$count(schema.gap, eq(schema.gap.courseId, fx.id))) === 0
+    ) {
+      await tx.insert(schema.gap).values(
+        fx.gaps.map((g) => ({ ...g, courseId: fx.id, createdAt: fx.createdAt })),
+      );
     }
 
     if (inserted.length === 0) return;
