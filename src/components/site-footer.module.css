@@ -1,0 +1,24 @@
+.footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 12px 28px;
+  padding: 22px var(--gutter) 32px;
+  max-width: 1240px;
+  margin: 0 auto;
+  border-top: 1.5px dashed var(--rule);
+  font-size: 18px;
+  color: var(--ink-muted);
+}
+
+.footer a {
+  color: var(--ink);
+  text-underline-offset: 4px;
+}
+
+.links {
+  margin-left: auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+}
