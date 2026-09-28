@@ -50,6 +50,8 @@ test("a visitor walks the Example course to a Lesson and answers its quiz", asyn
     "aria-current",
     "page",
   );
+  // The Example course cannot be deleted.
+  await expect(page.getByRole("button", { name: "Delete course" })).toHaveCount(0);
 
   await page.getByRole("link", { name: /The major scale/ }).click();
 

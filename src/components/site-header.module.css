@@ -31,6 +31,7 @@
 
 .email {
   color: var(--ink-muted);
+  text-decoration: none;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -46,4 +47,10 @@
   text-underline-offset: 4px;
   cursor: pointer;
   white-space: nowrap;
+}
+
+.email:hover {
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 4px;
 }

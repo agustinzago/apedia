@@ -1,6 +1,8 @@
 "use server";
 
+import { redirect } from "next/navigation";
 import type { CourseCreationView } from "@/course";
+import type { DeleteState } from "@/components/confirm-delete";
 import { untilReset } from "@/app/daily-limit";
 import { getViewer } from "@/server/auth";
 import { getCourse } from "@/server/course";
@@ -37,4 +39,21 @@ export async function retryCourseCreation(courseId: string): Promise<RetryState>
   }
   await startJobStep(retried.jobId, await requestOrigin());
   return { error: null };
+}
+
+/** "Delete course": removes the signed-in Learner's Course for good, then goes home. */
+export async function deleteCourse(courseId: string): Promise<DeleteState> {
+  const [course, viewer] = await Promise.all([getCourse(), getViewer()]);
+  if (viewer.learnerId === null) return { error: "Sign in again to delete this Course." };
+
+  const deleted = await course.deleteCourse(courseId, viewer.learnerId);
+  if (!deleted.ok) {
+    return {
+      error:
+        deleted.reason === "read-only"
+          ? "The Example course can’t be deleted."
+          : "This Course isn’t yours to delete.",
+    };
+  }
+  redirect("/");
 }

@@ -156,6 +156,13 @@
   }
 }
 
+.deleteCourse {
+  display: flex;
+  flex-direction: column;
+  padding-top: 20px;
+  border-top: 1.5px dashed var(--rule);
+}
+
 .creationRetry {
   display: flex;
   flex-direction: column;

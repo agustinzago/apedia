@@ -14,7 +14,9 @@ export async function SiteHeader() {
       <div className={styles.account}>
         {email ? (
           <>
-            <span className={styles.email}>{email}</span>
+            <Link href="/account" className={styles.email}>
+              {email}
+            </Link>
             <form
               action={async () => {
                 "use server";
