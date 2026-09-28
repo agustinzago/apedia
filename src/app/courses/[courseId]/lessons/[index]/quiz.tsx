@@ -1,36 +1,62 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useId, useState } from "react";
 import type { Question } from "@/course";
+import { answerQuestion } from "./actions";
 import styles from "./lesson.module.css";
 
 type OptionState = "open" | "right" | "wrong" | "faded";
 
 /**
  * Check yourself. Picking an option locks the question and shows feedback
- * straight away. Answers are kept in the page only; nothing is saved yet.
+ * straight away. The pick is saved as a quiz attempt; in the read-only
+ * Example course it is kept in the page only.
  */
 export function Quiz({
+  courseId,
+  lessonIndex,
   questions,
   answers,
   finished,
+  readOnly,
 }: {
+  courseId: string;
+  lessonIndex: number;
   questions: Question[];
   answers: { questionIndex: number; chosenOption: number }[];
   finished: boolean;
+  readOnly: boolean;
 }) {
+  const router = useRouter();
   const [chosen, setChosen] = useState<(number | null)[]>(() =>
     questions.map(
       (_, i) => answers.find((a) => a.questionIndex === i)?.chosenOption ?? null,
     ),
   );
+  const [error, setError] = useState<string | null>(null);
 
-  function pick(questionIndex: number, option: number) {
-    setChosen((prev) =>
-      prev[questionIndex] === null
-        ? prev.map((c, i) => (i === questionIndex ? option : c))
-        : prev,
+  const choose = (questionIndex: number, option: number | null) =>
+    setChosen((prev) => prev.map((c, i) => (i === questionIndex ? option : c)));
+
+  async function pick(questionIndex: number, option: number) {
+    if (chosen[questionIndex] !== null) return;
+    choose(questionIndex, option);
+    if (readOnly) return;
+
+    setError(null);
+    const saved = await answerQuestion(courseId, lessonIndex, questionIndex, option).catch(
+      () => ({ ok: false as const, error: "Your answer couldn’t be saved. Check your connection and pick again." }),
     );
+    if (!saved.ok) {
+      choose(questionIndex, null);
+      setError(saved.error);
+      return;
+    }
+    // A question locks on its first answer; show that one.
+    if (saved.chosenOption !== option) choose(questionIndex, saved.chosenOption);
+    // The Finish bar reads the saved answers.
+    router.refresh();
   }
 
   return (
@@ -56,6 +82,11 @@ export function Quiz({
           />
         ))}
       </ol>
+      {error && (
+        <p className={styles.error} role="alert">
+          {error}
+        </p>
+      )}
     </section>
   );
 }

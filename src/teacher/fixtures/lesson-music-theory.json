@@ -1,0 +1,62 @@
+{
+  "hook": "You already play G, C and D. Knowing why they sound right together is the first step to working out a song’s chords yourself.",
+  "sections": [
+    {
+      "heading": "A key is a family",
+      "body": "A key is a family of seven notes that a song keeps coming back to. The key of G major uses G, A, B, C, D, E and F sharp. Chords built only from those notes belong to the key, so they sound at home next to each other. That is why G, C and D, the three chords you strum most, fit together so easily: every note in them comes from the G major family.",
+      "citations": ["r1", "r2"]
+    },
+    {
+      "heading": "The home chord",
+      "body": "One chord in each key feels like home: the chord named after the key. In a song in G major, the G chord is where the music rests, and most songs end on it. The other chords create a little tension that the home chord resolves. When you look at a chord chart, the chord that starts and ends the song is usually the home chord, and it tells you the key.",
+      "citations": ["r3"]
+    }
+  ],
+  "keyIdea": "The chord a song keeps returning to, and usually ends on, names its key.",
+  "practice": {
+    "title": "Find the home chord",
+    "steps": [
+      "Pick a song you already play from a chord chart.",
+      "Play it through and notice which chord feels like resting.",
+      "Check the first and last chords of the chart.",
+      "Write down the key the home chord names."
+    ]
+  },
+  "practiceMinutes": 7,
+  "quiz": [
+    {
+      "question": "A song's chord chart starts and ends on C. Which key is it most likely in?",
+      "options": ["C major", "G major", "D major", "E minor"],
+      "answer": 0,
+      "explanation": "The chord a song starts and ends on is usually its home chord, which names the key."
+    },
+    {
+      "question": "Why do G, C and D sound good together?",
+      "options": [
+        "They share one key",
+        "They use open strings",
+        "They are easy shapes",
+        "They have three notes"
+      ],
+      "answer": 0,
+      "explanation": "Every note in G, C and D belongs to the G major family, so they share one key."
+    },
+    {
+      "question": "How many notes make up a major key?",
+      "options": ["Seven notes", "Five notes", "Eight notes", "Twelve notes"],
+      "answer": 0,
+      "explanation": "A major key is a family of seven notes."
+    }
+  ],
+  "readNext": "r1",
+  "newTerms": [
+    {
+      "term": "Key",
+      "definition": "The family of seven notes a song is built from and keeps returning to."
+    },
+    {
+      "term": "Home chord",
+      "definition": "The chord named after the key, where the music feels at rest."
+    }
+  ]
+}

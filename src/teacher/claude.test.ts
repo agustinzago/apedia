@@ -1,6 +1,7 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { describe, expect, it, vi } from "vitest";
 import { createClaudeTeacher, SEARCH_MAX_USES, TeacherError } from "./claude";
+import lessonFixture from "./fixtures/lesson-music-theory.json";
 import safetyRedirect from "./fixtures/safety-redirect.json";
 
 /**
@@ -176,5 +177,74 @@ describe("teacher: talking to Claude", () => {
     expect(findings.results).toEqual([
       { url: "https://www.musictheory.net/lessons", title: "Lessons" },
     ]);
+  });
+
+  const writeLessonInput = {
+    subject: "Music theory",
+    language: "es",
+    mission,
+    lesson: { index: 2, title: "La escala mayor", goal: "Tocar la escala de sol mayor" },
+    resources: [
+      { id: "r1", kind: "site", title: "musictheory.net", author: "Ricci Adams", why: "Free lessons." },
+    ],
+    glossary: [{ term: "Tono", definition: "Dos trastes." }],
+    keyIdeas: [{ lessonIndex: 1, lessonTitle: "Las notas", text: "Hay doce notas." }],
+    learningRecords: [{ number: 1, kind: "prior_knowledge", title: "Toca acordes", body: "…" }],
+    feedback: null,
+  };
+
+  it("writes a Lesson with Sonnet and a structured output, citing Resources by id, in the Course's language", async () => {
+    const { client, parse } = clientReturning({ stop_reason: "end_turn", parsed_output: lessonFixture });
+
+    const lesson = await createClaudeTeacher({ client }).writeLesson(writeLessonInput);
+
+    expect(lesson).toEqual(lessonFixture);
+    const request = parse.mock.calls[0][0];
+    expect(request.model).toBe("claude-sonnet-5");
+    expect(request.output_config.format.type).toBe("json_schema");
+    expect(request.system).toContain('language tagged "es"');
+    expect(request.system).toContain("10-minute sitting");
+    expect(request.system).toContain("The last question reviews the Key idea of one earlier Lesson");
+    const user = request.messages[0].content;
+    expect(user).toContain("- r1 (site) musictheory.net, by Ricci Adams: Free lessons.");
+    expect(user).toContain("- Tono: Dos trastes.");
+    expect(user).toContain("- Lesson 1, Las notas: Hay doce notas.");
+    expect(user).not.toContain("was rejected");
+  });
+
+  it("asks for no review question in the first Lesson, and passes on why a draft was rejected", async () => {
+    const { client, parse } = clientReturning({ stop_reason: "end_turn", parsed_output: lessonFixture });
+
+    await createClaudeTeacher({ client }).writeLesson({
+      ...writeLessonInput,
+      keyIdeas: [],
+      feedback: '"r9" is not a Resource of this Course.',
+    });
+
+    const request = parse.mock.calls[0][0];
+    expect(request.system).toContain("All three questions check this Lesson.");
+    expect(request.messages[0].content).toContain(
+      'Your previous Lesson was rejected: "r9" is not a Resource of this Course.',
+    );
+  });
+
+  it("rewrites one quiz question with the reason it broke the quiz rule", async () => {
+    const question = lessonFixture.quiz[0];
+    const { client, parse } = clientReturning({ stop_reason: "end_turn", parsed_output: question });
+
+    const rewritten = await createClaudeTeacher({ client }).rewriteQuestion({
+      subject: "Music theory",
+      language: "en",
+      lesson: { title: "Keys", keyIdea: lessonFixture.keyIdea },
+      question: { ...question, options: ["C", "G major", "D", "E"] },
+      problem: "The options have 1, 2, 1, 1 words.",
+    });
+
+    expect(rewritten).toEqual(question);
+    const request = parse.mock.calls[0][0];
+    expect(request.model).toBe("claude-sonnet-5");
+    expect(request.system).toContain("Quiz rule");
+    expect(request.messages[0].content).toContain("1. G major");
+    expect(request.messages[0].content).toContain("What is wrong with it: The options have 1, 2, 1, 1 words.");
   });
 });

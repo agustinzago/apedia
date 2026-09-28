@@ -144,6 +144,73 @@ export const UpNextDraft = z.object({
 });
 export type UpNextDraft = z.infer<typeof UpNextDraft>;
 
+/** A quiz question as the Teacher writes it; `course` checks the counts and the quiz rule. */
+export const QuestionDraft = z.object({
+  question: z.string(),
+  /** Four, with exactly the same number of words and similar lengths. */
+  options: z.array(z.string()),
+  /** Index of the right option. */
+  answer: z.number().int(),
+  /** One sentence on why the right option is right. */
+  explanation: z.string(),
+});
+export type QuestionDraft = z.infer<typeof QuestionDraft>;
+
+/**
+ * One Lesson. Counts and references (2–3 sections, citations to this
+ * Course's Resources, 3 quiz questions, fitting one sitting) are asked for in
+ * the prompt and checked in `course`, which sends a draft that breaks them
+ * back once with the reason.
+ */
+export const LessonDraft = z.object({
+  /** Why this matters for their Mission, in one or two sentences. */
+  hook: z.string(),
+  /** 2 or 3; each body 60–90 words, citing at least one Resource id. */
+  sections: z.array(
+    z.object({ heading: z.string(), body: z.string(), citations: z.array(z.string()) }),
+  ),
+  keyIdea: z.string(),
+  /** 3 or 4 real-world steps. */
+  practice: z.object({ title: z.string(), steps: z.array(z.string()) }),
+  practiceMinutes: z.number().int(),
+  /** Exactly 3. */
+  quiz: z.array(QuestionDraft),
+  /** The id of the single best Resource to read next. */
+  readNext: z.string(),
+  /** At most 3 terms the Lesson introduces. */
+  newTerms: z.array(z.object({ term: z.string(), definition: z.string() })),
+});
+export type LessonDraft = z.infer<typeof LessonDraft>;
+
+export type WriteLessonInput = {
+  subject: string;
+  /** BCP 47 tag of the Interview's language; the Lesson is written in it. */
+  language: string;
+  mission: MissionInput;
+  /** The Up next Lesson to write. */
+  lesson: { index: number; title: string; goal: string };
+  /** The Course's kept Resources, cited by id. */
+  resources: { id: string; kind: string; title: string; author: string; why: string }[];
+  /** Terms the Learner has shown they understand; the Lesson must use these words. */
+  glossary: { term: string; definition: string }[];
+  /** The Key ideas of earlier Lessons, oldest first; empty for the first Lesson. */
+  keyIdeas: { lessonIndex: number; lessonTitle: string; text: string }[];
+  /** Oldest first. */
+  learningRecords: { number: number; kind: string; title: string; body: string }[];
+  /** Why the previous draft was rejected, when this is a second try. */
+  feedback: string | null;
+};
+
+export type RewriteQuestionInput = {
+  subject: string;
+  language: string;
+  lesson: { title: string; keyIdea: string };
+  /** The question that broke the quiz rule. */
+  question: QuestionDraft;
+  /** What is wrong with it. */
+  problem: string;
+};
+
 export interface Teacher {
   /** Haiku: is the subject, with its reason, something to teach? Also detects the visitor's language. */
   checkSafety(input: SafetyCheckInput): Promise<SafetyVerdict>;
@@ -157,4 +224,8 @@ export interface Teacher {
   researchStructure(input: ResearchStructureInput): Promise<ResearchDraft>;
   /** Sonnet: picks Up next from the Mission's highest-leverage success item and the Learning records. */
   pickUpNext(input: PickUpNextInput): Promise<UpNextDraft>;
+  /** Sonnet, structured output: writes the Up next Lesson, grounded in the Course's Resources. */
+  writeLesson(input: WriteLessonInput): Promise<LessonDraft>;
+  /** Sonnet, structured output: rewrites one quiz question that broke the quiz rule. */
+  rewriteQuestion(input: RewriteQuestionInput): Promise<QuestionDraft>;
 }

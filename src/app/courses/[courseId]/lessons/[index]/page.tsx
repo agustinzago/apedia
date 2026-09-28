@@ -3,6 +3,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { LessonResource, LessonSection, LessonView } from "@/course";
 import { loadLesson } from "@/server/course";
+import { FinishButton } from "./finish-button";
+import { LessonGeneration } from "./lesson-generation";
 import { Quiz } from "./quiz";
 import styles from "./lesson.module.css";
 
@@ -114,19 +116,28 @@ export default async function LessonPage({
           </section>
 
           <Quiz
+            courseId={lesson.course.id}
+            lessonIndex={lesson.index}
             questions={content.quiz}
             answers={lesson.answers}
             finished={lesson.finishedAt !== null}
+            readOnly={lesson.readOnly}
           />
 
           {content.readNext && <ReadNext resource={content.readNext} />}
 
           <FinishBar lesson={lesson} />
         </>
-      ) : (
+      ) : lesson.readOnly || lesson.finishedAt ? (
         <p className={styles.unwritten}>
           This Lesson hasn’t been written yet.
         </p>
+      ) : (
+        <LessonGeneration
+          courseId={lesson.course.id}
+          index={lesson.index}
+          initial={lesson.generation}
+        />
       )}
     </main>
   );
@@ -183,19 +194,27 @@ function ReadNext({ resource }: { resource: LessonResource }) {
 }
 
 function FinishBar({ lesson }: { lesson: LessonView }) {
-  // Finish is wired up in a later ticket; until then the button never acts.
+  const total = lesson.content?.quiz.length ?? 0;
+  const answered = lesson.answers.length;
+  const allAnswered = answered >= total;
   const note = lesson.finishedAt
     ? `Finished on ${shortDate.format(lesson.finishedAt)}.`
-    : lesson.course.isExample
+    : lesson.readOnly
       ? "This is a sample course, so nothing is saved and Finish is off."
-      : "Answer every question to finish.";
+      : allAnswered
+        ? "Every question answered."
+        : `Answer every question to finish (${answered}/${total}).`;
 
   return (
     <div data-noprint className={styles.finish}>
       <span className={styles.finishNote}>{note}</span>
-      <button type="button" className="button-ink" disabled>
-        {lesson.finishedAt ? "Finished ✓" : "Finish"}
-      </button>
+      {lesson.finishedAt ? (
+        <button type="button" className="button-ink" disabled>
+          Finished ✓
+        </button>
+      ) : (
+        <FinishButton enabled={!lesson.readOnly && allAnswered} />
+      )}
     </div>
   );
 }
