@@ -6,13 +6,23 @@ import { missionOf } from "./course-creation";
 import { LessonContent } from "./lesson-content";
 import { findOwnLessonIn } from "./lessons";
 import type { DailyCaps, DailyLimitReached } from "./limits";
+import {
+  insertProposal,
+  missionChangeProblem,
+  proposalContext,
+  proposalView,
+  proposedMission,
+  type ProposalView,
+} from "./proposals";
 
 /**
  * "Ask your teacher": a Lesson's chat. The Teacher answers from the Lesson
  * and the Course's Resources, citing them as "[r3]", which the chat shows as
  * numbered links. For a "wisdom" question or an uncertain answer it may
- * suggest a Community, unless the Learner said "Not for me". Each Lesson's
- * messages are saved, numbered, for Finish to weigh as evidence.
+ * suggest a Community, unless the Learner said "Not for me". When the
+ * Learner says their goal has changed, it may propose a Mission change, which
+ * waits for their confirmation (see ./proposals). Each Lesson's messages are
+ * saved, numbered, for Finish to weigh as evidence.
  */
 
 /** The longest question the chat takes, in characters. */
@@ -23,6 +33,8 @@ export type AskTeacherResult =
       ok: true;
       /** The Learner's question and the Teacher's answer, as saved. */
       messages: ChatMessage[];
+      /** A Mission change the answer proposes, waiting for the Learner; null for none. */
+      proposal: ProposalView | null;
     }
   | {
       ok: false;
@@ -31,6 +43,8 @@ export type AskTeacherResult =
         | "read-only"
         | "not-written"
         | "finished"
+        /** The Course is Done: its Lessons stay readable, but the chat is closed. */
+        | "done"
         | "invalid"
         /** The Teacher could not answer just now; nothing was saved. */
         | "unavailable";
@@ -163,6 +177,7 @@ export function createChatOperations({
       const { lesson } = found;
       if (lesson.content === null) return { ok: false, reason: "not-written" };
       if (lesson.finishedAt !== null) return { ok: false, reason: "finished" };
+      if (found.course.status === "done") return { ok: false, reason: "done" };
       const asked = question.trim();
       if (asked === "" || asked.length > MAX_QUESTION_LENGTH) {
         return { ok: false, reason: "invalid" };
@@ -171,8 +186,8 @@ export function createChatOperations({
       if (limited) return limited;
       const content = LessonContent.parse(lesson.content);
 
-      const [[course], resources, communities, history, resourcesByRef] = await Promise.all([
-        db.select().from(schema.course).where(eq(schema.course.id, lesson.courseId)),
+      const { course } = found;
+      const [resources, communities, history, resourcesByRef, proposals] = await Promise.all([
         db.select().from(schema.resource).where(eq(schema.resource.courseId, lesson.courseId)),
         db
           .select()
@@ -182,6 +197,7 @@ export function createChatOperations({
           .orderBy(asc(schema.community.offline), asc(schema.community.name)),
         readChatRows(db, lesson.id),
         readResourcesByRef(lesson.courseId),
+        proposalContext(db, lesson.courseId),
       ]);
       // In the Teacher's order: r1, r2, … r10.
       resources.sort((a, b) => Number(a.ref.slice(1)) - Number(b.ref.slice(1)));
@@ -218,6 +234,7 @@ export function createChatOperations({
           })),
           mayPointToCommunities: !course.communityOptOut,
           history: history.map((m) => ({ from: m.from, text: m.text })),
+          proposals,
           question: asked,
         });
       } catch (error) {
@@ -237,7 +254,14 @@ export function createChatOperations({
         );
       }
 
-      const saved = await db.transaction(async (tx) => {
+      let missionChange: ReturnType<typeof proposedMission> | null = null;
+      if (reply.missionChange) {
+        const problem = missionChangeProblem(reply.missionChange, missionOf(course));
+        if (problem === null) missionChange = proposedMission(reply.missionChange);
+        else console.warn(`Lesson ${lesson.id}: dropping the proposed Mission change: ${problem}`);
+      }
+
+      const { number: saved, proposal } = await db.transaction(async (tx) => {
         const [{ last }] = await tx
           .select({ last: max(schema.chatMessage.number) })
           .from(schema.chatMessage)
@@ -253,7 +277,18 @@ export function createChatOperations({
             communityId: community?.id ?? null,
           },
         ]);
-        return number;
+        const proposal =
+          missionChange && reply.missionChange
+            ? await insertProposal(tx, {
+                courseId: course.id,
+                lessonId: lesson.id,
+                source: "chat",
+                kind: "mission_change",
+                reason: reply.missionChange.reason,
+                mission: missionChange,
+              })
+            : null;
+        return { number, proposal };
       });
 
       const entry = community && {
@@ -269,6 +304,7 @@ export function createChatOperations({
           viewOf({ number: saved + 1, from: "learner", text: asked, community: null }, resourcesByRef),
           viewOf({ number: saved + 2, from: "teacher", text, community: entry }, resourcesByRef),
         ],
+        proposal: proposal && proposalView(proposal, course, []),
       };
     },
   };

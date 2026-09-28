@@ -14,5 +14,7 @@
     "title": "Chords that share a key",
     "goal": "Spot which chords in a chart belong to G major",
     "minutes": 10
-  }
+  },
+  "missionChange": null,
+  "done": null
 }

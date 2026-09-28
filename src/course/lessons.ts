@@ -34,12 +34,14 @@ export type OpenLessonResult =
       start: boolean;
     }
   | { ok: false; reason: "not-found" | "read-only" }
+  /** The Lesson is unwritten and the Course is Done: no new Lessons are written. */
+  | { ok: false; reason: "done" }
   /** The Lesson is unwritten and the Learner has had today's Lessons written. */
   | DailyLimitReached;
 
 export type RetryLessonGenerationResult =
   | { ok: true; jobId: string }
-  | { ok: false; reason: "not-found" | "read-only" | "nothing-to-retry" }
+  | { ok: false; reason: "not-found" | "read-only" | "nothing-to-retry" | "done" }
   | DailyLimitReached;
 
 export type QuizAttemptEntry = {
@@ -59,18 +61,21 @@ export type AnswerQuestionResult =
     }
   | {
       ok: false;
-      reason: "not-found" | "read-only" | "not-written" | "finished" | "invalid";
+      reason: "not-found" | "read-only" | "not-written" | "finished" | "invalid" | "done";
     };
 
 export type LessonRow = typeof schema.lesson.$inferSelect;
 
-/** The Learner's own Lesson, or why they may not change it. */
+/** The Learner's own Lesson with its Course, or why they may not change it. */
 export async function findOwnLessonIn(
   db: Db,
   courseId: string,
   lessonIndex: number,
   learnerId: string,
-): Promise<{ ok: true; lesson: LessonRow } | { ok: false; reason: "not-found" | "read-only" }> {
+): Promise<
+  | { ok: true; lesson: LessonRow; course: typeof schema.course.$inferSelect }
+  | { ok: false; reason: "not-found" | "read-only" }
+> {
   const [row] = await db
     .select({ lesson: schema.lesson, course: schema.course })
     .from(schema.lesson)
@@ -79,7 +84,7 @@ export async function findOwnLessonIn(
   if (!row) return { ok: false, reason: "not-found" };
   if (row.course.isExample) return { ok: false, reason: "read-only" };
   if (row.course.learnerId !== learnerId) return { ok: false, reason: "not-found" };
-  return { ok: true, lesson: row.lesson };
+  return { ok: true, lesson: row.lesson, course: row.course };
 }
 
 /** The Lesson's job of one kind, if it has one. */
@@ -277,6 +282,15 @@ export function createLessonOperations({
         await run.advance(null, "Your Lesson is ready.");
         return "stop";
       }
+      // A Done Course gets no new Lessons.
+      const [{ status }] = await db
+        .select({ status: schema.course.status })
+        .from(schema.course)
+        .where(eq(schema.course.id, lesson.courseId));
+      if (status === "done") {
+        await run.advance(null, "This Course is Done, so no new Lessons are written.");
+        return "stop";
+      }
 
       await run.say(`Writing “${lesson.title}”.`);
       const input = await lessonInput(lesson);
@@ -333,7 +347,8 @@ export function createLessonOperations({
     ): Promise<OpenLessonResult> {
       const found = await findOwnLesson(courseId, lessonIndex, learnerId);
       if (!found.ok) return found;
-      const { lesson } = found;
+      const { lesson, course } = found;
+      if (lesson.content === null && course.status === "done") return { ok: false, reason: "done" };
 
       await db
         .update(schema.lesson)
@@ -374,6 +389,7 @@ export function createLessonOperations({
       if (lesson.content !== null || lesson.finishedAt !== null) {
         return { ok: false, reason: "nothing-to-retry" };
       }
+      if (found.course.status === "done") return { ok: false, reason: "done" };
 
       const job = await findGenerationJob(lesson.id);
       if (!job) {
@@ -401,6 +417,7 @@ export function createLessonOperations({
       const { lesson } = found;
       if (lesson.content === null) return { ok: false, reason: "not-written" };
       if (lesson.finishedAt !== null) return { ok: false, reason: "finished" };
+      if (found.course.status === "done") return { ok: false, reason: "done" };
 
       const { quiz } = LessonContent.parse(lesson.content);
       const question = Number.isInteger(questionIndex) ? quiz[questionIndex] : undefined;

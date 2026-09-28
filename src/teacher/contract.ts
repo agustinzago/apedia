@@ -211,6 +211,46 @@ export type RewriteQuestionInput = {
   problem: string;
 };
 
+/**
+ * A new Mission, proposed when the Learner's goal seems to have shifted. It
+ * changes nothing until the Learner confirms it.
+ */
+export const MissionChangeDraft = z.object({
+  /** To the Learner ("you"), one or two sentences: what seems to have shifted. */
+  reason: z.string(),
+  why: z.string(),
+  successLooksLike: z.array(z.string()),
+  /** Includes the sitting length, which stays as it is. */
+  constraints: z.array(z.string()),
+  outOfScope: z.array(z.string()),
+  /** The mission-change Learning record written on confirmation: at most 8 words. */
+  recordTitle: z.string(),
+  /** One or two sentences in the third person: what changed and why. */
+  recordBody: z.string(),
+});
+export type MissionChangeDraft = z.infer<typeof MissionChangeDraft>;
+
+/**
+ * A suggestion that the Course is Done. `course` keeps it only when every
+ * success item has a standing Learning record behind it.
+ */
+export const DoneDraft = z.object({
+  /** To the Learner ("you"), one or two sentences: what they can now do. */
+  reason: z.string(),
+  /** For each success item, by its number (1, 2, 3…), the numbers of the Learning records that show it. */
+  evidence: z.array(
+    z.object({ successItem: z.number().int(), records: z.array(z.number().int()) }),
+  ),
+});
+export type DoneDraft = z.infer<typeof DoneDraft>;
+
+/** A Mission change or Done the Learner has open, or said "not now" to; newest first. */
+export type ProposalContext = {
+  kind: "mission_change" | "done";
+  status: "open" | "declined";
+  reason: string;
+};
+
 /** One quiz attempt, as evidence a Learning record may cite. */
 export type QuizAttemptEvidence = {
   /** Lesson and question number, such as "L2Q3". */
@@ -244,6 +284,10 @@ export type FinishLessonInput = {
   chat: { id: string; from: "teacher" | "learner"; text: string }[];
   /** Records still standing, oldest first. */
   learningRecords: { number: number; kind: string; title: string; body: string }[];
+  /** The number the first record this Finish writes will get; the rest follow in order. */
+  nextRecordNumber: number;
+  /** Mission changes and Done suggestions still open or declined, newest first. */
+  proposals: ProposalContext[];
   glossary: { term: string; definition: string }[];
   /** The Reference sheet's topic-specific sections, in sheet order. */
   referenceSections: { title: string; body: string }[];
@@ -277,6 +321,10 @@ export const FinishDraft = z.object({
   referenceSections: z.array(z.object({ title: z.string(), body: z.string() })),
   /** The Lesson to teach next, by the same rules as `pickUpNext`. */
   upNext: UpNextDraft,
+  /** A new Mission, when the Learner's goal seems to have shifted; usually null. */
+  missionChange: MissionChangeDraft.nullable(),
+  /** That the Course is Done, when the records show every success item; usually null. */
+  done: DoneDraft.nullable(),
 });
 export type FinishDraft = z.infer<typeof FinishDraft>;
 
@@ -303,19 +351,24 @@ export type AskTeacherInput = {
   mayPointToCommunities: boolean;
   /** This Lesson's earlier messages, oldest first. */
   history: { from: "teacher" | "learner"; text: string }[];
+  /** Mission changes and Done suggestions still open or declined, newest first. */
+  proposals: ProposalContext[];
   question: string;
 };
 
 /**
  * One answer in a Lesson's chat. The length and grounding rules are asked
- * for in the prompt; `course` resolves the citations and the Community, and
- * drops a Community the Learner opted out of.
+ * for in the prompt; `course` resolves the citations and the Community,
+ * drops a Community the Learner opted out of, and keeps a Mission change for
+ * the Learner to confirm.
  */
 export const ChatAnswer = z.object({
   /** Under about 80 plain words; cites Resources as "[r3]". */
   answer: z.string(),
   /** The number of the Community to suggest, for a "wisdom" question or an uncertain answer; else null. */
   community: z.number().int().nullable(),
+  /** A new Mission, when the Learner says their goal has changed; usually null. */
+  missionChange: MissionChangeDraft.nullable(),
 });
 export type ChatAnswer = z.infer<typeof ChatAnswer>;
 

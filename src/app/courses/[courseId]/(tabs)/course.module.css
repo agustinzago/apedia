@@ -24,6 +24,15 @@
   color: var(--ink-muted);
 }
 
+.doneTag {
+  font-size: 15px;
+  padding: 1px 10px;
+  border: 1.5px solid var(--green-deep);
+  border-radius: var(--sketch-radius-small);
+  background: var(--green-tint);
+  color: var(--green-deep);
+}
+
 .exampleTag {
   font-size: 15px;
   padding: 1px 10px;
@@ -162,6 +171,25 @@
 .muted {
   color: var(--ink-muted);
   font-size: 18px;
+}
+
+.doneNote {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 14px 20px;
+  background: var(--green-tint);
+  border-color: var(--green-deep);
+  font-size: 18px;
+  color: var(--ink-secondary);
+}
+
+.doneMark {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 22px;
+  color: var(--green-deep);
 }
 
 /* ---- Path tab ---- */

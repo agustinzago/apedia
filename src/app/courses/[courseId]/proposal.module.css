@@ -1,0 +1,130 @@
+/* ---- A Mission change or Done, waiting for the Learner ---- */
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 660px;
+  padding: 20px 24px 22px;
+  transform: rotate(0.4deg);
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.kicker {
+  margin: 0;
+  color: var(--blue-deep);
+}
+
+.reason {
+  margin: 0;
+  font-size: 21px;
+  line-height: 1.35;
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 6px 16px;
+  margin: 0;
+  font-size: 18px;
+  color: var(--ink-secondary);
+}
+
+.facts dt {
+  color: var(--ink-muted);
+}
+
+.facts dd {
+  margin: 0;
+}
+
+.list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.list li::before {
+  content: "– ";
+  color: var(--ink-muted);
+}
+
+.evidence {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 18px;
+}
+
+.evidence li {
+  display: flex;
+  flex-direction: column;
+}
+
+.item {
+  color: var(--green-deep);
+}
+
+.records {
+  color: var(--ink-muted);
+  font-size: 16px;
+}
+
+.choices {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 18px;
+}
+
+.notNow {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 20px;
+  padding: 10px 22px;
+  background: transparent;
+  color: var(--ink);
+  border: 1.5px dashed var(--ink-faint);
+  border-radius: var(--sketch-radius);
+  cursor: pointer;
+}
+
+.notNow:hover:not(:disabled) {
+  background: var(--card);
+  border-style: solid;
+  border-color: var(--ink);
+}
+
+.notNow:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.hint,
+.muted {
+  margin: 0;
+  color: var(--ink-muted);
+  font-size: 16px;
+}
+
+.note {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 20px;
+  color: var(--green-deep);
+}
+
+.error {
+  margin: 0;
+  color: var(--red);
+  font-size: 18px;
+}

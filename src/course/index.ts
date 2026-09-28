@@ -13,6 +13,7 @@ import { createFinishOperations } from "./finish";
 import { createInterviewOperations } from "./interview";
 import { runJobStep, viewOf, type JobKind, type JobStepResult, type JobView } from "./jobs";
 import { createLessonOperations } from "./lessons";
+import { createProposalOperations, readOpenProposals, type ProposalView } from "./proposals";
 import { createDailyCaps, DEFAULT_DAILY_LIMITS, type DailyLimits } from "./limits";
 import { createSpendOperations, type SpendAlarm } from "./spend";
 import {
@@ -46,6 +47,7 @@ export type {
   RetryCourseCreationResult,
 } from "./course-creation";
 export type { FinishLessonResult, RetryFinishResult } from "./finish";
+export type { DecideProposalResult, ProposalView } from "./proposals";
 export type { JobStepResult, JobView } from "./jobs";
 export type {
   AnswerQuestionResult,
@@ -98,15 +100,20 @@ export type CoursePath = {
   title: string;
   isExample: boolean;
   status: "active" | "done";
+  /** When the Learner confirmed the Course Done; null while active. */
+  doneAt: Date | null;
   mission: Mission;
   /** True while a new Course waits for its Resources and first Lesson. */
   preparing: boolean;
   /** The Course creation job, while preparing; null if there is none to show. */
   creation: CourseCreationView | null;
   finishedLessons: FinishedLesson[];
+  /** Null once the Course is Done. */
   upNext: UpNextLesson | null;
   /** Newest first. */
   learningRecords: LearningRecordEntry[];
+  /** Mission changes and Done suggestions waiting for the Learner, oldest first. */
+  proposals: ProposalView[];
 };
 
 /** One of a Learner's Courses, as listed under "Your courses". */
@@ -115,6 +122,8 @@ export type CourseSummary = {
   subject: string;
   title: string;
   status: "active" | "done";
+  /** When the Learner confirmed the Course Done; null while active. */
+  doneAt: Date | null;
   createdAt: Date;
 };
 
@@ -181,7 +190,14 @@ export type ChatMessage = {
 
 /** What the Lesson page shows. */
 export type LessonView = {
-  course: { id: string; subject: string; title: string; isExample: boolean };
+  course: {
+    id: string;
+    subject: string;
+    title: string;
+    isExample: boolean;
+    /** A Done Course's Lessons stay readable, but take no answers, questions or Finish. */
+    done: boolean;
+  };
   index: number;
   title: string;
   goal: string;
@@ -208,6 +224,8 @@ export type LessonView = {
   generation: JobView | null;
   /** The Finish job once Finish is pressed, until the Lesson is finished; null otherwise. */
   finishing: JobView | null;
+  /** Mission changes proposed in this Lesson's chat, waiting for the Learner. */
+  proposals: ProposalView[];
 };
 
 /** The Key idea of one finished Lesson. */
@@ -268,6 +286,7 @@ export function createCourseModule({
   const creation = createCourseCreationOperations({ db, teacher, fetchUrl, caps });
   const lessons = createLessonOperations({ db, teacher, random, caps });
   const finish = createFinishOperations({ db, teacher });
+  const proposals = createProposalOperations({ db, teacher });
   const spend = createSpendOperations({ db, alarm: spendAlarm, now });
 
   /** Returns the course row if the viewer may read it, otherwise null. */
@@ -318,6 +337,8 @@ export function createCourseModule({
     readFinish: finish.readFinish,
     retryFinish: finish.retryFinish,
     askTeacher: chat.askTeacher,
+    confirmProposal: proposals.confirmProposal,
+    declineProposal: proposals.declineProposal,
     /** Records one call the Teacher made to Claude; wire it to the Teacher's `recordCall`. */
     recordTeacherCall: spend.recordTeacherCall,
 
@@ -347,6 +368,7 @@ export function createCourseModule({
           subject: schema.course.subject,
           title: schema.course.title,
           status: schema.course.status,
+          doneAt: schema.course.doneAt,
           createdAt: schema.course.createdAt,
         })
         .from(schema.course)
@@ -420,7 +442,8 @@ export function createCourseModule({
           : [],
       );
 
-      const next = lessons.find((l) => !l.finishedAt);
+      // A Done Course has nothing up next.
+      const next = course.status === "done" ? undefined : lessons.find((l) => !l.finishedAt);
       const upNext: UpNextLesson | null = next
         ? {
             index: next.index,
@@ -454,6 +477,7 @@ export function createCourseModule({
         title: course.title,
         isExample: course.isExample,
         status: course.status,
+        doneAt: course.doneAt,
         mission: {
           why: course.missionWhy,
           success: course.missionSuccess,
@@ -469,6 +493,7 @@ export function createCourseModule({
           ...r,
           superseded: supersededById !== null,
         })),
+        proposals: await readOpenProposals(db, course),
       };
     },
 
@@ -670,6 +695,7 @@ export function createCourseModule({
           subject: course.subject,
           title: course.title,
           isExample: course.isExample,
+          done: course.status === "done",
         },
         index: lesson.index,
         title: lesson.title,
@@ -681,6 +707,7 @@ export function createCourseModule({
         readOnly: course.isExample,
         generation,
         finishing,
+        proposals: await readOpenProposals(db, course, lesson.id),
       };
     },
   };

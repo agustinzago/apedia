@@ -233,6 +233,7 @@ export function createFakeTeacher(
           return {
             answer: `Good question. Look again at “${i.lesson.sections[0]?.heading ?? i.lesson.title}”: ${i.lesson.keyIdea}${first ? ` [${first}]` : ""}`,
             community: null,
+            missionChange: null,
           };
         }),
       );
@@ -242,7 +243,8 @@ export function createFakeTeacher(
 
 /**
  * A Finish that writes no Learning record, offers each new term with the
- * question of the same number, and moves on to a numbered next step.
+ * question of the same number, moves on to a numbered next step, and
+ * proposes nothing.
  */
 function defaultFinish(input: FinishLessonInput): Json {
   const next = input.lesson.index + 1;
@@ -255,6 +257,8 @@ function defaultFinish(input: FinishLessonInput): Json {
       goal: `Use what Lesson ${input.lesson.index} taught on something of your own`,
       minutes: input.mission.sittingMinutes,
     },
+    missionChange: null,
+    done: null,
   };
 }
 

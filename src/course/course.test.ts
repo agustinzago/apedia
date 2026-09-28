@@ -268,6 +268,7 @@ describe("course: listing a Learner's Courses", () => {
         subject: "drawing",
         title: "drawing course",
         status: "active",
+        doneAt: null,
         createdAt: new Date("2026-03-01T00:00:00Z"),
       },
     ]);

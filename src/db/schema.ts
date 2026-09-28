@@ -147,6 +147,8 @@ export const course = pgTable(
     missionOutOfScope: jsonb("mission_out_of_scope").$type<string[]>().notNull(),
     sittingMinutes: integer("sitting_minutes").notNull(),
     status: courseStatus("status").notNull().default("active"),
+    // When the Learner confirmed the Course Done; null while active.
+    doneAt: timestamp("done_at", { withTimezone: true }),
     communityOptOut: boolean("community_opt_out").notNull().default(false),
     // The Interview the Course was written from; one Course per Interview.
     interviewId: text("interview_id")
@@ -365,6 +367,67 @@ export const chatMessage = pgTable(
     createdAt: createdAt(),
   },
   (t) => [uniqueIndex("chat_message_lesson_number_uq").on(t.lessonId, t.number)],
+);
+
+export const proposalKind = pgEnum("proposal_kind", ["mission_change", "done"]);
+
+// open: waiting for the Learner. confirmed / declined: the Learner chose.
+// withdrawn: overtaken before the Learner chose, by a newer proposal of the
+// same kind or by the other kind being confirmed.
+export const proposalStatus = pgEnum("proposal_status", [
+  "open",
+  "confirmed",
+  "declined",
+  "withdrawn",
+]);
+
+export const proposalSource = pgEnum("proposal_source", ["finish", "chat"]);
+
+/** A proposed Mission, as it replaces the Course's on confirmation. */
+export type ProposedMission = {
+  why: string;
+  success: string[];
+  constraints: string[];
+  outOfScope: string[];
+  /** The mission-change Learning record written on confirmation. */
+  record: { title: string; body: string };
+};
+
+/** Which standing Learning records (by number) show each success item (1-based). */
+export type DoneEvidence = { successItem: number; records: number[] }[];
+
+// Something the Teacher proposes that changes the Course only once the
+// Learner confirms it: a Mission change, or that the Course is Done.
+export const proposal = pgTable(
+  "proposal",
+  {
+    id: id(),
+    courseId: text("course_id")
+      .notNull()
+      .references(() => course.id, { onDelete: "cascade" }),
+    kind: proposalKind("kind").notNull(),
+    status: proposalStatus("status").notNull().default("open"),
+    // Raised by a Lesson's Finish or in its chat.
+    source: proposalSource("source").notNull(),
+    lessonId: text("lesson_id").references(() => lesson.id, {
+      onDelete: "set null",
+    }),
+    // Why the Teacher proposes it, to the Learner, in the Course's language.
+    reason: text("reason").notNull(),
+    // Set for a mission_change.
+    mission: jsonb("mission").$type<ProposedMission>(),
+    // Set for done.
+    evidence: jsonb("evidence").$type<DoneEvidence>(),
+    decidedAt: timestamp("decided_at", { withTimezone: true }),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    index("proposal_course_idx").on(t.courseId),
+    // At most one open proposal of each kind per Course.
+    uniqueIndex("proposal_course_kind_open_uq")
+      .on(t.courseId, t.kind)
+      .where(sql`${t.status} = 'open'`),
+  ],
 );
 
 export const gap = pgTable(
