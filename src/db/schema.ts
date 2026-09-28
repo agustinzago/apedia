@@ -340,6 +340,31 @@ export const community = pgTable(
   (t) => [index("community_course_idx").on(t.courseId)],
 );
 
+export const chatMessageFrom = pgEnum("chat_message_from", ["teacher", "learner"]);
+
+// A Lesson's "Ask your teacher" chat. Finish reads it as evidence, citing
+// messages as "C1", "C2"… by their number.
+export const chatMessage = pgTable(
+  "chat_message",
+  {
+    id: id(),
+    lessonId: text("lesson_id")
+      .notNull()
+      .references(() => lesson.id, { onDelete: "cascade" }),
+    // Numbered per Lesson: 1, 2, 3… in the order the messages were written.
+    number: integer("number").notNull(),
+    from: chatMessageFrom("from").notNull(),
+    // As written; a Teacher answer may cite Resources by ref, such as "[r3]".
+    text: text("text").notNull(),
+    // The Community a Teacher answer suggests, if any.
+    communityId: text("community_id").references(() => community.id, {
+      onDelete: "set null",
+    }),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex("chat_message_lesson_number_uq").on(t.lessonId, t.number)],
+);
+
 export const gap = pgTable(
   "gap",
   {

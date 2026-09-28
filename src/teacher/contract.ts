@@ -280,6 +280,45 @@ export const FinishDraft = z.object({
 });
 export type FinishDraft = z.infer<typeof FinishDraft>;
 
+export type AskTeacherInput = {
+  subject: string;
+  /** BCP 47 tag of the Interview's language; the answer is in it unless the Learner writes in another. */
+  language: string;
+  mission: MissionInput;
+  /** The Lesson the chat belongs to, as the Learner reads it. */
+  lesson: {
+    index: number;
+    title: string;
+    goal: string;
+    hook: string;
+    sections: { heading: string; body: string; citations: string[] }[];
+    keyIdea: string;
+    practice: { title: string; steps: string[] };
+  };
+  /** The Course's Resources, the only ground for an answer; cited by id. */
+  resources: { id: string; kind: string; title: string; author: string; why: string }[];
+  /** Numbered 1, 2, 3…; empty when the Learner opted out of Communities. */
+  communities: { number: number; name: string; where: string; why: string; offline: boolean }[];
+  /** False when the Learner said "Not for me" to Communities. */
+  mayPointToCommunities: boolean;
+  /** This Lesson's earlier messages, oldest first. */
+  history: { from: "teacher" | "learner"; text: string }[];
+  question: string;
+};
+
+/**
+ * One answer in a Lesson's chat. The length and grounding rules are asked
+ * for in the prompt; `course` resolves the citations and the Community, and
+ * drops a Community the Learner opted out of.
+ */
+export const ChatAnswer = z.object({
+  /** Under about 80 plain words; cites Resources as "[r3]". */
+  answer: z.string(),
+  /** The number of the Community to suggest, for a "wisdom" question or an uncertain answer; else null. */
+  community: z.number().int().nullable(),
+});
+export type ChatAnswer = z.infer<typeof ChatAnswer>;
+
 export interface Teacher {
   /** Haiku: is the subject, with its reason, something to teach? Also detects the visitor's language. */
   checkSafety(input: SafetyCheckInput): Promise<SafetyVerdict>;
@@ -299,4 +338,6 @@ export interface Teacher {
   rewriteQuestion(input: RewriteQuestionInput): Promise<QuestionDraft>;
   /** Sonnet, structured output: weighs a finished Lesson's evidence and picks the next Up next. */
   finishLesson(input: FinishLessonInput): Promise<FinishDraft>;
+  /** Haiku, structured output: answers the Learner's question in a Lesson's chat, grounded in the Resources. */
+  askTeacher(input: AskTeacherInput): Promise<ChatAnswer>;
 }

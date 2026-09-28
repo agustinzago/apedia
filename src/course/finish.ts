@@ -7,6 +7,7 @@ import type {
   Teacher,
   UpNextDraft,
 } from "@/teacher";
+import { chatEvidence } from "./chat";
 import { missionOf, upNextProblem } from "./course-creation";
 import { resumeJob, viewOf, type JobRow, type JobRun, type JobStepResult, type JobView } from "./jobs";
 import { LessonContent, type Question } from "./lesson-content";
@@ -142,8 +143,7 @@ export function createFinishOperations({ db, teacher }: { db: Db; teacher: Teach
       evidence.attempts.set(id, { lessonIndex: entry.lesson.index, correct: a.correct, at: a.at });
     }
 
-    // The Lesson chat arrives in a later ticket; until then there is none.
-    const chat: FinishLessonInput["chat"] = [];
+    const chat = await chatEvidence(db, lesson.id);
     for (const m of chat) if (m.from === "learner") evidence.learnerChat.add(m.id);
 
     const input: FinishLessonInput = {
