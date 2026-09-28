@@ -347,7 +347,10 @@ export const gap = pgTable(
   (t) => [index("gap_course_idx").on(t.courseId)],
 );
 
-export const jobKind = pgEnum("job_kind", ["course_creation"]);
+export const jobKind = pgEnum("job_kind", [
+  "course_creation",
+  "lesson_generation",
+]);
 
 // pending: waiting for a runner. running: a runner holds it (see runId).
 // failed: stopped at `step`; a retry resumes there.
@@ -370,6 +373,10 @@ export const job = pgTable(
       .notNull()
       .references(() => course.id, { onDelete: "cascade" }),
     kind: jobKind("kind").notNull(),
+    // The Lesson a lesson_generation job writes; null for other kinds.
+    lessonId: text("lesson_id").references(() => lesson.id, {
+      onDelete: "cascade",
+    }),
     status: jobStatus("status").notNull().default("pending"),
     // The step to run next, or the one that failed. Its values depend on kind.
     step: text("step").notNull(),
@@ -395,5 +402,7 @@ export const job = pgTable(
     uniqueIndex("job_course_creation_uq")
       .on(t.courseId)
       .where(sql`${t.kind} = 'course_creation'`),
+    // One generation job per Lesson: it is written once, never again.
+    uniqueIndex("job_lesson_uq").on(t.lessonId),
   ],
 );

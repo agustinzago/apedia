@@ -46,8 +46,10 @@ export type Term = z.infer<typeof Term>;
 
 const WORDS_PER_MINUTE = 200;
 
-/** Minutes one sitting takes: reading (words ÷ 200) plus practice, rounded up. */
-export function lessonMinutes(content: LessonContent): number {
+/** Minutes to read the Lesson's teaching and practice (words ÷ 200), not rounded. */
+export function readingMinutes(
+  content: Pick<LessonContent, "hook" | "sections" | "keyIdea" | "practice">,
+): number {
   const prose = [
     content.hook,
     ...content.sections.flatMap((s) => [s.heading, s.body]),
@@ -55,6 +57,10 @@ export function lessonMinutes(content: LessonContent): number {
     content.practice.title,
     ...content.practice.steps,
   ].join(" ");
-  const words = prose.split(/\s+/).filter(Boolean).length;
-  return Math.ceil(words / WORDS_PER_MINUTE + content.practiceMinutes);
+  return prose.split(/\s+/).filter(Boolean).length / WORDS_PER_MINUTE;
+}
+
+/** Minutes one sitting takes: reading (words ÷ 200) plus practice, rounded up. */
+export function lessonMinutes(content: LessonContent): number {
+  return Math.ceil(readingMinutes(content) + content.practiceMinutes);
 }

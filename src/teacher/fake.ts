@@ -1,6 +1,8 @@
 import {
   InterviewReply,
+  LessonDraft,
   MissionDraft,
+  QuestionDraft,
   ResearchDraft,
   SafetyVerdict,
   SearchFindings,
@@ -9,8 +11,10 @@ import {
   type PickUpNextInput,
   type ResearchSearchInput,
   type ResearchStructureInput,
+  type RewriteQuestionInput,
   type SafetyCheckInput,
   type Teacher,
+  type WriteLessonInput,
   type WriteMissionInput,
 } from "./contract";
 
@@ -35,6 +39,8 @@ export type FakeTeacherReplies = {
   researchSearch?: Reply<ResearchSearchInput>;
   researchStructure?: Reply<ResearchStructureInput>;
   pickUpNext?: Reply<PickUpNextInput>;
+  writeLesson?: Reply<WriteLessonInput>;
+  rewriteQuestion?: Reply<RewriteQuestionInput>;
 };
 
 export type FakeTeacherCall =
@@ -43,7 +49,9 @@ export type FakeTeacherCall =
   | { op: "writeMission"; input: WriteMissionInput }
   | { op: "researchSearch"; input: ResearchSearchInput }
   | { op: "researchStructure"; input: ResearchStructureInput }
-  | { op: "pickUpNext"; input: PickUpNextInput };
+  | { op: "pickUpNext"; input: PickUpNextInput }
+  | { op: "writeLesson"; input: WriteLessonInput }
+  | { op: "rewriteQuestion"; input: RewriteQuestionInput };
 
 export type FakeTeacher = Teacher & {
   /** Every call made, in order. */
@@ -142,6 +150,60 @@ export function createFakeTeacher(replies: FakeTeacherReplies = {}): FakeTeacher
         })),
       );
     },
+
+    async writeLesson(input) {
+      calls.push({ op: "writeLesson", input });
+      return LessonDraft.parse(reply(replies.writeLesson, input, defaultLesson));
+    },
+
+    async rewriteQuestion(input) {
+      calls.push({ op: "rewriteQuestion", input });
+      return QuestionDraft.parse(
+        reply(replies.rewriteQuestion, input, (i) => ({
+          ...i.question,
+          options: ["The first choice", "The second choice", "The third choice", "The fourth choice"],
+        })),
+      );
+    },
+  };
+}
+
+/** A Lesson that keeps every rule, citing the first Resources it is given. */
+function defaultLesson(input: WriteLessonInput): Json {
+  const [first, second = first] = input.resources.map((r) => r.id);
+  const question = (n: number, about: string) => ({
+    question: `Question ${n}: which statement fits ${about}?`,
+    options: ["The first statement", "The second statement", "The third statement", "The fourth statement"],
+    answer: 0,
+    explanation: "The first statement is the one this Lesson taught.",
+  });
+  return {
+    hook: `This is the next step toward your Mission: ${input.mission.why}`,
+    sections: [
+      {
+        heading: "The idea",
+        body: `${input.lesson.title}. This section explains the idea behind the goal in plain words, one step at a time, so it makes sense on its own.`,
+        citations: [first],
+      },
+      {
+        heading: "Seeing it work",
+        body: "This section shows the idea at work in a short example you can follow along with, then says what to notice.",
+        citations: [second],
+      },
+    ],
+    keyIdea: `${input.lesson.goal}.`,
+    practice: {
+      title: "Try it yourself",
+      steps: ["Read the example again.", "Do it once on your own.", "Check what you did against the example."],
+    },
+    practiceMinutes: Math.max(1, input.mission.sittingMinutes - 2),
+    quiz: [
+      question(1, "the idea"),
+      question(2, "the example"),
+      question(3, input.keyIdeas.length > 0 ? "an earlier Lesson" : "the practice"),
+    ],
+    readNext: first,
+    newTerms: [],
   };
 }
 

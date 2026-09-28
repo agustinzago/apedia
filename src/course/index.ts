@@ -9,6 +9,8 @@ import {
 } from "./course-creation";
 import { EXAMPLE_COURSE_ID, seedExampleCourse } from "./example-course";
 import { createInterviewOperations } from "./interview";
+import { runJobStep, viewOf, type JobStepResult, type JobView } from "./jobs";
+import { createLessonOperations } from "./lessons";
 import {
   LessonContent,
   lessonMinutes,
@@ -30,9 +32,15 @@ export {
 export type { Question, Term } from "./lesson-content";
 export type {
   CourseCreationView,
-  JobStepResult,
   RetryCourseCreationResult,
 } from "./course-creation";
+export type { JobStepResult, JobView } from "./jobs";
+export type {
+  AnswerQuestionResult,
+  OpenLessonResult,
+  QuizAttemptEntry,
+  RetryLessonGenerationResult,
+} from "./lessons";
 
 export type Mission = {
   why: string;
@@ -169,6 +177,10 @@ export type LessonView = {
   } | null;
   /** Quiz answers already recorded, in question order. */
   answers: { questionIndex: number; chosenOption: number }[];
+  /** True for the read-only Example course: answers are not saved and Finish is off. */
+  readOnly: boolean;
+  /** The Lesson generation job while the Lesson is unwritten; null if there is none. */
+  generation: JobView | null;
 };
 
 /** The Key idea of one finished Lesson. */
@@ -207,12 +219,18 @@ export function createCourseModule({
   db,
   teacher,
   fetchUrl,
+  random = Math.random,
 }: {
   db: Db;
   teacher: Teacher;
   /** The network half of the Resource URL check. */
   fetchUrl: UrlFetcher;
+  /** Shuffles quiz options. */
+  random?: () => number;
 }) {
+  const creation = createCourseCreationOperations({ db, teacher, fetchUrl });
+  const lessons = createLessonOperations({ db, teacher, random });
+
   /** Returns the course row if the viewer may read it, otherwise null. */
   async function findReadableCourse(courseId: string, viewer: Viewer) {
     const [row] = await db
@@ -249,7 +267,24 @@ export function createCourseModule({
 
   return {
     ...createInterviewOperations({ db, teacher }),
-    ...createCourseCreationOperations({ db, teacher, fetchUrl }),
+    readCourseCreation: creation.readCourseCreation,
+    retryCourseCreation: creation.retryCourseCreation,
+    openLesson: lessons.openLesson,
+    readLessonGeneration: lessons.readLessonGeneration,
+    retryLessonGeneration: lessons.retryLessonGeneration,
+    answerQuestion: lessons.answerQuestion,
+
+    /**
+     * Runs the next step of a pending generation job (Course creation or
+     * Lesson generation) and reports whether another step waits. Each call
+     * runs one step, so the app can give every step its own invocation.
+     */
+    async runJobStep(jobId: string): Promise<JobStepResult> {
+      return runJobStep(db, jobId, {
+        course_creation: creation.runCourseCreationStep,
+        lesson_generation: lessons.runLessonGenerationStep,
+      });
+    },
 
     /** Makes sure the read-only Example course is in the database. Safe to call repeatedly. */
     async ensureExampleCourse(): Promise<void> {
@@ -567,6 +602,15 @@ export function createCourseModule({
         };
       }
 
+      let generation: JobView | null = null;
+      if (content === null && !course.isExample) {
+        const [job] = await db
+          .select()
+          .from(schema.job)
+          .where(eq(schema.job.lessonId, lesson.id));
+        generation = job ? viewOf(job) : null;
+      }
+
       return {
         course: {
           id: course.id,
@@ -580,6 +624,8 @@ export function createCourseModule({
         finishedAt: lesson.finishedAt,
         content,
         answers,
+        readOnly: course.isExample,
+        generation,
       };
     },
   };

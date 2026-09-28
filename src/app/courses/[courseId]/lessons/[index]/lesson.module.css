@@ -362,3 +362,95 @@
 .unwritten {
   color: var(--ink-muted);
 }
+
+/* ---- While the Lesson is written ---- */
+
+.writing {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 20px;
+  background: var(--card);
+  border-style: dashed;
+  color: var(--ink-secondary);
+  font-size: 19px;
+}
+
+.writingHeader {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.writingTitle {
+  font-size: 22px;
+  color: var(--ink);
+}
+
+.writingProgress {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-left: 22px;
+  list-style: disc;
+}
+
+.writingProgress li:last-child {
+  color: var(--ink);
+}
+
+.writingNote {
+  color: var(--ink-muted);
+  font-size: 18px;
+}
+
+.writingDots {
+  display: inline-flex;
+  gap: 5px;
+  margin-right: 10px;
+  vertical-align: middle;
+}
+
+.writingDots span {
+  width: 7px;
+  height: 7px;
+  border-radius: var(--circle-radius);
+  background: var(--ink-faint);
+  animation: bob 1.2s ease-in-out infinite;
+}
+
+.writingDots span:nth-child(2) {
+  animation-delay: 0.18s;
+}
+
+.writingDots span:nth-child(3) {
+  animation-delay: 0.36s;
+}
+
+@keyframes bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .writingDots span {
+    animation: none;
+  }
+}
+
+.writingRetry {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.error {
+  color: var(--red);
+  font-size: 18px;
+}

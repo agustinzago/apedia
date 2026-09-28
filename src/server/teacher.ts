@@ -22,6 +22,8 @@ export function createAppTeacher(): Teacher {
     researchSearch: async (input) => get().researchSearch(input),
     researchStructure: async (input) => get().researchStructure(input),
     pickUpNext: async (input) => get().pickUpNext(input),
+    writeLesson: async (input) => get().writeLesson(input),
+    rewriteQuestion: async (input) => get().rewriteQuestion(input),
   };
 }
 
