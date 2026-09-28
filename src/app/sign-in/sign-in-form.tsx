@@ -68,6 +68,8 @@ function SignInForm({ next, onStartOver }: { next: string; onStartOver: () => vo
       <p id="sign-in-message" className={styles.message} aria-live="polite">
         {state.status === "invalid-email" &&
           "That doesn’t look like an email address. Check it and try again."}
+        {state.status === "too-many-links" &&
+          "We’ve sent several links to this address already; check your inbox and spam folder, or try again in an hour."}
         {state.status === "failed" &&
           "We couldn’t send your link just now. Please try again in a moment."}
       </p>
