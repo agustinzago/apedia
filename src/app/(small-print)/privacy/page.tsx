@@ -73,8 +73,10 @@ export default function PrivacyPage() {
             address is not sent.
           </li>
           <li>
-            <strong>Polar</strong> takes payment for Course credits. It keeps
-            your payment details; we never see your card.
+            <strong>Polar</strong> takes payment for Course credits. We send it
+            your email address and your account’s id, so the payment reaches
+            your account. It keeps your payment details; we never see your
+            card.
           </li>
         </ul>
         <p>
@@ -101,7 +103,7 @@ export default function PrivacyPage() {
           On <Link href="/account">Your account</Link>, “Delete account”
           removes your account and everything Apedia holds about you: your
           email address, every Interview, Course, Lesson, question and Learning
-          record. It happens at once and can’t be undone. Polar keeps its own
+          record, and your Course credits. It happens at once and can’t be undone. Polar keeps its own
           record of any payment, as a seller must.
         </p>
       </section>

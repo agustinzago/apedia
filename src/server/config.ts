@@ -7,6 +7,7 @@ import {
   type SpendAlert,
   type SpendLimits,
 } from "@/course";
+import type { PolarSettings } from "@/payments";
 
 /**
  * Configuration from the environment. Cost protection: unset values fall
@@ -14,7 +15,8 @@ import {
  * Learner per day, and a spend alarm at $20 a day, which pauses sales, with
  * the Teacher stopping at twice the alarm. Magic links are limited to 3 an
  * hour and 10 a UTC day per address, and 20 an hour per IP. And the
- * operator, whom the Privacy, Terms and Refund policy pages name.
+ * operator, whom the Privacy, Terms and Refund policy pages name, and Polar,
+ * which sells Course credits.
  */
 
 type Env = Record<string, string | undefined>;
@@ -138,6 +140,32 @@ export function operatorFromEnv(env: Env = process.env): Operator {
     name: name || OPERATOR_PLACEHOLDER.name,
     contactEmail: contactEmail || OPERATOR_PLACEHOLDER.contactEmail,
   };
+}
+
+/**
+ * Polar, which sells Course credits: POLAR_ACCESS_TOKEN, POLAR_WEBHOOK_SECRET
+ * and POLAR_PRODUCT_ID, all server-side only, and POLAR_SERVER, "sandbox"
+ * (the default, for development and previews) or "production". Null while
+ * any of the three is unset: buying is not set up, and in production the
+ * server logs an error.
+ */
+export function polarFromEnv(env: Env = process.env): Omit<PolarSettings, "baseUrl"> | null {
+  const accessToken = env.POLAR_ACCESS_TOKEN?.trim();
+  const webhookSecret = env.POLAR_WEBHOOK_SECRET?.trim();
+  const productId = env.POLAR_PRODUCT_ID?.trim();
+  if (!(accessToken && webhookSecret && productId)) {
+    if (env.NODE_ENV === "production") {
+      console.error(
+        "POLAR_ACCESS_TOKEN, POLAR_WEBHOOK_SECRET or POLAR_PRODUCT_ID is not set: Learners can't buy a Course.",
+      );
+    }
+    return null;
+  }
+
+  const raw = env.POLAR_SERVER?.trim() || "sandbox";
+  const server = raw === "production" ? "production" : "sandbox";
+  if (raw !== server) console.warn(`POLAR_SERVER must be sandbox or production; using sandbox.`);
+  return { accessToken, webhookSecret, productId, server };
 }
 
 function count(env: Env, name: string, fallback: number): number {

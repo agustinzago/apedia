@@ -171,6 +171,18 @@ async function seedCourse(db: Db, learnerId: string, key: string): Promise<strin
   return id("course");
 }
 
+/** A verified payment of one Course credit. */
+function payment(paymentId: string, learnerId: string) {
+  return {
+    kind: "paid",
+    provider: "fake",
+    paymentId,
+    learnerId,
+    amountCents: 500,
+    currency: "usd",
+  } as const;
+}
+
 /** Spend records, which belong to no Learner and must survive every deletion. */
 async function seedSpend(db: Db) {
   await db.insert(schema.teacherCall).values({
@@ -200,8 +212,9 @@ describe("course: deleting", () => {
     await course.ensureExampleCourse();
     await seedSpend(db);
     await db.insert(schema.learner).values({ id: "ben", email: "ben@example.com" });
-    // Someone else's Course and sign-in, which must be left alone.
+    // Someone else's Course, sign-in and Course credit, which must be left alone.
     await seedCourse(db, "ben", "ben");
+    await course.recordPayment(payment("ben-order", "ben"));
     await db.insert(schema.session).values({
       sessionToken: "ben-session",
       userId: "ben",
@@ -286,6 +299,10 @@ describe("course: deleting", () => {
         token: "hashed",
         expires: new Date(Date.now() + 86_400_000),
       });
+      // Course credits, one refunded. The payments stay with the provider.
+      await course.recordPayment(payment("ana-order-1", "ana"));
+      await course.recordPayment(payment("ana-order-2", "ana"));
+      await course.recordPayment({ kind: "refunded", provider: "fake", paymentId: "ana-order-2" });
 
       // The seed covers every table a Learner can own, so a new table
       // without a cascade fails here.

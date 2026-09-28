@@ -133,3 +133,15 @@
   font-size: 22px;
   line-height: 1.2;
 }
+
+.credits {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 16px 24px;
+}
+
+.creditCount {
+  font-size: 21px;
+}

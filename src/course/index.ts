@@ -8,6 +8,7 @@ import {
   type CourseCreationView,
 } from "./course-creation";
 import { createChatOperations, readChat } from "./chat";
+import { createCreditOperations } from "./credits";
 import { EXAMPLE_COURSE_ID, seedExampleCourse } from "./example-course";
 import { createFinishOperations } from "./finish";
 import { createInterviewOperations } from "./interview";
@@ -43,6 +44,7 @@ export {
 export type { Question, Term } from "./lesson-content";
 export { MAX_QUESTION_LENGTH, type AskTeacherResult } from "./chat";
 export { COURSE_CREDIT } from "./course-credit";
+export type { CourseCredits, CourseCreditStatus, RecordPaymentResult } from "./credits";
 export {
   DEFAULT_DAILY_LIMITS,
   type DailyLimitReached,
@@ -308,6 +310,7 @@ export function createCourseModule({
   const lessons = createLessonOperations({ db, teacher, random, caps, spend });
   const finish = createFinishOperations({ db, teacher, spend });
   const proposals = createProposalOperations({ db, teacher, spend });
+  const credits = createCreditOperations({ db, now });
 
   /** Returns the course row if the viewer may read it, otherwise null. */
   async function findReadableCourse(courseId: string, viewer: Viewer) {
@@ -359,6 +362,14 @@ export function createCourseModule({
     askTeacher: chat.askTeacher,
     confirmProposal: proposals.confirmProposal,
     declineProposal: proposals.declineProposal,
+    /**
+     * Records a verified payment event from the `payments` webhook: paid
+     * grants one Course credit, a full refund takes an unused one back.
+     * Idempotent: a repeated delivery changes nothing.
+     */
+    recordPayment: credits.recordPayment,
+    /** The Learner's Course credits by status; `available` can still start a Course. */
+    readCourseCredits: credits.readCourseCredits,
     /** Records one call the Teacher made to Claude; wire it to the Teacher's `recordCall`. */
     recordTeacherCall: spend.recordTeacherCall,
 
@@ -679,8 +690,9 @@ export function createCourseModule({
     /**
      * "Delete account": removes the Learner and, through the schema's
      * cascades, their sessions, Interviews, Courses and everything under
-     * them, along with any magic-link tokens still out for their email. The
-     * caller signs them out.
+     * them, and their Course credits, along with any magic-link tokens still
+     * out for their email. The payments themselves stay with the provider.
+     * The caller signs them out.
      */
     async deleteAccount(learnerId: string): Promise<void> {
       await db.transaction(async (tx) => {

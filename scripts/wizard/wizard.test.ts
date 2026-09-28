@@ -11,6 +11,10 @@ import {
   operatorNameProblem,
   parseFromAddress,
   parseSiteUrl,
+  polarAccessTokenProblem,
+  polarProductIdProblem,
+  polarServerProblem,
+  polarWebhookSecretProblem,
   resendKeyProblem,
   spendThresholdProblem,
   type Fetch,
@@ -75,6 +79,19 @@ describe("shape checks", () => {
     expect(spendThresholdProblem("0")).toBeDefined();
     expect(spendThresholdProblem("$20")).toBeDefined();
     expect(spendThresholdProblem("")).toBeDefined();
+  });
+
+  it("knows what Polar's values look like", () => {
+    expect(polarAccessTokenProblem("polar_oat_abc")).toBeUndefined();
+    expect(polarAccessTokenProblem("sk-ant-abc")).toBeDefined();
+    expect(polarWebhookSecretProblem("whsec_abc")).toBeUndefined();
+    expect(polarWebhookSecretProblem("")).toBeDefined();
+    expect(polarWebhookSecretProblem("two words")).toBeDefined();
+    expect(polarProductIdProblem("0b6f3c2e-4a8d-4e1f-9c7a-2d5e8f1a3b4c")).toBeUndefined();
+    expect(polarProductIdProblem("Course credit")).toBeDefined();
+    expect(polarServerProblem("production")).toBeUndefined();
+    expect(polarServerProblem("sandbox")).toBeUndefined();
+    expect(polarServerProblem("live")).toBeDefined();
   });
 
   it("wants the site as a bare https origin", () => {

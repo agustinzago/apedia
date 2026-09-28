@@ -99,6 +99,13 @@
       "when": 1790631934019,
       "tag": "0013_magic_link_limits",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1790636341740,
+      "tag": "0014_course_credit",
+      "breakpoints": true
     }
   ]
 }

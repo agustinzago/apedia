@@ -48,6 +48,13 @@ export const loadYourCourses = cache(async () => {
   return course.listCourses(viewer.learnerId);
 });
 
+/** The signed-in Learner's Course credits by status, or null for a visitor. */
+export const loadCourseCredits = cache(async () => {
+  const [course, viewer] = await Promise.all([getCourse(), getViewer()]);
+  if (viewer.learnerId === null) return null;
+  return course.readCourseCredits(viewer.learnerId);
+});
+
 /** The Lesson read model for whoever is asking, deduplicated within one request. */
 export const loadLesson = cache(async (courseId: string, index: number) => {
   const [course, viewer] = await Promise.all([getCourse(), getViewer()]);

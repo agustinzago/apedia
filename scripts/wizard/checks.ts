@@ -73,6 +73,34 @@ export function spendThresholdProblem(value: string): string | undefined {
     : "Give an amount in US dollars above 0, such as 20.";
 }
 
+/** A Polar organization access token, from Settings → Developers. */
+export function polarAccessTokenProblem(value: string): string | undefined {
+  return value.startsWith("polar_")
+    ? undefined
+    : "A Polar access token starts with polar_ (polar_oat_…). Create one in Polar under Settings → Developers.";
+}
+
+/** The Polar webhook endpoint's signing secret. */
+export function polarWebhookSecretProblem(value: string): string | undefined {
+  return value !== "" && !/\s/.test(value)
+    ? undefined
+    : "Copy the webhook's secret from Polar (Settings → Webhooks → your endpoint).";
+}
+
+/** The Course credit product's id: Polar ids are UUIDs. */
+export function polarProductIdProblem(value: string): string | undefined {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)
+    ? undefined
+    : "Copy the product's ID from Polar (Products → the Course credit → Copy Product ID).";
+}
+
+/** Which Polar: the sandbox (test cards, no money) or production. */
+export function polarServerProblem(value: string): string | undefined {
+  return value === "production" || value === "sandbox"
+    ? undefined
+    : "Answer production (real payments) or sandbox (test cards).";
+}
+
 /** The site's origin (`https://host`), or a problem. Auth.js builds magic links from it. */
 export function parseSiteUrl(value: string): { origin: string } | { problem: string } {
   let url: URL;
