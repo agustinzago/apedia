@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useState } from "react";
 import type { JobView } from "@/course";
+import { pausedJobNote } from "@/app/daily-limit";
 import { Mascot } from "@/components/mascot";
 import {
   checkLessonGeneration,
@@ -33,8 +34,10 @@ export function LessonGeneration({
   const router = useRouter();
   const [view, setView] = useState(initial);
   const [openError, setOpenError] = useState<string | null>(null);
-  /** Set when today's Lessons are used up: says when this one can be written. */
-  const [limitNote, setLimitNote] = useState<string | null>(null);
+  /** Set when today's Lessons are used up or the Teacher is paused: says when this one can be written. */
+  const [limit, setLimit] = useState<{ reason: "daily-limit" | "paused"; note: string } | null>(
+    null,
+  );
   const [retryState, retry, retrying] = useActionState(
     async (): Promise<RetryState> => {
       const result = await retryLessonGeneration(courseId, index);
@@ -45,6 +48,7 @@ export function LessonGeneration({
           progress: current?.progress ?? [],
           status: "working",
           stalled: false,
+          resumesAt: null,
         }));
       }
       return result;
@@ -60,7 +64,7 @@ export function LessonGeneration({
     openLesson(courseId, index)
       .then((opened) => {
         if (cancelled) return;
-        if (opened.limited) setLimitNote(opened.error);
+        if (opened.limited) setLimit({ reason: opened.limited, note: opened.error ?? "" });
         else if (opened.error) setOpenError(opened.error);
         else if (opened.view === null) router.refresh();
         else setView(opened.view);
@@ -90,6 +94,7 @@ export function LessonGeneration({
   }, [working, courseId, index, router]);
 
   const failed = view?.status === "failed";
+  const pausedUntil = view?.resumesAt ?? null;
   const progress = view?.progress ?? [];
 
   return (
@@ -97,13 +102,15 @@ export function LessonGeneration({
       <div className={styles.writingHeader}>
         <Mascot size={44} />
         <h2 id="writing-heading" className={styles.writingTitle}>
-          {limitNote
+          {limit?.reason === "daily-limit"
             ? "That’s all the new Lessons for today"
-            : failed
-              ? "Your teacher hit a snag"
-              : view?.status === "done"
-                ? "Your Lesson is ready"
-                : "Your teacher is writing this Lesson"}
+            : limit || pausedUntil
+              ? "Your teacher is taking a breather"
+              : failed
+                ? "Your teacher hit a snag"
+                : view?.status === "done"
+                  ? "Your Lesson is ready"
+                  : "Your teacher is writing this Lesson"}
         </h2>
       </div>
 
@@ -115,21 +122,27 @@ export function LessonGeneration({
         </ol>
       )}
 
-      {limitNote ? (
+      {limit ? (
         <p className={styles.writingNote} role="status">
-          {limitNote}
+          {limit.note}
         </p>
       ) : openError ? (
         <p className={styles.error} role="alert">
           {openError}
         </p>
-      ) : failed ? (
+      ) : failed || pausedUntil ? (
         <form action={retry} className={styles.writingRetry}>
-          <p className={styles.writingNote} role="alert">
-            This Lesson couldn’t be written just now. Nothing is lost: please try again.
-          </p>
+          {pausedUntil ? (
+            <p className={styles.writingNote} role="status">
+              {pausedJobNote(pausedUntil)}
+            </p>
+          ) : (
+            <p className={styles.writingNote} role="alert">
+              This Lesson couldn’t be written just now. Nothing is lost: please try again.
+            </p>
+          )}
           <button type="submit" className="button-ink" disabled={retrying}>
-            {retrying ? "Starting…" : "Try again"}
+            {retrying ? "Starting…" : pausedUntil ? "Pick up where it stopped" : "Try again"}
           </button>
           {retryState.error && (
             <p className={styles.error} role="alert">

@@ -2,6 +2,7 @@
 
 import { refresh } from "next/cache";
 import type { DecideProposalResult } from "@/course";
+import { breatherNote } from "@/app/daily-limit";
 import { getViewer } from "@/server/auth";
 import { getCourse } from "@/server/course";
 
@@ -13,6 +14,8 @@ function errorFor(result: Extract<DecideProposalResult, { ok: false }>): string 
       return "This has already been decided. Reload the page to see where things stand.";
     case "unavailable":
       return "Your teacher couldn’t choose your next Lesson just now, so nothing changed. Please try again in a moment.";
+    case "paused":
+      return `${breatherNote(result.resumesAt)} Nothing changed: confirm this again then.`;
     default:
       return "This Course isn’t yours to change.";
   }

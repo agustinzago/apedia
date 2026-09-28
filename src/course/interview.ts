@@ -5,6 +5,7 @@ import type { InterviewMessage } from "@/db/schema";
 import type { Teacher } from "@/teacher";
 import { insertCourseCreationJob } from "./course-creation";
 import type { DailyCaps, DailyLimitReached } from "./limits";
+import type { Spend, SpendPaused } from "./spend";
 
 export type { InterviewMessage } from "@/db/schema";
 
@@ -61,7 +62,9 @@ export type WriteCourseResult =
     }
   | { ok: false; reason: "not-found" | "not-yours" | "not-finished" }
   /** The Learner has started today's new Courses; the Interview keeps for later. */
-  | DailyLimitReached;
+  | DailyLimitReached
+  /** The Teacher is paused for the day; the Interview keeps for later. */
+  | SpendPaused;
 
 export type ClaimResult = "claimed" | "not-found" | "not-yours";
 
@@ -74,10 +77,12 @@ export function createInterviewOperations({
   db,
   teacher,
   caps,
+  spend,
 }: {
   db: Db;
   teacher: Teacher;
   caps: DailyCaps;
+  spend: Spend;
 }) {
   async function findRow(interviewId: string): Promise<InterviewRow | null> {
     const [row] = await db
@@ -112,11 +117,17 @@ export function createInterviewOperations({
     /**
      * Starts an Interview from the subject and the answer to "why". The
      * Teacher first checks the two for safety: a redirected subject gets a
-     * kind message and nothing else runs.
+     * kind message and nothing else runs. Once the day's spend reaches the
+     * alarm, sales pause: no new Interview starts until the next UTC day.
      */
-    async startInterview(input: { subject: string; why: string }): Promise<InterviewView> {
+    async startInterview(input: {
+      subject: string;
+      why: string;
+    }): Promise<InterviewView | SpendPaused> {
       const subject = Subject.parse(input.subject);
       const why = Answer.parse(input.why);
+      const paused = await spend.newSale();
+      if (paused) return paused;
 
       const safety = await teacher.checkSafety({ subject, why });
       const language = canonicalLanguage(safety.language);
@@ -176,19 +187,21 @@ export function createInterviewOperations({
      * Answers the question being asked. The Teacher may ask one follow-up in
      * the whole Interview, only for an empty or vague answer. Null if the
      * Interview is not found or not the caller's; unchanged if it is not
-     * waiting for a written answer.
+     * waiting for a written answer. Past the spend stop, nothing is saved.
      */
     async answerInterview(
       interviewId: string,
       rawAnswer: string,
       learnerId: string | null = null,
-    ): Promise<InterviewView | null> {
+    ): Promise<InterviewView | SpendPaused | null> {
       const row = await findRow(interviewId);
       if (!row || !mayUse(row, learnerId)) return null;
       const stage = row.stage;
       if (stage !== "why" && stage !== "know" && stage !== "success") return toView(row);
 
       const answer = Answer.parse(rawAnswer);
+      const paused = await spend.teacherCall();
+      if (paused) return paused;
       const next = ORDER[ORDER.indexOf(stage) + 1];
       const asked = lastTeacherMessage(row.messages);
       const mayFollowUp = !row.followUpAsked;
@@ -284,6 +297,8 @@ export function createInterviewOperations({
      * 0001, and queues its Course creation job (research, then Up next) for
      * the caller to run. Writing the same Interview again returns the same
      * Course and job. A new Course counts toward the Learner's daily limit.
+     * It is not a new sale, so it goes ahead once sales pause, until the
+     * spend stop.
      */
     async writeCourse(interviewId: string, learnerId: string): Promise<WriteCourseResult> {
       const row = await findRow(interviewId);
@@ -295,7 +310,7 @@ export function createInterviewOperations({
 
       const existing = await findCourseFor(row.id);
       if (existing) return { ok: true, ...existing };
-      const limited = await caps.newCourse(learnerId);
+      const limited = (await caps.newCourse(learnerId)) ?? (await spend.teacherCall());
       if (limited) return limited;
 
       const sittingMinutes = row.sittingMinutes;

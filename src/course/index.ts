@@ -15,7 +15,13 @@ import { runJobStep, viewOf, type JobKind, type JobStepResult, type JobView } fr
 import { createLessonOperations } from "./lessons";
 import { createProposalOperations, readOpenProposals, type ProposalView } from "./proposals";
 import { createDailyCaps, DEFAULT_DAILY_LIMITS, type DailyLimits } from "./limits";
-import { createSpendOperations, type SpendAlarm } from "./spend";
+import {
+  createSpendOperations,
+  DEFAULT_SPEND_LIMITS,
+  type SpendAlarm,
+  type SpendLimits,
+  type SpendPaused,
+} from "./spend";
 import {
   LessonContent,
   lessonMinutes,
@@ -42,7 +48,13 @@ export {
   type DailyLimitReached,
   type DailyLimits,
 } from "./limits";
-export type { SpendAlarm, SpendAlert } from "./spend";
+export {
+  DEFAULT_SPEND_LIMITS,
+  type SpendAlarm,
+  type SpendAlert,
+  type SpendLimits,
+  type SpendPaused,
+} from "./spend";
 export type {
   CourseCreationView,
   RetryCourseCreationResult,
@@ -271,6 +283,7 @@ export function createCourseModule({
   fetchUrl,
   random = Math.random,
   limits = DEFAULT_DAILY_LIMITS,
+  spendLimits = DEFAULT_SPEND_LIMITS,
   spendAlarm = null,
   now = () => new Date(),
 }: {
@@ -282,17 +295,19 @@ export function createCourseModule({
   random?: () => number;
   /** Per-Learner daily caps. */
   limits?: DailyLimits;
-  /** The org-wide daily spend alarm; null for none. */
+  /** Org-wide daily spend limits: the alarm pauses sales, the stop pauses the Teacher. */
+  spendLimits?: SpendLimits;
+  /** Tells the operator when the day's spend reaches the alarm; null for nobody. */
   spendAlarm?: SpendAlarm | null;
   /** The clock that decides which day it is. */
   now?: () => Date;
 }) {
   const caps = createDailyCaps({ db, limits, now });
-  const creation = createCourseCreationOperations({ db, teacher, fetchUrl, caps });
-  const lessons = createLessonOperations({ db, teacher, random, caps });
-  const finish = createFinishOperations({ db, teacher });
-  const proposals = createProposalOperations({ db, teacher });
-  const spend = createSpendOperations({ db, alarm: spendAlarm, now });
+  const spend = createSpendOperations({ db, limits: spendLimits, alarm: spendAlarm, now });
+  const creation = createCourseCreationOperations({ db, teacher, fetchUrl, caps, spend });
+  const lessons = createLessonOperations({ db, teacher, random, caps, spend });
+  const finish = createFinishOperations({ db, teacher, spend });
+  const proposals = createProposalOperations({ db, teacher, spend });
 
   /** Returns the course row if the viewer may read it, otherwise null. */
   async function findReadableCourse(courseId: string, viewer: Viewer) {
@@ -328,10 +343,10 @@ export function createCourseModule({
     );
   }
 
-  const chat = createChatOperations({ db, teacher, readResourcesByRef, caps });
+  const chat = createChatOperations({ db, teacher, readResourcesByRef, caps, spend });
 
   return {
-    ...createInterviewOperations({ db, teacher, caps }),
+    ...createInterviewOperations({ db, teacher, caps, spend }),
     readCourseCreation: creation.readCourseCreation,
     retryCourseCreation: creation.retryCourseCreation,
     openLesson: lessons.openLesson,
@@ -347,17 +362,28 @@ export function createCourseModule({
     /** Records one call the Teacher made to Claude; wire it to the Teacher's `recordCall`. */
     recordTeacherCall: spend.recordTeacherCall,
 
+    /** Whether a new Interview may start today: null, or the pause and when it lifts. */
+    async readSalesPause(): Promise<SpendPaused | null> {
+      return spend.newSale();
+    },
+
     /**
      * Runs the next step of a pending generation job (Course creation,
      * Lesson generation or Finish) and reports whether another step waits. Each call
      * runs one step, so the app can give every step its own invocation.
+     * Past the spend stop, the job pauses at its step instead.
      */
     async runJobStep(jobId: string): Promise<JobStepResult> {
-      return runJobStep(db, jobId, {
-        course_creation: creation.runCourseCreationStep,
-        lesson_generation: lessons.runLessonGenerationStep,
-        finish: finish.runFinishStep,
-      });
+      return runJobStep(
+        db,
+        jobId,
+        {
+          course_creation: creation.runCourseCreationStep,
+          lesson_generation: lessons.runLessonGenerationStep,
+          finish: finish.runFinishStep,
+        },
+        spend.teacherCall,
+      );
     },
 
     /** Makes sure the read-only Example course is in the database. Safe to call repeatedly. */

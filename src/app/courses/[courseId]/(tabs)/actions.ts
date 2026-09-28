@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import type { CourseCreationView } from "@/course";
 import type { DeleteState } from "@/components/confirm-delete";
-import { untilReset } from "@/app/daily-limit";
+import { stillPausedNote, untilReset } from "@/app/daily-limit";
 import { getViewer } from "@/server/auth";
 import { getCourse } from "@/server/course";
 import { requestOrigin, startJobStep } from "@/server/jobs";
@@ -21,7 +21,7 @@ export async function checkCourseCreation(courseId: string): Promise<CourseCreat
 
 export type RetryState = { error: string | null };
 
-/** "Try again": resumes the Course creation job from the step that failed. */
+/** "Try again": resumes the Course creation job from the step that failed or paused. */
 export async function retryCourseCreation(courseId: string): Promise<RetryState> {
   const [course, viewer] = await Promise.all([getCourse(), getViewer()]);
   if (viewer.learnerId === null) return { error: "Sign in again to keep preparing this Course." };
@@ -32,9 +32,11 @@ export async function retryCourseCreation(courseId: string): Promise<RetryState>
       error:
         retried.reason === "daily-limit"
           ? `You’ve started ${retried.limit === 1 ? "a new course" : `${retried.limit} new courses`} today, which is the daily limit, so this one can’t be researched again yet. Try again ${untilReset(retried.resetsAt)}.`
-          : retried.reason === "nothing-to-retry"
-            ? "This Course is already prepared. Reload the page to see it."
-            : "This Course isn’t yours to prepare.",
+          : retried.reason === "paused"
+            ? stillPausedNote(retried.resumesAt)
+            : retried.reason === "nothing-to-retry"
+              ? "This Course is already prepared. Reload the page to see it."
+              : "This Course isn’t yours to prepare.",
     };
   }
   await startJobStep(retried.jobId, await requestOrigin());

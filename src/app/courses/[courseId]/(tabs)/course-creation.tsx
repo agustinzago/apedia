@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useState } from "react";
 import type { CourseCreationView } from "@/course";
+import { pausedJobNote } from "@/app/daily-limit";
 import { Mascot } from "@/components/mascot";
 import { checkCourseCreation, retryCourseCreation, type RetryState } from "./actions";
 import styles from "./course.module.css";
@@ -34,6 +35,7 @@ export function CourseCreation({
           progress: current?.progress ?? [],
           status: "working",
           stalled: false,
+          resumesAt: null,
         }));
       }
       return result;
@@ -69,11 +71,13 @@ export function CourseCreation({
         <h3 id="creation-heading" className={styles.creationTitle}>
           {view?.status === "failed"
             ? "Your teacher hit a snag"
-            : view?.status === "done"
-              ? "Your first Lesson is ready"
-              : view
-                ? "Your teacher is preparing this Course"
-                : "This Course isn’t prepared yet"}
+            : view?.status === "paused"
+              ? "Your teacher is taking a breather"
+              : view?.status === "done"
+                ? "Your first Lesson is ready"
+                : view
+                  ? "Your teacher is preparing this Course"
+                  : "This Course isn’t prepared yet"}
         </h3>
       </div>
 
@@ -97,15 +101,23 @@ export function CourseCreation({
         </p>
       )}
 
-      {(view === null || view.status === "failed") && (
+      {(view === null || view.status === "failed" || view.status === "paused") && (
         <form action={retry} className={styles.creationRetry}>
-          <p className={styles.creationNote} role={view ? "alert" : undefined}>
-            {view
-              ? "Something went wrong while preparing your Course. Nothing is lost: trying again picks up where it stopped."
-              : "Your teacher will find trustworthy sources and choose your first Lesson."}
+          <p className={styles.creationNote} role={view?.status === "failed" ? "alert" : undefined}>
+            {view?.resumesAt
+              ? pausedJobNote(view.resumesAt)
+              : view
+                ? "Something went wrong while preparing your Course. Nothing is lost: trying again picks up where it stopped."
+                : "Your teacher will find trustworthy sources and choose your first Lesson."}
           </p>
           <button type="submit" className="button-ink" disabled={retrying}>
-            {retrying ? "Starting…" : view ? "Try again" : "Prepare my Course"}
+            {retrying
+              ? "Starting…"
+              : view?.resumesAt
+                ? "Pick up where it stopped"
+                : view
+                  ? "Try again"
+                  : "Prepare my Course"}
           </button>
           {retryState.error && (
             <p className={styles.creationError} role="alert">

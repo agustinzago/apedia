@@ -12,6 +12,7 @@ import type {
 import { upNextProblem } from "./course-creation";
 import type { Tx } from "./jobs";
 import { findLessonJob } from "./lessons";
+import type { Spend, SpendPaused } from "./spend";
 
 /**
  * Mission changes and Done (CONTEXT.md): the Teacher proposes, the Learner
@@ -54,7 +55,9 @@ export type DecideProposalResult =
         | "decided"
         /** The Teacher could not re-pick Up next just now; nothing changed. */
         | "unavailable";
-    };
+    }
+  /** Re-picking Up next waits while the Teacher is paused for the day; nothing changed. */
+  | SpendPaused;
 
 /** Records a Done suggestion may rest on: what the Learner showed in the Course. */
 const EVIDENCE_KINDS: ReadonlySet<RecordKind> = new Set(["understanding", "misconception"]);
@@ -253,7 +256,15 @@ export function proposalView(
   };
 }
 
-export function createProposalOperations({ db, teacher }: { db: Db; teacher: Teacher }) {
+export function createProposalOperations({
+  db,
+  teacher,
+  spend,
+}: {
+  db: Db;
+  teacher: Teacher;
+  spend: Spend;
+}) {
   /** The Learner's own open proposal, with its Course. */
   async function findOwnProposal(courseId: string, proposalId: string, learnerId: string) {
     const [row] = await db
@@ -292,7 +303,8 @@ export function createProposalOperations({ db, teacher }: { db: Db; teacher: Tea
   /**
    * Up next for the new Mission, when the Lesson waiting is still unwritten
    * and nobody is writing it; null to leave it as it is. A written Lesson
-   * never changes: the Finish after it follows the new Mission.
+   * never changes: the Finish after it follows the new Mission. Past the
+   * spend stop, the pause instead.
    */
   async function repickUpNext(course: CourseRow, mission: ProposedMission) {
     const [upNext] = await db
@@ -303,6 +315,8 @@ export function createProposalOperations({ db, teacher }: { db: Db; teacher: Tea
       .limit(1);
     if (!upNext || upNext.content !== null) return null;
     if (await findLessonJob(db, upNext.id, "lesson_generation")) return null;
+    const paused = await spend.teacherCall();
+    if (paused) return paused;
 
     const [records, finished, resources] = await Promise.all([
       db
@@ -379,6 +393,7 @@ export function createProposalOperations({ db, teacher }: { db: Db; teacher: Tea
       console.warn(`Course ${course.id}: re-picking Up next for a new Mission failed.`, error);
       return { ok: false, reason: "unavailable" };
     }
+    if (upNext && "reason" in upNext) return upNext;
 
     return db.transaction(async (tx): Promise<DecideProposalResult> => {
       if (!(await decide(tx, proposal.id, "confirmed"))) return { ok: false, reason: "decided" };
@@ -454,7 +469,8 @@ export function createProposalOperations({ db, teacher }: { db: Db; teacher: Tea
      * The Learner confirms a proposal. A Mission change rewrites the Mission,
      * writes a mission-change Learning record and re-picks an unwritten Up
      * next; Done marks the Course Done. Either way the Course's other open
-     * proposals are withdrawn.
+     * proposals are withdrawn. A Mission change that needs the Teacher waits
+     * while it is paused for the day.
      */
     async confirmProposal(
       courseId: string,
