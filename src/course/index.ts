@@ -171,6 +171,10 @@ export type SetCommunityOptOutResult =
   | { ok: true }
   | { ok: false; reason: "not-found" | "read-only" };
 
+export type DeleteCourseResult =
+  | { ok: true }
+  | { ok: false; reason: "not-found" | "read-only" };
+
 export type LessonSection = {
   heading: string;
   body: string;
@@ -623,6 +627,46 @@ export function createCourseModule({
         .set({ communityOptOut: optedOut })
         .where(eq(schema.course.id, course.id));
       return { ok: true };
+    },
+
+    /**
+     * "Delete course": removes the Course and everything under it, for good.
+     * The schema's cascades remove its Lessons, records and jobs; the
+     * Interview it was written from goes too, so it cannot be written again.
+     * Only the Course's own Learner may; the Example course cannot be deleted.
+     */
+    async deleteCourse(courseId: string, learnerId: string): Promise<DeleteCourseResult> {
+      const course = await findReadableCourse(courseId, { learnerId });
+      if (!course) return { ok: false, reason: "not-found" };
+      if (course.isExample) return { ok: false, reason: "read-only" };
+
+      await db.transaction(async (tx) => {
+        await tx.delete(schema.course).where(eq(schema.course.id, course.id));
+        if (course.interviewId !== null) {
+          await tx.delete(schema.interview).where(eq(schema.interview.id, course.interviewId));
+        }
+      });
+      return { ok: true };
+    },
+
+    /**
+     * "Delete account": removes the Learner and, through the schema's
+     * cascades, their sessions, Interviews, Courses and everything under
+     * them, along with any magic-link tokens still out for their email. The
+     * caller signs them out.
+     */
+    async deleteAccount(learnerId: string): Promise<void> {
+      await db.transaction(async (tx) => {
+        const [learner] = await tx
+          .delete(schema.learner)
+          .where(eq(schema.learner.id, learnerId))
+          .returning({ email: schema.learner.email });
+        if (learner) {
+          await tx
+            .delete(schema.verificationToken)
+            .where(eq(schema.verificationToken.identifier, learner.email));
+        }
+      });
     },
 
     /** One Lesson, with its citations resolved to Resources. Null if not found or not the viewer's. */

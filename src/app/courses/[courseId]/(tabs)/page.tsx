@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { CoursePath, FinishedLesson, UpNextLesson } from "@/course";
+import { ConfirmDelete } from "@/components/confirm-delete";
 import { loadCoursePath } from "@/server/course";
 import { ProposalCard } from "../proposal-card";
+import { deleteCourse } from "./actions";
 import { CourseCreation } from "./course-creation";
 import styles from "./course.module.css";
 
@@ -51,6 +53,16 @@ export default async function PathTab({
             !course.upNext && <p className={styles.muted}>No Lessons yet.</p>
           )}
         </section>
+        {!course.isExample && (
+          <div data-noprint className={styles.deleteCourse}>
+            <ConfirmDelete
+              label="Delete course"
+              warning="Delete this Course for good? Its Mission, Lessons, Learning records, Reference sheet and chats go with it. This can’t be undone."
+              confirmLabel="Yes, delete it"
+              action={deleteCourse.bind(null, course.id)}
+            />
+          </div>
+        )}
       </div>
       <LearningRecords course={course} />
     </div>
