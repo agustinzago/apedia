@@ -1,20 +1,22 @@
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { schema, type Db } from "@/db";
-import fixtureJson from "./example-course.json";
+import musicTheoryJson from "./example-courses/music-theory.json";
+import phonePhotographyJson from "./example-courses/phone-photography.json";
+import vegetableGardenJson from "./example-courses/vegetable-garden.json";
 import { LessonContent, ResourceId, Term } from "./lesson-content";
 
+/** The first Example course, Music theory: the one links point to when they need just one. */
 export const EXAMPLE_COURSE_ID = "example-music-theory";
 
 const isoDate = z.iso.datetime().transform((s) => new Date(s));
 
 /**
- * The shape of the committed Example course fixture. It holds the whole
- * Course — including parts later tickets will seed — so it can double as
- * test data.
+ * The shape of a committed Example course fixture. Each holds a whole
+ * Course, so it can double as test data.
  */
 export const ExampleCourseFixture = z.object({
-  id: z.literal(EXAMPLE_COURSE_ID),
+  id: z.string().regex(/^example-[a-z0-9-]+$/),
   subject: z.string(),
   title: z.string(),
   language: z.string(),
@@ -80,12 +82,41 @@ export const ExampleCourseFixture = z.object({
 
 export type ExampleCourseFixture = z.infer<typeof ExampleCourseFixture>;
 
-export const exampleCourse: ExampleCourseFixture =
-  ExampleCourseFixture.parse(fixtureJson);
+/** The Example courses, in the order the home page shows them. */
+export const exampleCourses: ExampleCourseFixture[] = [
+  musicTheoryJson,
+  vegetableGardenJson,
+  phonePhotographyJson,
+].map((json) => ExampleCourseFixture.parse(json));
 
-/** Writes the Example course into the database unless it is already there. */
-export async function seedExampleCourse(db: Db): Promise<void> {
-  const fx = exampleCourse;
+/** An Example course as the home page shows it: enough to choose one to open. */
+export type ExampleCourseCard = {
+  id: string;
+  subject: string;
+  title: string;
+  /** The Learner's reason, the Mission's why. */
+  why: string;
+  sittingMinutes: number;
+  resources: number;
+  lessons: { index: number; title: string; finished: boolean }[];
+};
+
+export const EXAMPLE_COURSE_CARDS: ExampleCourseCard[] = exampleCourses.map((fx) => ({
+  id: fx.id,
+  subject: fx.subject,
+  title: fx.title,
+  why: fx.mission.why,
+  sittingMinutes: fx.mission.sittingMinutes,
+  resources: fx.resources.length,
+  lessons: fx.lessons.map((l) => ({ index: l.index, title: l.title, finished: l.finishedAt !== null })),
+}));
+
+/** Writes each Example course into the database unless it is already there. */
+export async function seedExampleCourses(db: Db): Promise<void> {
+  for (const fx of exampleCourses) await seedExampleCourse(db, fx);
+}
+
+async function seedExampleCourse(db: Db, fx: ExampleCourseFixture): Promise<void> {
   await db.transaction(async (tx) => {
     const inserted = await tx
       .insert(schema.course)

@@ -27,7 +27,7 @@ What a Course credit lets its Course use: a fixed number of Lessons written (Fin
 _Avoid_: Quota, budget, limit (limits are the daily caps and spend limits)
 
 **Example course**:
-A pre-made, read-only Course ("Music theory") that anyone can open to see what a Course looks like.
+One of three pre-made, read-only Courses ("Music theory", "Vegetable gardening", "Phone photography") that anyone can open from the home page to see what a Course looks like, before buying one.
 _Avoid_: Example notebook, demo
 
 **Interview**:
@@ -53,7 +53,7 @@ The moment a Learner closes out a Lesson after answering every quiz question. It
 _Avoid_: Complete, submit
 
 **Up next**:
-The single Lesson the Teacher has chosen to teach next, picked from the Mission and the Learning records. There is no upfront plan beyond it.
+The single Lesson the Teacher has chosen to teach next, picked from the Mission and the Learning records, and written in the background so it is ready when the Learner is. There is no upfront plan beyond it.
 _Avoid_: Plan, roadmap, curriculum
 
 **Key idea**:
@@ -95,4 +95,4 @@ _Avoid_: Cheat sheet, summary
 - **Course credit → Interview**: an available Course credit backs at most one open Interview. A redirected subject uses no credit.
 - **Course credit → Course**: "Write my course" uses the Interview's credit, which becomes that one Course. Giving up on (deleting) a Course whose creation failed before finding any Resources gives the credit back.
 - **Interview → Course**: one Interview, one Course.
-- **Course → Allowance**: every Course a Learner owns has one allowance, counted from its own Lessons and chat; the Example course has none.
+- **Course → Allowance**: every Course a Learner owns has one allowance, counted from its own Lessons and chat; the Example courses have none.

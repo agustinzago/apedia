@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { COURSE_CREDIT, EXAMPLE_COURSE_ID } from "@/course";
+import { COURSE_CREDIT } from "@/course";
 import styles from "../small-print.module.css";
 
 export const metadata: Metadata = { title: "Pricing · Apedia" };
@@ -78,9 +78,9 @@ export default function PricingPage() {
           See one first, free
         </h2>
         <p>
-          The <Link href={`/courses/${EXAMPLE_COURSE_ID}`}>Example course</Link>,
-          Music theory, is free to read, with no sign-in. When you’re ready,{" "}
-          <Link href="/">choose what to learn</Link>.
+          The <Link href="/#examples">Example courses</Link> (Music theory,
+          Vegetable gardening and Phone photography) are free to read, with no
+          sign-in. When you’re ready, <Link href="/start">choose what to learn</Link>.
         </p>
       </section>
     </>

@@ -172,6 +172,7 @@ describe("course: finishing a Lesson", () => {
         goal: "Spot which chords in a chart belong to G major",
         minutes: 10,
         started: false,
+        ready: false,
       });
     });
 

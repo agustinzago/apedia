@@ -1,4 +1,4 @@
-import { and, asc, eq, isNotNull, isNull, lt } from "drizzle-orm";
+import { and, asc, desc, eq, isNotNull, isNull, lt } from "drizzle-orm";
 import { schema, type Db } from "@/db";
 import type { LessonDraft, QuestionDraft, Teacher, WriteLessonInput } from "@/teacher";
 import { missionOf } from "./course-creation";
@@ -9,9 +9,10 @@ import type { DailyCaps, DailyLimitReached } from "./limits";
 import type { Spend, SpendPaused } from "./spend";
 
 /**
- * Lessons: the Up next Lesson is written by a Lesson generation job on its
- * first open (ADR 0004), checked and cached for good; the Learner's quiz
- * answers are stored as quiz attempts.
+ * Lessons: the Up next Lesson is written by a Lesson generation job (ADR
+ * 0004), started in the background as soon as Up next is picked, or on its
+ * first open if it wasn't, then checked and cached for good; the Learner's
+ * quiz answers are stored as quiz attempts.
  */
 
 export type LessonGenerationStep = "write";
@@ -289,6 +290,46 @@ export function createLessonOperations({
   }
 
   return {
+    /**
+     * Starts writing the Course's Up next ahead of its first open, so it is
+     * ready when the Learner is. It counts against the allowance and today's
+     * cap just as an open would, and is skipped (left for the first open)
+     * whenever an open would be refused, and while a Mission change waits
+     * for the Learner, since confirming it may re-pick Up next. Returns the
+     * Lesson generation job to start, or null when there is nothing to start.
+     */
+    async writeUpNextAhead(courseId: string): Promise<string | null> {
+      const [course] = await db.select().from(schema.course).where(eq(schema.course.id, courseId));
+      if (!course || course.isExample || course.status !== "active" || !course.learnerId) {
+        return null;
+      }
+      const [waiting] = await db
+        .select({ id: schema.proposal.id })
+        .from(schema.proposal)
+        .where(
+          and(
+            eq(schema.proposal.courseId, courseId),
+            eq(schema.proposal.kind, "mission_change"),
+            eq(schema.proposal.status, "open"),
+          ),
+        )
+        .limit(1);
+      if (waiting) return null;
+
+      const [upNext] = await db
+        .select()
+        .from(schema.lesson)
+        .where(and(eq(schema.lesson.courseId, courseId), isNull(schema.lesson.finishedAt)))
+        .orderBy(desc(schema.lesson.index))
+        .limit(1);
+      if (!upNext || upNext.content !== null) return null;
+      if (await findGenerationJob(upNext.id)) return null;
+      if (await generationRefused(upNext, course.learnerId)) return null;
+
+      const job = await insertGenerationJob(upNext);
+      return job.status === "pending" ? job.id : null;
+    },
+
     /** Runs the one step of a Lesson generation job; see `runJobStep` in ./jobs. */
     async runLessonGenerationStep(job: JobRow, run: JobRun): Promise<JobStepResult> {
       const [lesson] = job.lessonId
@@ -354,9 +395,10 @@ export function createLessonOperations({
     },
 
     /**
-     * The Learner opens a Lesson. The first open of an unwritten Lesson starts
-     * its generation job, within the Course's allowance, the Learner's daily
-     * limit and the spend stop; later opens report on that job. A written
+     * The Learner opens a Lesson. The first open of an unwritten Lesson not
+     * already being written ahead starts its generation job, within the
+     * Course's allowance, the Learner's daily limit and the spend stop;
+     * later opens report on that job. A written
      * Lesson needs nothing. A refused open leaves the Lesson unopened.
      */
     async openLesson(

@@ -386,7 +386,7 @@ export function createFinishOperations({
           .where(eq(schema.course.id, course.id));
         if (status === "done") return;
 
-        // Up next's content is written on its first open, not now.
+        // Up next's content is written by its own job, started once this one is done.
         await tx
           .insert(schema.lesson)
           .values({

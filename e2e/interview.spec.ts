@@ -3,22 +3,22 @@ import { expect, test } from "@playwright/test";
 // The Interview needs a signed-in Learner with a Course credit (ADR 0007),
 // which the smoke test can't buy; it checks the way there keeps the subject.
 
-test("a visitor who picks a subject is sent to sign in, and the subject is kept", async ({
+test("a visitor who buys a Course is sent to sign in first, then to choose a subject", async ({
   page,
 }) => {
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: /Start your own Course/ })).toBeVisible();
-  await page.getByRole("link", { name: "Chess", exact: true }).click();
+  await page.getByRole("button", { name: /Buy a Course/ }).first().click();
 
-  await expect(page).toHaveURL(/\/sign-in\?next=%2Finterview%3Fsubject%3DChess$/);
-  await expect(page.getByText(/your course on Chess is kept for you/)).toBeVisible();
-  await expect(page.locator('input[name="next"]')).toHaveValue("/interview?subject=Chess");
+  await expect(page).toHaveURL(/\/sign-in\?next=%2Fstart$/);
+  await expect(page.locator('input[name="next"]')).toHaveValue("/start");
+
+  // Choosing what to learn needs a signed-in Learner too.
+  await page.goto("/start");
+  await expect(page).toHaveURL(/\/sign-in\?next=%2Fstart$/);
 });
 
-test("a subject typed on the home page rides along to sign-in", async ({ page }) => {
-  await page.goto("/");
-  await page.getByLabel("What would you like to learn?").fill("  Welsh & poetry  ");
-  await page.getByRole("button", { name: "Begin" }).click();
+test("a subject in an Interview link rides along to sign-in", async ({ page }) => {
+  await page.goto(`/interview?${new URLSearchParams({ subject: "  Welsh & poetry  " })}`);
 
   await expect(page.getByText(/your course on Welsh & poetry is kept for you/)).toBeVisible();
   await expect(page.locator('input[name="next"]')).toHaveValue(

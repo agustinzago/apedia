@@ -36,7 +36,7 @@ test("a visitor walks the Example course to a Lesson and answers its quiz", asyn
   page,
 }) => {
   await page.goto("/");
-  await page.getByRole("link", { name: /See a real Course first, free/ }).click();
+  await page.getByRole("link", { name: /Music theory for the guitar you already play/ }).click();
 
   await expect(
     page.getByRole("heading", {
@@ -81,6 +81,16 @@ test("a visitor walks the Example course to a Lesson and answers its quiz", asyn
     "href",
     "https://www.musictheory.net/lessons",
   );
+
+  // Practice steps tick off, and stay ticked in this browser.
+  const step = main.getByRole("checkbox", { name: "Play the open G string and say “G”." });
+  await expect(step).not.toBeChecked();
+  await step.check();
+  await expect(step).toBeChecked();
+  await page.reload();
+  await expect(step).toBeChecked();
+  await step.uncheck();
+  await expect(step).not.toBeChecked();
 
   // A wrong pick: red ✗ on it, the right answer marked, the rest faded.
   const pattern = main.getByRole("group", {
@@ -128,4 +138,16 @@ test("a visitor walks the Example course to a Lesson and answers its quiz", asyn
   await expect(finish).toBeVisible();
   await expect(finish).toBeDisabled();
   await expect(main.getByText(/sample course, so nothing is saved/)).toBeVisible();
+});
+
+test("a visitor opens the other Example courses from the home page", async ({ page }) => {
+  for (const title of [
+    /Your first vegetable bed/,
+    /Better photos with the phone in your pocket/,
+  ]) {
+    await page.goto("/");
+    await page.getByRole("link", { name: title }).click();
+    await expect(page.getByRole("heading", { level: 1, name: title })).toBeVisible();
+    await expect(page.getByText("Example course · read-only")).toBeVisible();
+  }
 });

@@ -1,0 +1,462 @@
+{
+  "id": "example-phone-photography",
+  "subject": "Phone photography",
+  "title": "Better photos with the phone in your pocket",
+  "language": "en",
+  "createdAt": "2026-09-02T19:00:00Z",
+  "mission": {
+    "why": "Take photos of my family and our trips that look like what I actually saw, with the phone I already have.",
+    "success": [
+      "Take a bright, sharp photo of a person indoors without using the flash",
+      "Frame a holiday photo on purpose and say why it works"
+    ],
+    "constraints": [
+      "10 minutes per sitting",
+      "Uses the phone they already own; no extra lenses, tripods or lights",
+      "Practises at home and on family outings, often with children who won't sit still"
+    ],
+    "sittingMinutes": 10,
+    "outOfScope": [
+      "Buying a dedicated camera",
+      "Editing in separate apps such as Lightroom or Snapseed",
+      "Studio lighting"
+    ]
+  },
+  "resources": [
+    {
+      "id": "r1",
+      "kind": "docs",
+      "title": "iPhone User Guide",
+      "author": "Apple",
+      "url": "https://support.apple.com/guide/iphone/welcome/ios",
+      "why": "Apple's own guide. Its Camera chapter shows exactly where focus, brightness, the grid and Portrait mode live on an iPhone.",
+      "language": "en"
+    },
+    {
+      "id": "r2",
+      "kind": "docs",
+      "title": "Pixel Phone Help",
+      "author": "Google",
+      "url": "https://support.google.com/pixelphone/",
+      "why": "Google's official help for the Pixel Camera app. Other Android phones name their controls a little differently, but the ideas match.",
+      "language": "en"
+    },
+    {
+      "id": "r3",
+      "kind": "site",
+      "title": "Cambridge in Colour — Photography Tutorials",
+      "author": "Sean McHugh",
+      "url": "https://www.cambridgeincolour.com/tutorials.htm",
+      "why": "Free, careful tutorials on light, exposure and composition, including a clear one on the rule of thirds. They apply to any camera, phones included.",
+      "language": "en"
+    },
+    {
+      "id": "r4",
+      "kind": "site",
+      "title": "Digital Photography School",
+      "author": "Darren Rowse",
+      "url": "https://digital-photography-school.com/",
+      "why": "Thousands of plain-language tips for beginners, with many written for phone cameras and family photos.",
+      "language": "en"
+    },
+    {
+      "id": "r5",
+      "kind": "course",
+      "title": "Seeing Through Photographs",
+      "author": "The Museum of Modern Art",
+      "url": "https://www.coursera.org/learn/photography",
+      "why": "A free museum course on looking at photographs. It trains the eye for why a frame works, without asking for any gear.",
+      "language": "en"
+    }
+  ],
+  "communities": [
+    {
+      "name": "r/mobilephotography",
+      "where": "Reddit, online",
+      "url": "https://www.reddit.com/r/mobilephotography/",
+      "why": "People share photos taken on every kind of phone and give friendly, specific feedback on light and framing.",
+      "offline": false
+    },
+    {
+      "name": "Flickr groups",
+      "where": "Flickr, online",
+      "url": "https://www.flickr.com/groups/",
+      "why": "Search for phone photography groups: weekly themes give you something to shoot and people to learn from.",
+      "offline": false
+    },
+    {
+      "name": "A local photo walk or camera club",
+      "where": "Libraries, community centres and camera clubs often list them",
+      "url": null,
+      "why": "Walking the same streets as others and comparing photos afterwards shows you how differently people see the same light.",
+      "offline": true
+    }
+  ],
+  "gaps": [
+    {
+      "description": "Photos in very low light, such as birthday candles or evening streets: the official guides explain the Night mode switch, but no Resource found teaches when it helps on every phone."
+    }
+  ],
+  "lessons": [
+    {
+      "index": 1,
+      "title": "Find the light",
+      "goal": "Turn your subject to face the light so faces come out clear",
+      "openedAt": "2026-09-02T19:20:00Z",
+      "finishedAt": "2026-09-02T19:29:00Z",
+      "content": {
+        "hook": "The biggest difference between a dull snapshot and a photo that looks like what you saw is not the phone. It is the light — and moving your subject a single step can change it completely.",
+        "sections": [
+          {
+            "heading": "Where is the light coming from?",
+            "body": "Every photo is made of light, so start by finding its source: the sun, a window, a lamp. Then notice which way it travels. Light falling on the front of a face shows the eyes and skin clearly. Light from the side adds shape and texture. Light from behind your subject, shining towards the phone, is called backlight: the bright background fools the camera and the face comes out dark. Big, even sources, like a cloudy sky or a large window, give soft light with gentle shadows. The midday sun or a bare bulb gives hard light with sharp, dark shadows.",
+            "citations": ["r3", "r4"]
+          },
+          {
+            "heading": "Turn them to face it",
+            "body": "You rarely need to change the light itself; change where people stand. Indoors, move your subject so they face a window and stand with your back to it, a little to one side so your shadow does not fall on them. Outdoors on a sunny day, look for open shade, such as under a tree or beside a building, where the light is softer. The phone's flash is a last resort: it fires straight from the front, flattens faces and makes the background go black.",
+            "citations": ["r4", "r5"]
+          }
+        ],
+        "keyIdea": "Before you take a photo, find where the light comes from and turn your subject to face it.",
+        "practice": {
+          "title": "Walk round the window",
+          "steps": [
+            "Stand a person, or a mug if no one is free, with a bright window behind them. Take a photo.",
+            "Swap places so they face the window and you have your back to it. Take a second photo.",
+            "Turn them side-on to the window and take a third photo.",
+            "Look at all three and say which one shows the face or the mug most clearly, and why."
+          ]
+        },
+        "practiceMinutes": 6,
+        "quiz": [
+          {
+            "question": "A friend stands with a bright window behind them. What usually happens to their face in the photo?",
+            "options": ["It comes out dark", "It comes out blurry", "It looks too orange", "It looks too sharp"],
+            "answer": 0,
+            "explanation": "That is backlight: the bright window fools the camera, so the face comes out dark.",
+            "review": false
+          },
+          {
+            "question": "Which of these gives the softest, most flattering light on a face?",
+            "options": ["Harsh sun at noon", "A bare ceiling bulb", "A cloudy sky outdoors", "The phone's own flash"],
+            "answer": 2,
+            "explanation": "A cloudy sky is a huge, even source, so shadows are gentle. The flash fires straight from the front and flattens faces.",
+            "review": false
+          },
+          {
+            "question": "What should you do first, before taking the photo?",
+            "options": [
+              "Switch the flash on first",
+              "Turn the phone upside down",
+              "Pick a filter to use",
+              "Find where light comes from"
+            ],
+            "answer": 3,
+            "explanation": "Finding the light comes first: it tells you where your subject should stand.",
+            "review": false
+          }
+        ],
+        "readNext": "r4",
+        "newTerms": [
+          { "term": "Backlight", "definition": "Light coming from behind your subject, towards the camera. It tends to leave faces dark." },
+          { "term": "Soft light", "definition": "Light from a big, even source, such as a window or a cloudy sky, that gives gentle shadows." }
+        ]
+      },
+      "quizAttempts": [
+        { "questionIndex": 0, "chosenOption": 0, "at": "2026-09-02T19:26:00Z" },
+        { "questionIndex": 1, "chosenOption": 3, "at": "2026-09-02T19:27:00Z" },
+        { "questionIndex": 2, "chosenOption": 3, "at": "2026-09-02T19:28:00Z" }
+      ]
+    },
+    {
+      "index": 2,
+      "title": "Tap to focus, slide to brighten",
+      "goal": "Choose what is sharp and how bright the photo is before you press the shutter",
+      "openedAt": "2026-09-05T10:10:00Z",
+      "finishedAt": "2026-09-05T10:19:00Z",
+      "content": {
+        "hook": "Your phone guesses what matters in every scene, and it often guesses wrong: the sky instead of the face, the fence instead of the dog. One tap puts you back in charge.",
+        "sections": [
+          {
+            "heading": "Tap what matters",
+            "body": "Before you press the shutter, tap your subject on the screen. A small box or circle appears where you tapped. The phone now focuses there, so that part is sharp, and it also sets the exposure, meaning how bright or dark the photo is, from that spot. Tap a bright window and the room goes dark; tap a face in the shade and the face brightens. This works the same way on iPhone and Android.",
+            "citations": ["r1", "r2"]
+          },
+          {
+            "heading": "Slide to fine-tune",
+            "body": "After the tap, you can nudge the brightness. On an iPhone a small sun icon appears beside the box: drag up to brighten, down to darken. On a Pixel, sliders appear on screen for brightness; on other Android phones it is usually a sun icon or a bar, depending on the maker. If a sky or window turns pure white, slide a little darker until you can see detail in it again.",
+            "citations": ["r1", "r2", "r3"]
+          },
+          {
+            "heading": "Hold to lock",
+            "body": "Children and pets move, and the phone will re-guess as soon as they do. On an iPhone, touch and hold your subject until AE/AF Lock appears: focus and brightness stay put while you wait for the moment. Many Android phones lock the same way with a touch and hold; on some, a lock icon appears instead.",
+            "citations": ["r1", "r2"]
+          }
+        ],
+        "keyIdea": "Tap what matters: the phone focuses and sets the brightness there, and the slider fine-tunes it.",
+        "practice": {
+          "title": "Plant against the window",
+          "steps": [
+            "Put a plant or a cup in front of a bright window and open the camera.",
+            "Tap the window, then tap the plant. Watch how the brightness jumps each time.",
+            "With the plant tapped, slide the brightness down until the window keeps some detail.",
+            "Touch and hold to lock, move the phone slightly, and take the photo."
+          ]
+        },
+        "practiceMinutes": 5,
+        "quiz": [
+          {
+            "question": "What does tapping your subject on the screen tell the phone?",
+            "options": [
+              "Which filter to apply next",
+              "Where to focus and expose",
+              "When to fire the flash",
+              "How much to zoom in"
+            ],
+            "answer": 1,
+            "explanation": "The tap sets both focus and exposure from that spot.",
+            "review": false
+          },
+          {
+            "question": "The window behind your plant has turned pure white. What helps most?",
+            "options": [
+              "Switch the flash on and retry",
+              "Slide the brightness up a little",
+              "Zoom in on the window frame",
+              "Slide the brightness down a little"
+            ],
+            "answer": 3,
+            "explanation": "Sliding darker brings detail back into the bright window while the plant stays in focus.",
+            "review": false
+          },
+          {
+            "question": "Your friend has a bright window behind them. Which way should they turn?",
+            "options": ["Away from the window", "Towards the dark wall", "To face the window", "Up towards the ceiling"],
+            "answer": 2,
+            "explanation": "Facing the light turns backlight into light on the face — the Key idea from Lesson 1.",
+            "review": true
+          }
+        ],
+        "readNext": "r1",
+        "newTerms": [
+          { "term": "Exposure", "definition": "How bright or dark a photo is." },
+          { "term": "AE/AF Lock", "definition": "Holding exposure and focus fixed, by touching and holding the screen, so they stay put while you wait." }
+        ]
+      },
+      "quizAttempts": [
+        { "questionIndex": 0, "chosenOption": 1, "at": "2026-09-05T10:16:00Z" },
+        { "questionIndex": 1, "chosenOption": 3, "at": "2026-09-05T10:17:00Z" },
+        { "questionIndex": 2, "chosenOption": 2, "at": "2026-09-05T10:18:00Z" }
+      ]
+    },
+    {
+      "index": 3,
+      "title": "Gridlines and the rule of thirds",
+      "goal": "Turn on the grid and place your subject on a third, on purpose",
+      "openedAt": "2026-09-08T20:05:00Z",
+      "finishedAt": "2026-09-08T20:14:00Z",
+      "content": {
+        "hook": "Most holiday photos put everything in the middle: the face, the horizon, the tower. Moving it a little to one side is the quickest way to make a photo feel planned.",
+        "sections": [
+          {
+            "heading": "Turn on the grid",
+            "body": "Your camera can show two horizontal and two vertical lines that divide the screen into nine equal boxes. They never appear in the photo. On an iPhone, open Settings, then Camera, and switch on Grid. On a Pixel, open the settings inside the Camera app and set Grid type to 3×3. On a Samsung Galaxy it is Grid lines in the camera settings; on other Android phones, look for the word Grid there too.",
+            "citations": ["r1", "r2"]
+          },
+          {
+            "heading": "Put it on a third",
+            "body": "The rule of thirds says: place what matters on one of the grid lines, or where two of them cross, rather than dead centre. Put a person's eyes near the top line. Put the horizon on the lower line if the sky is the interesting part, or on the upper line if the beach or the field is. The empty space left on the other side gives the photo room to breathe, and a person looking into that space feels natural.",
+            "citations": ["r3", "r5"]
+          },
+          {
+            "heading": "A guide, not a law",
+            "body": "Centre still works when the scene is symmetrical, such as a reflection in a lake or a doorway straight ahead. The point is to choose where things go instead of leaving it to chance. The grid also helps you keep horizons level, which fixes many holiday photos on its own.",
+            "citations": ["r3"]
+          }
+        ],
+        "keyIdea": "Turn on the grid and put your subject on a third line or crossing, not dead centre.",
+        "practice": {
+          "title": "Three horizons",
+          "steps": [
+            "Switch on the grid using the steps for your phone.",
+            "Find a horizon, or the edge of a table, and photograph it straight across the middle.",
+            "Take it again on the lower line, then on the upper line.",
+            "Photograph a person or a mug where two lines cross, and compare it with a centred shot."
+          ]
+        },
+        "practiceMinutes": 5,
+        "quiz": [
+          {
+            "question": "How many boxes does the camera grid divide the screen into?",
+            "options": ["Four equal boxes", "Six equal boxes", "Twelve equal boxes", "Nine equal boxes"],
+            "answer": 3,
+            "explanation": "Two horizontal and two vertical lines make nine equal boxes.",
+            "review": false
+          },
+          {
+            "question": "Where does the rule of thirds suggest putting a horizon?",
+            "options": ["Along one third line", "Through the exact middle", "Along the bottom edge", "Across the top edge"],
+            "answer": 0,
+            "explanation": "On the lower or upper grid line, depending on whether the sky or the ground is more interesting.",
+            "review": false
+          },
+          {
+            "question": "You tap a face on the screen. What does the phone set from that spot?",
+            "options": ["Zoom and filter", "Focus and brightness", "Flash and timer", "Grid and colour"],
+            "answer": 1,
+            "explanation": "One tap sets both focus and exposure — the Key idea from Lesson 2.",
+            "review": true
+          }
+        ],
+        "readNext": "r3",
+        "newTerms": [
+          { "term": "Gridlines", "definition": "Two horizontal and two vertical lines on the camera screen that divide it into nine boxes. They never appear in the photo." },
+          { "term": "Rule of thirds", "definition": "Placing what matters on a grid line, or where two cross, instead of dead centre." }
+        ]
+      },
+      "quizAttempts": [
+        { "questionIndex": 0, "chosenOption": 3, "at": "2026-09-08T20:11:00Z" },
+        { "questionIndex": 1, "chosenOption": 0, "at": "2026-09-08T20:12:00Z" },
+        { "questionIndex": 2, "chosenOption": 1, "at": "2026-09-08T20:13:00Z" }
+      ]
+    },
+    {
+      "index": 4,
+      "title": "Get closer, clear the background",
+      "goal": "Fill the frame with your subject and keep what is behind them simple",
+      "openedAt": "2026-09-11T18:30:00Z",
+      "finishedAt": null,
+      "content": {
+        "hook": "A face lost in a crowd of cars, bins and strangers is hard to love. Two moves fix most busy photos: step closer, and move until the background is plain.",
+        "sections": [
+          {
+            "heading": "Walk, don't pinch",
+            "body": "Many phones have two or three real lenses, shown as buttons such as 0.5×, 1× and 2× or 3×. Switching between them keeps full detail. Pinching to zoom beyond them is digital zoom: the phone only crops and enlarges the picture, so fine detail turns soft. When you can, walk closer instead, until your subject fills most of the frame.",
+            "citations": ["r1", "r2", "r4"]
+          },
+          {
+            "heading": "Look behind your subject",
+            "body": "Before you tap the shutter, look at the edges and the background, not only the face. A lamp post growing out of a head or a bright car in the corner pulls the eye away. Take one step to the side, or crouch a little, until a plain wall, a hedge or the sky sits behind them.",
+            "citations": ["r4", "r5"]
+          },
+          {
+            "heading": "Portrait mode, when it helps",
+            "body": "Both iPhone and Android cameras have a Portrait mode: swipe to it among the camera modes. It blurs the background so your subject stands out. It works best when you stand about one to two metres away; if you are too close or too far, the phone tells you on screen. Check the edges of hair and glasses, where the blur sometimes slips.",
+            "citations": ["r1", "r2"]
+          }
+        ],
+        "keyIdea": "Step closer until your subject fills the frame, then move until the background is plain.",
+        "practice": {
+          "title": "Clean up one busy photo",
+          "steps": [
+            "Photograph a person or a toy where they are, without changing anything.",
+            "Walk closer until they fill most of the frame, and take it again.",
+            "Step sideways or crouch until the background is plain, and take a third.",
+            "Try the same shot in Portrait mode and compare all four."
+          ]
+        },
+        "practiceMinutes": 6,
+        "quiz": [
+          {
+            "question": "Why walk closer instead of pinching to zoom?",
+            "options": [
+              "Walking closer uses more battery",
+              "Pinching in blurs the background",
+              "Pinching in loses fine detail",
+              "Walking closer changes the colours"
+            ],
+            "answer": 2,
+            "explanation": "Pinching past the real lenses is digital zoom: the phone crops and enlarges, so detail turns soft.",
+            "review": false
+          },
+          {
+            "question": "Your friend stands in front of a busy car park. What is the simplest fix?",
+            "options": [
+              "Step sideways to find plainer background",
+              "Add a heavy filter over everything",
+              "Zoom in until the cars vanish",
+              "Brighten the photo until it's white"
+            ],
+            "answer": 0,
+            "explanation": "A step or two to the side often swaps the cars for a plain wall, hedge or sky.",
+            "review": false
+          },
+          {
+            "question": "Where does the rule of thirds suggest placing your subject?",
+            "options": [
+              "In the exact screen centre",
+              "On a grid line crossing",
+              "Touching the frame's outer edge",
+              "Below the lowest grid line"
+            ],
+            "answer": 1,
+            "explanation": "On a grid line, or where two cross — the Key idea from Lesson 3.",
+            "review": true
+          }
+        ],
+        "readNext": "r4",
+        "newTerms": [
+          { "term": "Digital zoom", "definition": "Zooming past the phone's real lenses by cropping and enlarging the picture, which loses detail." },
+          { "term": "Portrait mode", "definition": "A camera mode that blurs the background so the subject stands out." }
+        ]
+      },
+      "quizAttempts": []
+    }
+  ],
+  "learningRecords": [
+    {
+      "number": 1,
+      "kind": "prior_knowledge",
+      "title": "Shoots on the default settings",
+      "body": "Said in the Interview they point and press the shutter on an Android phone, have never changed a camera setting, and mostly photograph their children and holidays.",
+      "lessonIndex": null,
+      "createdAt": "2026-09-02T19:00:00Z"
+    },
+    {
+      "number": 2,
+      "kind": "misconception",
+      "title": "Thought the flash gives the most flattering light",
+      "body": "Picked the phone's own flash as the softest light in Lesson 1. Corrected: the flash fires straight from the front and flattens faces; a window or a cloudy sky gives softer light.",
+      "lessonIndex": 1,
+      "createdAt": "2026-09-02T19:29:00Z"
+    },
+    {
+      "number": 3,
+      "kind": "understanding",
+      "title": "Turns the subject to face the light",
+      "body": "Spotted backlight and chose to find the light first in Lesson 1, then turned the subject to face the window in Lesson 2's review question.",
+      "lessonIndex": 2,
+      "createdAt": "2026-09-05T10:19:00Z"
+    },
+    {
+      "number": 4,
+      "kind": "understanding",
+      "title": "Sets focus and brightness with a tap",
+      "body": "Knew a tap sets focus and exposure and slid darker to save a white window in Lesson 2, and answered the same idea again in Lesson 3's review question.",
+      "lessonIndex": 3,
+      "createdAt": "2026-09-08T20:14:00Z"
+    }
+  ],
+  "glossary": [
+    { "term": "Backlight", "definition": "Light coming from behind your subject, towards the camera. It tends to leave faces dark.", "lessonIndex": 1 },
+    { "term": "Exposure", "definition": "How bright or dark a photo is.", "lessonIndex": 2 },
+    { "term": "AE/AF Lock", "definition": "Holding exposure and focus fixed, by touching and holding the screen, so they stay put while you wait.", "lessonIndex": 2 },
+    { "term": "Gridlines", "definition": "Two horizontal and two vertical lines on the camera screen that divide it into nine boxes. They never appear in the photo.", "lessonIndex": 3 },
+    { "term": "Rule of thirds", "definition": "Placing what matters on a grid line, or where two cross, instead of dead centre.", "lessonIndex": 3 }
+  ],
+  "referenceSections": [
+    {
+      "title": "Where the light should be",
+      "body": "In front of the subject (behind you) = clear faces · From the side = shape and texture · Behind the subject = dark face. Softest light: a window or a cloudy sky. Flash: last resort."
+    },
+    {
+      "title": "Focus and brightness",
+      "body": "iPhone: tap to focus · drag the sun icon up or down · touch and hold for AE/AF Lock. Android: tap to focus · drag the brightness slider or sun icon (its look varies by maker) · on many phones, touch and hold to lock."
+    },
+    {
+      "title": "Turning on the grid",
+      "body": "iPhone: Settings › Camera › Grid. Pixel: Camera app settings › Grid type › 3×3. Samsung Galaxy: camera settings › Grid lines. Other Android phones: look for Grid in the camera settings."
+    }
+  ]
+}

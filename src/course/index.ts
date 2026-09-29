@@ -11,7 +11,7 @@ import { countedLessonIds, questionsLeft } from "./allowance";
 import { createChatOperations, readChat } from "./chat";
 import { COURSE_CREDIT } from "./course-credit";
 import { createCreditOperations } from "./credits";
-import { EXAMPLE_COURSE_ID, seedExampleCourse } from "./example-course";
+import { seedExampleCourses } from "./example-course";
 import { createFinishOperations } from "./finish";
 import { createInterviewOperations } from "./interview";
 import { runJobStep, viewOf, type JobKind, type JobStepResult, type JobView } from "./jobs";
@@ -32,7 +32,7 @@ import {
   type Term,
 } from "./lesson-content";
 
-export { EXAMPLE_COURSE_ID };
+export { EXAMPLE_COURSE_CARDS, EXAMPLE_COURSE_ID, type ExampleCourseCard } from "./example-course";
 export {
   openingMessages,
   SITTING_MINUTES,
@@ -101,6 +101,8 @@ export type UpNextLesson = {
   /** Expected length of one sitting; null for Lessons chosen before Up next carried minutes. */
   minutes: number | null;
   started: boolean;
+  /** True once it is written: usually in the background, before it is first opened. */
+  ready: boolean;
 };
 
 export type LearningRecordKind =
@@ -299,9 +301,9 @@ export type Viewer = { learnerId: string | null };
 
 export type CourseModule = ReturnType<typeof createCourseModule>;
 
-/** Makes sure the read-only Example course is in the database. Safe to call repeatedly. */
+/** Makes sure the read-only Example courses are in the database. Safe to call repeatedly. */
 export async function ensureExampleCourse(db: Db): Promise<void> {
-  await seedExampleCourse(db);
+  await seedExampleCourses(db);
 }
 
 export function createCourseModule({
@@ -425,7 +427,32 @@ export function createCourseModule({
       );
     },
 
-    /** Makes sure the read-only Example course is in the database. Safe to call repeatedly. */
+    /**
+     * Once a job that picks Up next (Course creation or Finish) is done,
+     * starts writing that Lesson in the background. The Lesson generation
+     * job to start, or null. See `writeUpNextAhead` in ./lessons.
+     */
+    async writeUpNextAfter(jobId: string): Promise<string | null> {
+      const [job] = await db.select().from(schema.job).where(eq(schema.job.id, jobId));
+      if (!job || job.status !== "done" || job.kind === "lesson_generation") return null;
+      return lessons.writeUpNextAhead(job.courseId);
+    },
+
+    /**
+     * After the Learner decides a proposal: starts writing Up next in the
+     * background, now that no Mission change can re-pick it. The Lesson
+     * generation job to start, or null.
+     */
+    async writeUpNextAhead(courseId: string, learnerId: string): Promise<string | null> {
+      const [course] = await db
+        .select({ learnerId: schema.course.learnerId })
+        .from(schema.course)
+        .where(eq(schema.course.id, courseId));
+      if (!course || course.learnerId !== learnerId) return null;
+      return lessons.writeUpNextAhead(courseId);
+    },
+
+    /** Makes sure the read-only Example courses are in the database. Safe to call repeatedly. */
     async ensureExampleCourse(): Promise<void> {
       await ensureExampleCourse(db);
     },
@@ -468,6 +495,7 @@ export function createCourseModule({
           minutes: schema.lesson.minutes,
           openedAt: schema.lesson.openedAt,
           finishedAt: schema.lesson.finishedAt,
+          written: isNotNull(schema.lesson.content).mapWith(Boolean),
         })
         .from(schema.lesson)
         .where(eq(schema.lesson.courseId, course.id))
@@ -521,6 +549,7 @@ export function createCourseModule({
             goal: next.goal,
             minutes: next.minutes,
             started: next.openedAt !== null,
+            ready: next.written,
           }
         : null;
 

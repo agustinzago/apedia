@@ -12,18 +12,23 @@ test("a visitor sees the price on the home page, and what a Course includes", as
   await page.goto("/");
   const main = page.getByRole("main");
 
-  // The Example course comes first, free and one click away.
-  await expect(
-    main.getByRole("link", { name: /See a real Course first, free/ }),
-  ).toHaveAttribute("href", "/courses/example-music-theory");
+  // The Example courses come first, free and one click away.
+  for (const [name, href] of [
+    [/Music theory for the guitar you already play/, "/courses/example-music-theory"],
+    [/Your first vegetable bed/, "/courses/example-vegetable-garden"],
+    [/Better photos with the phone in your pocket/, "/courses/example-phone-photography"],
+  ] as const) {
+    await expect(main.getByRole("link", { name })).toHaveAttribute("href", href);
+  }
 
   await expect(
     main.getByRole("heading", { level: 2, name: `Start your own Course · $${priceUsd}` }),
   ).toBeVisible();
+  await expect(main.getByText(/Priced at cost: Apedia doesn’t aim to profit/)).toBeVisible();
+  await expect(main.getByText(new RegExp(`up to ${lessons} Lessons`)).first()).toBeVisible();
   await expect(
-    main.getByText(/priced at cost, since Apedia doesn’t aim to profit/),
+    main.getByRole("button", { name: `Buy a Course · $${priceUsd}` }).first(),
   ).toBeVisible();
-  await expect(main.getByText(new RegExp(`up to ${lessons} Lessons`))).toBeVisible();
   await expect(main).not.toContainText(PLUMBING);
 
   await main.getByRole("link", { name: "What a Course includes" }).click();

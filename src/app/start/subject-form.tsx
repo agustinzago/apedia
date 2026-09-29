@@ -1,8 +1,8 @@
 import Form from "next/form";
 import Link from "next/link";
-import styles from "./home.module.css";
+import styles from "./start.module.css";
 
-const SUGGESTIONS = ["Music theory", "Chess", "Astronomy", "Spanish", "Drawing"];
+const SUGGESTIONS = ["Music theory", "Vegetable gardening", "Phone photography", "Chess", "Spanish"];
 
 /**
  * Begin, or a suggestion chip, heads for the Interview on that subject. The
@@ -21,7 +21,7 @@ export function SubjectForm() {
           name="subject"
           required
           maxLength={120}
-          placeholder="music theory, chess, the French revolution…"
+          placeholder="bread baking, chess, the French revolution…"
           autoComplete="off"
           className={`sketchy ${styles.input}`}
         />

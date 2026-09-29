@@ -34,7 +34,7 @@ export default async function ThanksPage({ searchParams }: PageProps<"/purchase/
           <p className={styles.lede}>
             Your Course credit is here. Your receipt is on its way by email.
           </p>
-          <Link href={subject ? next : "/"} className={`button-ink ${styles.start}`}>
+          <Link href={subject ? next : "/start"} className={`button-ink ${styles.start}`}>
             {subject ? `Start your course on ${subject}` : "Choose what to learn"}
           </Link>
         </>

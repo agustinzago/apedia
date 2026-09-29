@@ -2,10 +2,12 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { MAX_QUESTION_LENGTH, type LessonResource, type LessonSection, type LessonView } from "@/course";
+import { BACK } from "@/components/page-transition";
 import { loadLesson } from "@/server/course";
 import { AskTeacher } from "./ask-teacher";
 import { FinishButton } from "./finish-button";
 import { LessonGeneration } from "./lesson-generation";
+import { PracticeSteps } from "./practice-steps";
 import { Quiz } from "./quiz";
 import styles from "./lesson.module.css";
 
@@ -42,6 +44,7 @@ export default async function LessonPage({
       <Link
         data-noprint
         href={`/courses/${lesson.course.id}`}
+        transitionTypes={BACK}
         className={styles.back}
       >
         ← learning path
@@ -106,14 +109,10 @@ export default async function LessonPage({
             <h2 id="practice-heading" className={styles.sectionTitle}>
               Practice: {content.practice.title}
             </h2>
-            <ol className={styles.steps}>
-              {content.practice.steps.map((step) => (
-                <li key={step} className={styles.step}>
-                  <span className={styles.box} aria-hidden />
-                  <span>{step}</span>
-                </li>
-              ))}
-            </ol>
+            <PracticeSteps
+              storageKey={`apedia:practice:${lesson.course.id}:${lesson.index}`}
+              steps={content.practice.steps}
+            />
           </section>
 
           <Quiz

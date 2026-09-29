@@ -5,16 +5,12 @@ import { useActionState, useEffect, useRef, useState } from "react";
 import type { InterviewMessage, InterviewView } from "@/course";
 import { Mascot } from "@/components/mascot";
 import { sendAnswer, writeMyCourse, type InterviewState } from "./actions";
+import { answerPlaceholder } from "./placeholders";
 import { openInterviewPath } from "./subject";
 import styles from "./interview.module.css";
 
 const SITTING_CHIPS = [5, 10, 20, 30];
 
-const PLACEHOLDERS: Record<number, string> = {
-  1: "e.g. to understand the songs I play",
-  2: "e.g. I can play a few chords",
-  3: "e.g. work out a song’s chords myself",
-};
 
 export function InterviewChat({
   subject,
@@ -128,7 +124,7 @@ export function InterviewChat({
                   event.currentTarget.form?.requestSubmit();
                 }
               }}
-              placeholder={PLACEHOLDERS[questionNumber ?? 1]}
+              placeholder={answerPlaceholder(subject, questionNumber ?? 1)}
               autoFocus
               className={styles.answer}
             />

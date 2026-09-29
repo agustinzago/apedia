@@ -4,6 +4,7 @@ import type { CoursePath, FinishedLesson, UpNextLesson } from "@/course";
 import { lessonsUsedUpNote } from "@/app/allowance";
 import { BuyCourse } from "@/app/purchase/buy-course";
 import { ConfirmDelete } from "@/components/confirm-delete";
+import { FORWARD } from "@/components/page-transition";
 import { loadCoursePath } from "@/server/course";
 import { ProposalCard } from "../proposal-card";
 import { deleteCourse } from "./actions";
@@ -163,6 +164,7 @@ function FinishedLessonItem({
       </div>
       <Link
         href={lessonHref(courseId, lesson.index)}
+        transitionTypes={FORWARD}
         className={`sketchy ${styles.lessonCard}`}
       >
         <span className={styles.lessonMeta}>
@@ -199,6 +201,7 @@ function UpNextItem({
       </div>
       <Link
         href={lessonHref(courseId, lesson.index)}
+        transitionTypes={FORWARD}
         className={`sketchy ${styles.lessonCard} ${styles.lessonCardNext}`}
       >
         <span className={styles.lessonMeta}>
@@ -206,7 +209,7 @@ function UpNextItem({
             Lesson {lesson.index}
             {of !== null && lesson.index <= of && ` of ${of}`}
             {lesson.minutes !== null && ` · about ${lesson.minutes} min`}
-            {lesson.started && " · started"}
+            {lesson.started ? " · started" : lesson.ready && " · ready for you"}
           </span>
           <span className={styles.upNextLabel}>Up next</span>
         </span>

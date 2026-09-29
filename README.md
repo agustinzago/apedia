@@ -9,13 +9,13 @@ npm install
 npm run dev        # http://localhost:3000
 ```
 
-Without `DATABASE_URL`, the app uses a local PGlite database in `.pglite/` (Postgres in WebAssembly — no Docker), migrates it and seeds the Example course on first request. Delete `.pglite/` to start fresh.
+Without `DATABASE_URL`, the app uses a local PGlite database in `.pglite/` (Postgres in WebAssembly — no Docker), migrates it and seeds the Example courses on first request. Delete `.pglite/` to start fresh.
 
 Sign-in needs no setup locally: the magic link is printed to the `npm run dev` console instead of being emailed. Open it in the same browser to sign in.
 
 The Teacher needs no setup either: without `ANTHROPIC_API_KEY` a stand-in Teacher echoes the Interview questions and builds the Mission from your answers. Put `ANTHROPIC_API_KEY=…` in `.env.local` to talk to Claude.
 
-An Interview needs a Course credit (ADR 0007), and only a payment webhook grants one, so trying the Interview locally needs the Polar sandbox (see Payments). The Example course needs nothing.
+An Interview needs a Course credit (ADR 0007), and only a payment webhook grants one, so trying the Interview locally needs the Polar sandbox (see Payments). The Example courses need nothing.
 
 ## Check
 
@@ -23,7 +23,7 @@ An Interview needs a Course credit (ADR 0007), and only a payment webhook grants
 npm run typecheck
 npm run lint
 npm test           # runs against in-memory PGlite
-npm run test:e2e   # Playwright smoke test through the Example course
+npm run test:e2e   # Playwright smoke test through the Example courses
 ```
 
 The smoke test builds the app and serves it on port 3100 with a fresh in-memory database. First time on a machine, run `npx playwright install chromium`.
@@ -31,7 +31,7 @@ The smoke test builds the app and serves it on port 3100 with a fresh in-memory 
 ## Database
 
 - Schema: `src/db/schema.ts`. After changing it, run `npm run db:generate` and commit the new file in `drizzle/`.
-- Production (Neon): migrations are applied by the Production build on Vercel; `DATABASE_URL=… npm run db:migrate` applies them by hand and seeds the Example course.
+- Production (Neon): migrations are applied by the Production build on Vercel; `DATABASE_URL=… npm run db:migrate` applies them by hand and seeds the Example courses.
 
 ## Sign-in
 
@@ -49,9 +49,15 @@ Magic links are limited to 3 an hour and 10 a UTC day per address, and 20 an hou
 
 Every Claude call lives in `src/teacher/` (an ESLint rule keeps the SDK out of every other module). In production set `ANTHROPIC_API_KEY`; it is only read on the server. `APEDIA_FAKE_TEACHER=1` forces the stand-in Teacher, as the e2e smoke test does. Alongside the stand-in Teacher, Resource URLs are not fetched (its Resources are made up).
 
+## Landing page and Lessons
+
+The home page is the landing page (design: the "Apedia landing page" canvas in Claude Design): what Apedia is, the three Example courses to open for free, how a Course works, and "Buy a Course". Buying leads to `/start`, where the Learner types what to learn; there, and in the Interview, the example answers fit the subject (`src/app/interview/placeholders.ts`). A signed-in Learner also sees their courses and any Interview under way.
+
+Up next is written in the background: once the job that picks it (Course creation, or a Lesson's Finish) is done, `/api/jobs/[jobId]` starts its Lesson generation job, so the Lesson is usually ready before it is opened. It is skipped, and the Lesson written on its first open as before, whenever an open would be refused (allowance, daily cap, spend stop), and while a Mission change waits for the Learner, since confirming it may re-pick Up next; deciding that proposal starts the writing. Practice steps tick off in the browser (kept in `localStorage`, never sent). Pages animate between each other with React's `<ViewTransition>` through the `template.tsx` files (`src/components/page-transition.tsx`): into a Course or Lesson slides forward, back to the Path slides back, anything else fades; browsers without view transitions, and reduced motion, just swap pages.
+
 ## Cost protection
 
-Every Course has an allowance, what its Course credit buys, so its worst-case cost stays below the $5 it brings in: 20 Lessons written and 200 chat questions across its Lessons. A Lesson counts from its first open, when its writing starts (even if that fails and is tried again); its Finish is included. Only the Learner's questions count, not the Teacher's answers. Both are counted from the Course's own rows, so every Course a Learner owns has the same allowance, including Courses written before Course credits existed; the Example course is read-only and has none. `course` refuses writing a 21st Lesson (`lessons-used-up`) and a 201st question (`questions-used-up`). The Path tab shows "Lesson 7 of 20" and how many Lessons are left; once they are all written, the Teacher's last Up next stays shown with a calm note and "Buy a Course" to go on with a new Mission, and everything written (Lessons, Reference sheet, Learning records) stays. The chat shows the questions left once fewer than 20 remain, and takes no more at 0. The numbers are `COURSE_CREDIT.lessons` and `COURSE_CREDIT.chatQuestions` in `src/course/course-credit.ts`, which the Terms quote; they have no environment override, so what is sold and what is enforced can't drift apart. Change them there, with the Terms.
+Every Course has an allowance, what its Course credit buys, so its worst-case cost stays below the $5 it brings in: 20 Lessons written and 200 chat questions across its Lessons. A Lesson counts from when its writing starts (even if that fails and is tried again); its Finish is included. Only the Learner's questions count, not the Teacher's answers. Both are counted from the Course's own rows, so every Course a Learner owns has the same allowance, including Courses written before Course credits existed; the Example courses are read-only and have none. `course` refuses writing a 21st Lesson (`lessons-used-up`) and a 201st question (`questions-used-up`). The Path tab shows "Lesson 7 of 20" and how many Lessons are left; once they are all written, the Teacher's last Up next stays shown with a calm note and "Buy a Course" to go on with a new Mission, and everything written (Lessons, Reference sheet, Learning records) stays. The chat shows the questions left once fewer than 20 remain, and takes no more at 0. The numbers are `COURSE_CREDIT.lessons` and `COURSE_CREDIT.chatQuestions` in `src/course/course-credit.ts`, which the Terms quote; they have no environment override, so what is sold and what is enforced can't drift apart. Change them there, with the Terms.
 
 Paid Courses bring their own budget, so the per-Learner daily cap on new Courses is gone: each Course needs a credit. The daily caps on Lesson generations and chat questions remain only as an abuse guard, set to two whole Courses' allowances, 40 Lessons and 400 questions per Learner per UTC day, so no one account, however many credits it holds, can take a day's spend to the spend stop and pause the Teacher for everyone. Hitting one shows a friendly message saying when it resets. `APEDIA_DAILY_LESSONS` and `APEDIA_DAILY_CHAT_MESSAGES` override the defaults in `src/course/limits.ts`.
 
@@ -65,7 +71,7 @@ Spend limits act, in two tiers, until the next midnight UTC. At the alarm, sales
 
 Learners buy a Course credit for US$5 through Polar, the merchant of record (ADR 0006). Everything that talks to Polar lives in `src/payments/` (an ESLint rule keeps its SDK out of every other module), behind two operations: start a checkout, and verify a webhook into a "paid" or "refunded" event. `course` records Course credits from those events in the `course_credit` table and reads them back with `readCourseCredits`.
 
-1. "Buy a Course · $5" (home page, next to "Your courses" with the unused Course credits, and account page; signed in) starts a Polar checkout for the Course credit product, with the Learner's id as checkout metadata and their email prefilled, and sends them there.
+1. "Buy a Course · $5" (home page, `/start` and account page; signed in, or a visitor signs in first) starts a Polar checkout for the Course credit product, with the Learner's id as checkout metadata and their email prefilled, and sends them there.
 2. Polar calls `POST /api/payments/webhook`. The route checks the signature (Standard Webhooks, through the Polar SDK) and hands the event to `course`: `order.paid` grants one Course credit, once per order however often it is delivered; `order.refunded` for a full refund marks an unused credit refunded, so it can no longer start a Course (a used one stays used, with the refund recorded). A partial refund changes nothing. A bad signature gets 403; other events, other products, and orders for an account that no longer exists are acknowledged and ignored.
 3. Polar sends the Learner to `/purchase/thanks?next=…`, which grants nothing: only the webhook does. Until the credit has arrived (usually within seconds) the page says the payment is being confirmed and checks again every few seconds; then it leads on to `next`, such as the Interview on the subject they typed.
 
@@ -75,7 +81,7 @@ Deleting an account deletes its Course credits; the payments stay with Polar. Wh
 
 The Interview calls Claude, so it runs only for a signed-in Learner with an available Course credit (ADR 0007), and `course` refuses it otherwise:
 
-1. The subject form on the home page goes to `/interview?subject=…`. A visitor is sent to sign in, and a Learner with no credit free to buy a Course; the subject rides along in the `next` and checkout return URLs (cut to 120 characters, and only ever shown as text), so it is typed once.
+1. "Buy a Course" on the home page leads, through sign-in and the checkout, to `/start`, whose subject form goes to `/interview?subject=…`; a Learner already holding a credit goes to `/start` with "Start a Course". `/interview?subject=…` sends a visitor to sign in, and a Learner with no credit free to buy a Course; the subject rides along in the `next` and checkout return URLs (cut to 120 characters, and only ever shown as text), so it is typed once.
 2. The first answer starts the Interview, which reserves the Learner's oldest available credit that backs no other Interview: `interview.course_credit_id`, unique, so one credit backs at most one open Interview, even from two tabs at once. A subject the safety check redirects reserves nothing. The Learner may leave and come back (`/interview?id=…`, linked from the home page), or let an open Interview go to use its credit for another subject.
 3. "Write my course" marks that credit `used` in the transaction that creates the Course, only while it is still `available`, so every Course uses exactly one credit. A credit refunded while its Interview is open stops the Interview.
 4. A Course whose creation failed before finding any Resources can be retried, keeping its credit, or deleted, which gives the credit back: `available` again, or `refunded` if its payment was refunded meanwhile. Any other Course keeps its credit `used`.
@@ -93,7 +99,7 @@ To try it locally, put sandbox values in `.env.local`, expose `npm run dev` with
 
 ## Small print
 
-`/pricing`, `/privacy`, `/terms`, `/refunds` and `/credits`, linked from the footer on every page, live in the `(small-print)` route group. `/pricing` says what a Course costs and includes, why it isn't free, that tax may be added at checkout, and the refund window; the home page shows the price on the subject form and links there. Privacy, Terms and Refund policy name the operator and a contact address from `APEDIA_OPERATOR_NAME` and `APEDIA_CONTACT_EMAIL`, both public (Polar requires them). Unset, the pages show an obvious placeholder, and in production the server logs an error. The contact address does not fall back to `APEDIA_OPERATOR_EMAIL`, which is the spend alarm's private inbox; set both to the same address if you like. The price of a Course credit, what it buys and the refund window are in `src/course/course-credit.ts`. The wording is plain language, not legal advice: have it reviewed before launch.
+`/pricing`, `/privacy`, `/terms`, `/refunds` and `/credits`, linked from the footer on every page, live in the `(small-print)` route group. `/pricing` says what a Course costs and includes, why it isn't free, that tax may be added at checkout, and the refund window; the home page shows the price beside "Buy a Course" and links there. Privacy, Terms and Refund policy name the operator and a contact address from `APEDIA_OPERATOR_NAME` and `APEDIA_CONTACT_EMAIL`, both public (Polar requires them). Unset, the pages show an obvious placeholder, and in production the server logs an error. The contact address does not fall back to `APEDIA_OPERATOR_EMAIL`, which is the spend alarm's private inbox; set both to the same address if you like. The price of a Course credit, what it buys and the refund window are in `src/course/course-credit.ts`. The wording is plain language, not legal advice: have it reviewed before launch.
 
 ## Success metrics
 
@@ -109,11 +115,11 @@ npm run wizard
 
 The wizard walks through Neon, Anthropic, Resend, the operator's name and contact address, the spend alarm, the Auth.js secret, the site URL and Polar, checking each value against its service as you enter it. It migrates Neon, links the Vercel project, sets every variable in Vercel's Production environment, deploys, and checks that the live site offers sign-in. Values are recorded in `.env.wizard` (gitignored; Next.js never loads it, so local builds and the smoke test keep using PGlite). Re-run it to pick up where you left off or to change a value.
 
-Production variables: `DATABASE_URL`, `ANTHROPIC_API_KEY`, `AUTH_RESEND_KEY`, `AUTH_EMAIL_FROM`, `AUTH_SECRET`, `AUTH_URL` (the site's origin, set for Production only so preview deployments build links from their own URL), `APEDIA_OPERATOR_NAME`, `APEDIA_CONTACT_EMAIL`, `APEDIA_OPERATOR_EMAIL`, `APEDIA_SPEND_ALARM_USD`, `APEDIA_SPEND_STOP_USD`, `POLAR_ACCESS_TOKEN`, `POLAR_WEBHOOK_SECRET`, `POLAR_PRODUCT_ID` and `POLAR_SERVER` (`production`). Every push to `master` deploys to Production, and the Production build applies pending migrations to Neon (and seeds the Example course) before `next build`, so a deploy never runs ahead of its schema. Preview and local builds skip that step. `DATABASE_URL=… npm run db:migrate` still applies them by hand.
+Production variables: `DATABASE_URL`, `ANTHROPIC_API_KEY`, `AUTH_RESEND_KEY`, `AUTH_EMAIL_FROM`, `AUTH_SECRET`, `AUTH_URL` (the site's origin, set for Production only so preview deployments build links from their own URL), `APEDIA_OPERATOR_NAME`, `APEDIA_CONTACT_EMAIL`, `APEDIA_OPERATOR_EMAIL`, `APEDIA_SPEND_ALARM_USD`, `APEDIA_SPEND_STOP_USD`, `POLAR_ACCESS_TOKEN`, `POLAR_WEBHOOK_SECRET`, `POLAR_PRODUCT_ID` and `POLAR_SERVER` (`production`). Every push to `master` deploys to Production, and the Production build applies pending migrations to Neon (and seeds the Example courses) before `next build`, so a deploy never runs ahead of its schema. Preview and local builds skip that step. `DATABASE_URL=… npm run db:migrate` still applies them by hand.
 
 ## Layout
 
-- `src/course/`: the `course` module, the one seam the UI calls. `example-course.json` is the Example course fixture; it doubles as test data. `interview.ts` holds the Interview, backed by a Course credit from its start to "Write my course", which uses the credit and writes the Course. `course-creation.ts` is the Course creation job that follows (ADR 0004): research search, research structure with the URL rules (`url-rules.ts`), then Up next, one step per call, tracked on a `job` row. `limits.ts` holds the per-Learner daily caps; `course-credit.ts` what a Course credit buys, and `allowance.ts` counts it against each Course's rows; `credits.ts` records Course credits from payment events, counts them and gives one back when a failed Course is given up; `spend.ts` records the Teacher's calls, raises the spend alarm and holds the day's spend to its limits.
+- `src/course/`: the `course` module, the one seam the UI calls. `example-courses/` holds the Example course fixtures (Music theory, Vegetable gardening, Phone photography), each held to the Lesson rules by `example-course.test.ts`; they double as test data. `interview.ts` holds the Interview, backed by a Course credit from its start to "Write my course", which uses the credit and writes the Course. `course-creation.ts` is the Course creation job that follows (ADR 0004): research search, research structure with the URL rules (`url-rules.ts`), then Up next, one step per call, tracked on a `job` row. `limits.ts` holds the per-Learner daily caps; `course-credit.ts` what a Course credit buys, and `allowance.ts` counts it against each Course's rows; `credits.ts` records Course credits from payment events, counts them and gives one back when a failed Course is given up; `spend.ts` records the Teacher's calls, raises the spend alarm and holds the day's spend to its limits.
 - `src/teacher/`: the `teacher` module, which owns every Claude call and prompt, with zod-validated outputs, and reports each call's tokens and cost (`pricing.ts`). `fake.ts` is the stand-in tests use, fed with the JSON in `fixtures/`.
 - `src/payments/`: the `payments` module, the only code that talks to Polar (`polar.ts`): it starts checkouts and verifies webhooks into provider-neutral payment events. `fake.ts` is the stand-in tests use.
 - `src/url-fetcher/`: the network half of the Resource URL check (one GET, 5 s timeout), with a fake for tests.
