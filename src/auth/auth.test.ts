@@ -126,7 +126,22 @@ describe("auth: delivering the magic link", () => {
     expect(body).toMatchObject({
       from: "Apedia <sign-in@example.com>",
       to: "ana@example.com",
+      subject: "Your Apedia sign-in link",
     });
+    expect(body.html).toContain('href="http://localhost:3000/api/auth/callback/resend?token=abc"');
+    expect(body.text).toContain("http://localhost:3000/api/auth/callback/resend?token=abc");
+    fetch.mockRestore();
+  });
+
+  it("fails the sign-in when Resend refuses the email", async () => {
+    const fetch = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(new Response("domain not verified", { status: 403 }));
+    const provider = createMagicLinkProvider({ delivery: "email" });
+
+    await expect(request({ ...provider, ...provider.options, apiKey: "re_test" })).rejects.toThrow(
+      "Resend answered 403: domain not verified",
+    );
     fetch.mockRestore();
   });
 });
