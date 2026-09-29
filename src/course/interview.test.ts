@@ -617,6 +617,30 @@ describe("course: Course credits back Interviews", () => {
       expect(await start(course, chess)).toMatchObject({ stage: "know" });
     });
 
+    it("gives the credit back twice at most, so failing on purpose can't research forever", async () => {
+      await setUp({
+        researchSearch: () => {
+          throw new Error("The web search is down.");
+        },
+      });
+      await buyCourse(course, "ana");
+
+      for (let giveUp = 1; giveUp <= 2; giveUp++) {
+        const { courseId, jobId } = await writeCourse();
+        await runToEnd(jobId);
+        await course.deleteCourse(courseId, "ana");
+        expect(await credits()).toEqual({ available: 1, used: 0, refunded: 0 });
+      }
+
+      const { courseId, jobId } = await writeCourse();
+      await runToEnd(jobId);
+      expect(await course.readCoursePath(courseId, { learnerId: "ana" })).toMatchObject({
+        givesCreditBack: false,
+      });
+      await course.deleteCourse(courseId, "ana");
+      expect(await credits()).toEqual({ available: 0, used: 1, refunded: 0 });
+    });
+
     it("keeps the credit used for a Course that found Resources before failing", async () => {
       await setUp({
         pickUpNext: () => {

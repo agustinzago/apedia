@@ -332,6 +332,71 @@ describe("course: the Course creation job, from research to Up next", () => {
     expect(calls("researchSearch")).toHaveLength(2);
   });
 
+  describe("Try again", () => {
+    const failingSearch = () => {
+      throw new Error("Overloaded");
+    };
+
+    it("gives each step three attempts, then stops offering more", async () => {
+      await setUp({ researchSearch: failingSearch });
+      const { courseId, jobId } = await writeCourse();
+      await runToEnd(jobId);
+
+      for (let retry = 1; retry <= 2; retry++) {
+        expect(await course.retryCourseCreation(courseId, "ana")).toEqual({ ok: true, jobId });
+        await runToEnd(jobId);
+      }
+
+      expect(await course.retryCourseCreation(courseId, "ana")).toEqual({
+        ok: false,
+        reason: "retries-used-up",
+      });
+      expect(await readJob(jobId)).toMatchObject({ status: "failed", step: "search" });
+      expect(calls("researchSearch")).toHaveLength(3);
+    });
+
+    it("gives the next step its own three attempts", async () => {
+      let searches = 0;
+      await setUp({
+        researchSearch: () => (++searches < 3 ? failingSearch() : researchSearch),
+        pickUpNext: () => {
+          throw new Error("Overloaded");
+        },
+      });
+      const { courseId, jobId } = await writeCourse();
+      await runToEnd(jobId);
+      await course.retryCourseCreation(courseId, "ana");
+      await runToEnd(jobId);
+      await course.retryCourseCreation(courseId, "ana");
+      await runToEnd(jobId);
+      expect(await readJob(jobId)).toMatchObject({ status: "failed", step: "up_next" });
+
+      for (let retry = 1; retry <= 2; retry++) {
+        expect(await course.retryCourseCreation(courseId, "ana")).toMatchObject({ ok: true });
+        await runToEnd(jobId);
+      }
+      expect(await course.retryCourseCreation(courseId, "ana")).toMatchObject({
+        reason: "retries-used-up",
+      });
+    });
+
+    it("does not count resuming a step the spend stop paused", async () => {
+      await setUp({ researchSearch: failingSearch });
+      const { courseId, jobId } = await writeCourse();
+      await runToEnd(jobId);
+      await course.retryCourseCreation(courseId, "ana");
+      await runToEnd(jobId);
+      await db
+        .update(schema.job)
+        .set({ error: `Paused by the daily spend stop until ${new Date().toISOString()}` })
+        .where(eq(schema.job.id, jobId));
+
+      expect(await course.retryCourseCreation(courseId, "ana")).toMatchObject({ ok: true });
+      await runToEnd(jobId);
+      expect(await course.retryCourseCreation(courseId, "ana")).toMatchObject({ ok: true });
+    });
+  });
+
   it("fails the search step when the search found nothing", async () => {
     await setUp({ researchSearch: { text: "Nothing.", results: [] } });
     const { jobId } = await writeCourse();

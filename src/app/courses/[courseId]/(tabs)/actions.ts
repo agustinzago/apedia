@@ -3,8 +3,9 @@
 import { redirect } from "next/navigation";
 import type { CourseCreationView } from "@/course";
 import type { DeleteState } from "@/components/confirm-delete";
-import { stillPausedNote } from "@/app/daily-limit";
+import { retriesUsedUpNote, stillPausedNote } from "@/app/daily-limit";
 import { getViewer } from "@/server/auth";
+import { operatorFromEnv } from "@/server/config";
 import { getCourse } from "@/server/course";
 import { requestOrigin, startJobStep } from "@/server/jobs";
 
@@ -32,9 +33,11 @@ export async function retryCourseCreation(courseId: string): Promise<RetryState>
       error:
         retried.reason === "paused"
           ? stillPausedNote(retried.resumesAt)
-          : retried.reason === "nothing-to-retry"
-            ? "This Course is already prepared. Reload the page to see it."
-            : "This Course isn’t yours to prepare.",
+          : retried.reason === "retries-used-up"
+            ? retriesUsedUpNote(operatorFromEnv().contactEmail)
+            : retried.reason === "nothing-to-retry"
+              ? "This Course is already prepared. Reload the page to see it."
+              : "This Course isn’t yours to prepare.",
     };
   }
   await startJobStep(retried.jobId, await requestOrigin());

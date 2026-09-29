@@ -1,4 +1,4 @@
-import { and, eq, lt, or, sql } from "drizzle-orm";
+import { and, eq, like, lt, or, sql } from "drizzle-orm";
 import { schema, type Db } from "@/db";
 import type { JobProgressMessage } from "@/db/schema";
 import type { SpendPaused } from "./spend";
@@ -111,6 +111,8 @@ function runOf(db: Db, job: JobRow, runId: string) {
           progress: withProgress(closing),
           runId: null,
           startedAt: null,
+          // The next step gets its own "Try again"s.
+          retries: next ? 0 : job.retries,
           updatedAt: now,
           finishedAt: next ? null : now,
         })
@@ -191,28 +193,56 @@ export async function runJobStep(
 }
 
 /**
- * Makes a failed job, or one whose runner was cut off, pending again at the
- * step where it stopped. Any other job is left as it is.
+ * "Try again"s a step gets after its first run: three attempts in all, so a
+ * step that keeps failing, perhaps on purpose, can't rerun costly calls
+ * without end. Resuming a step the spend stop paused uses none.
  */
-export async function resumeJob(db: Db, jobId: string, text: string): Promise<void> {
+export const MAX_RETRIES_PER_STEP = 2;
+
+/** Returned instead of resuming a step that has used its "Try again"s. */
+export type RetriesUsedUp = { ok: false; reason: "retries-used-up" };
+export const RETRIES_USED_UP: RetriesUsedUp = { ok: false, reason: "retries-used-up" };
+
+/**
+ * Makes a failed job, or one whose runner was cut off, pending again at the
+ * step where it stopped, unless that step has used its "Try again"s. Any
+ * other job is left as it is.
+ */
+export async function resumeJob(
+  db: Db,
+  jobId: string,
+  text: string,
+): Promise<"resumed" | RetriesUsedUp> {
   const cutOffBefore = new Date(Date.now() - STEP_LIMIT_MS);
-  await db
+  const stopped = or(
+    eq(schema.job.status, "failed"),
+    and(eq(schema.job.status, "running"), lt(schema.job.startedAt, cutOffBefore)),
+  );
+  const paused = and(eq(schema.job.status, "failed"), like(schema.job.error, `${PAUSED}%`));
+  const [resumed] = await db
     .update(schema.job)
     .set({
       status: "pending",
       runId: null,
       startedAt: null,
       error: null,
+      retries: sql`case when ${paused} then ${schema.job.retries} else ${schema.job.retries} + 1 end`,
       updatedAt: new Date(),
       progress: withProgress(text),
     })
     .where(
       and(
         eq(schema.job.id, jobId),
-        or(
-          eq(schema.job.status, "failed"),
-          and(eq(schema.job.status, "running"), lt(schema.job.startedAt, cutOffBefore)),
-        ),
+        or(paused, and(stopped, lt(schema.job.retries, MAX_RETRIES_PER_STEP))),
       ),
-    );
+    )
+    .returning({ id: schema.job.id });
+  if (resumed) return "resumed";
+
+  const [usedUp] = await db
+    .select({ id: schema.job.id })
+    .from(schema.job)
+    .where(and(eq(schema.job.id, jobId), stopped));
+  // Pending, running or done: nothing to reset; starting it again is harmless.
+  return usedUp ? RETRIES_USED_UP : "resumed";
 }

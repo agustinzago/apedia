@@ -28,3 +28,8 @@ export function pausedJobNote(resumesAt: Date, now: Date = new Date()): string {
     ? `Apedia is taking a breather today. Nothing is lost: this picks up where it stopped ${untilReset(resumesAt, now)}.`
     : "Apedia took a breather. Nothing is lost: this picks up where it stopped.";
 }
+
+/** A step that failed three times: no more "Try again". */
+export function retriesUsedUpNote(contactEmail: string): string {
+  return `This has failed three times, so it won’t be tried again. Write to ${contactEmail} and we’ll sort it out.`;
+}

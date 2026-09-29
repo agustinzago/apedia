@@ -379,6 +379,22 @@ describe("course: writing the Up next Lesson and answering its quiz", () => {
     });
   });
 
+  it("stops offering Try again after three attempts at writing a Lesson", async () => {
+    await setUp({ writeLesson: lessonWith({ readNext: "r7" }) });
+    const jobId = await openAndWrite();
+
+    for (let retry = 1; retry <= 2; retry++) {
+      expect(await course.retryLessonGeneration("c1", 1, "ana")).toEqual({ ok: true, jobId });
+      await course.runJobStep(jobId);
+    }
+
+    expect(await course.retryLessonGeneration("c1", 1, "ana")).toEqual({
+      ok: false,
+      reason: "retries-used-up",
+    });
+    expect(calls("writeLesson")).toHaveLength(6);
+  });
+
   describe("the quiz rule", () => {
     it("ships questions that keep it without rewriting any", async () => {
       await openAndWrite();

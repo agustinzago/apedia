@@ -10,6 +10,7 @@ import type {
 import type { UrlFetcher } from "@/url-fetcher";
 import {
   resumeJob,
+  type RetriesUsedUp,
   viewOf,
   type JobRow,
   type JobRun,
@@ -38,6 +39,8 @@ export type CourseCreationView = JobView;
 export type RetryCourseCreationResult =
   | { ok: true; jobId: string }
   | { ok: false; reason: "not-found" | "not-yours" | "nothing-to-retry" }
+  /** The step that failed has had its three attempts. */
+  | RetriesUsedUp
   /** The Teacher is paused for the day; the job stays where it stopped. */
   | SpendPaused;
 
@@ -371,8 +374,8 @@ export function createCourseCreationOperations({
         return { ok: true, jobId: created!.id };
       }
 
-      await resumeJob(db, job.id, "Picking up where I left off.");
-      // Pending, running or done: nothing to reset; starting it again is harmless.
+      const resumed = await resumeJob(db, job.id, "Picking up where I left off.");
+      if (resumed !== "resumed") return resumed;
       return { ok: true, jobId: job.id };
     },
   };

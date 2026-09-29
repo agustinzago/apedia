@@ -1,4 +1,4 @@
-import { and, count, eq, isNull, sql } from "drizzle-orm";
+import { and, count, eq, isNull, lt, sql } from "drizzle-orm";
 import { schema, type Db } from "@/db";
 import type { PaymentEvent } from "@/payments";
 import { creationFailedEmpty } from "./course-creation";
@@ -29,6 +29,13 @@ export type RecordPaymentResult =
   | "unknown-learner"
   /** A refund for a payment with no Course credit: nothing recorded. */
   | "unknown-payment";
+
+/**
+ * Times one credit comes back from Courses given up on. Each such Course ran
+ * research, so a Learner who makes it fail on purpose can't research
+ * without end on one purchase. A Learner stuck past it can write to the operator.
+ */
+export const MAX_GIVE_BACKS = 2;
 
 export function createCreditOperations({ db, now }: { db: Db; now: () => Date }) {
   return {
@@ -93,8 +100,8 @@ export function createCreditOperations({ db, now }: { db: Db; now: () => Date })
      * The Course credit that deleting the Course gives back, or null. A
      * Course whose creation failed before finding any Resources produced
      * nothing: giving it up (deleting it) returns its credit, to start
-     * another Interview or be refunded. Any other Course keeps its credit
-     * used. Inside `tx` when given.
+     * another Interview or be refunded, up to `MAX_GIVE_BACKS` times. Any
+     * other Course keeps its credit used. Inside `tx` when given.
      */
     async creditGivenBackBy(courseId: string, tx: Tx | Db = db): Promise<string | null> {
       const [row] = await tx
@@ -108,7 +115,13 @@ export function createCreditOperations({ db, now }: { db: Db; now: () => Date })
             eq(schema.courseCredit.status, "used"),
           ),
         )
-        .where(and(eq(schema.course.id, courseId), creationFailedEmpty(db, schema.course.id)));
+        .where(
+          and(
+            eq(schema.course.id, courseId),
+            creationFailedEmpty(db, schema.course.id),
+            lt(schema.courseCredit.givenBack, MAX_GIVE_BACKS),
+          ),
+        );
       return row?.id ?? null;
     },
 
@@ -122,6 +135,7 @@ export function createCreditOperations({ db, now }: { db: Db; now: () => Date })
         .update(schema.courseCredit)
         .set({
           status: sql`case when ${schema.courseCredit.refundedAt} is null then 'available'::course_credit_status else 'refunded'::course_credit_status end`,
+          givenBack: sql`${schema.courseCredit.givenBack} + 1`,
           updatedAt: at,
         })
         .where(and(eq(schema.courseCredit.id, creditId), eq(schema.courseCredit.status, "used")));

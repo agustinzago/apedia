@@ -535,6 +535,8 @@ export const job = pgTable(
     searchOutput: jsonb("search_output").$type<SearchFindings>(),
     // For the operator; the Learner sees a friendly message instead.
     error: text("error"),
+    // "Try again"s used at `step`; back to 0 when the job moves on.
+    retries: integer("retries").notNull().default(0),
     // Set when a runner claims the job; only that runner may advance it.
     runId: text("run_id"),
     startedAt: timestamp("started_at", { withTimezone: true }),
@@ -613,6 +615,8 @@ export const courseCredit = pgTable(
     // ISO 4217, lowercase, as the provider reports it: "usd".
     currency: text("currency").notNull(),
     status: courseCreditStatus("status").notNull().default("available"),
+    // Times giving up on a Course whose creation failed made it available again.
+    givenBack: integer("given_back").notNull().default(0),
     // Set by a full refund, whatever the status; a used credit keeps "used".
     refundedAt: timestamp("refunded_at", { withTimezone: true }),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
