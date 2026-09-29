@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import type { CourseCreationView } from "@/course";
 import type { DeleteState } from "@/components/confirm-delete";
-import { stillPausedNote, untilReset } from "@/app/daily-limit";
+import { stillPausedNote } from "@/app/daily-limit";
 import { getViewer } from "@/server/auth";
 import { getCourse } from "@/server/course";
 import { requestOrigin, startJobStep } from "@/server/jobs";
@@ -30,13 +30,11 @@ export async function retryCourseCreation(courseId: string): Promise<RetryState>
   if (!retried.ok) {
     return {
       error:
-        retried.reason === "daily-limit"
-          ? `You’ve started ${retried.limit === 1 ? "a new course" : `${retried.limit} new courses`} today, which is the daily limit, so this one can’t be researched again yet. Try again ${untilReset(retried.resetsAt)}.`
-          : retried.reason === "paused"
-            ? stillPausedNote(retried.resumesAt)
-            : retried.reason === "nothing-to-retry"
-              ? "This Course is already prepared. Reload the page to see it."
-              : "This Course isn’t yours to prepare.",
+        retried.reason === "paused"
+          ? stillPausedNote(retried.resumesAt)
+          : retried.reason === "nothing-to-retry"
+            ? "This Course is already prepared. Reload the page to see it."
+            : "This Course isn’t yours to prepare.",
     };
   }
   await startJobStep(retried.jobId, await requestOrigin());

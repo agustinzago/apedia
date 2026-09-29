@@ -1,6 +1,7 @@
 "use server";
 
 import type { ChatMessage, DailyLimitReached, JobView, ProposalView } from "@/course";
+import { lessonsUsedUpNote, questionsUsedUpNote } from "@/app/allowance";
 import { breatherNote, stillPausedNote, untilReset } from "@/app/daily-limit";
 import { getViewer } from "@/server/auth";
 import { getCourse } from "@/server/course";
@@ -9,8 +10,11 @@ import { requestOrigin, startJobStep } from "@/server/jobs";
 export type OpenState = {
   view: JobView | null;
   error: string | null;
-  /** Set when today's Lessons are used up, or the Teacher is paused: the error says until when. */
-  limited: "daily-limit" | "paused" | null;
+  /**
+   * Set when the Course's Lessons or today's are used up, or the Teacher is
+   * paused: the error says what next.
+   */
+  limited: "lessons-used-up" | "daily-limit" | "paused" | null;
 };
 
 const DONE_NOTE = "This Course is Done, so no new Lessons are written.";
@@ -32,13 +36,15 @@ export async function openLesson(courseId: string, index: number): Promise<OpenS
 
   const opened = await course.openLesson(courseId, index, viewer.learnerId);
   if (!opened.ok) {
-    return opened.reason === "daily-limit"
-      ? { view: null, error: lessonLimitNote(opened), limited: "daily-limit" }
-      : opened.reason === "paused"
-        ? { view: null, error: breatherNote(opened.resumesAt), limited: "paused" }
-        : opened.reason === "done"
-          ? { view: null, error: DONE_NOTE, limited: null }
-          : { view: null, error: "This Lesson isn’t yours to open.", limited: null };
+    return opened.reason === "lessons-used-up"
+      ? { view: null, error: lessonsUsedUpNote(opened.allowance), limited: "lessons-used-up" }
+      : opened.reason === "daily-limit"
+        ? { view: null, error: lessonLimitNote(opened), limited: "daily-limit" }
+        : opened.reason === "paused"
+          ? { view: null, error: breatherNote(opened.resumesAt), limited: "paused" }
+          : opened.reason === "done"
+            ? { view: null, error: DONE_NOTE, limited: null }
+            : { view: null, error: "This Lesson isn’t yours to open.", limited: null };
   }
   if (opened.start && opened.generation) {
     await startJobStep(opened.generation.jobId, await requestOrigin());
@@ -71,15 +77,17 @@ export async function retryLessonGeneration(courseId: string, index: number): Pr
   if (!retried.ok) {
     return {
       error:
-        retried.reason === "daily-limit"
-          ? lessonLimitNote(retried)
-          : retried.reason === "paused"
-            ? stillPausedNote(retried.resumesAt)
-            : retried.reason === "nothing-to-retry"
-              ? "This Lesson is already written. Reload the page to see it."
-              : retried.reason === "done"
-                ? DONE_NOTE
-                : "This Lesson isn’t yours to write.",
+        retried.reason === "lessons-used-up"
+          ? lessonsUsedUpNote(retried.allowance)
+          : retried.reason === "daily-limit"
+            ? lessonLimitNote(retried)
+            : retried.reason === "paused"
+              ? stillPausedNote(retried.resumesAt)
+              : retried.reason === "nothing-to-retry"
+                ? "This Lesson is already written. Reload the page to see it."
+                : retried.reason === "done"
+                  ? DONE_NOTE
+                  : "This Lesson isn’t yours to write.",
     };
   }
   await startJobStep(retried.jobId, await requestOrigin());
@@ -186,8 +194,9 @@ export async function retryFinish(courseId: string, index: number): Promise<Retr
 }
 
 export type AskState =
-  | { ok: true; messages: ChatMessage[]; proposal: ProposalView | null }
-  | { ok: false; error: string };
+  | { ok: true; messages: ChatMessage[]; proposal: ProposalView | null; questionsLeft: number }
+  /** `usedUp` once the Course's questions are all asked: the chat takes no more. */
+  | { ok: false; error: string; usedUp?: boolean };
 
 /** "Ask your teacher": the question and the Teacher's answer, saved to the Lesson's chat. */
 export async function askTeacher(
@@ -200,6 +209,9 @@ export async function askTeacher(
 
   const asked = await course.askTeacher(courseId, index, question, viewer.learnerId);
   if (!asked.ok) {
+    if (asked.reason === "questions-used-up") {
+      return { ok: false, error: questionsUsedUpNote(asked.allowance), usedUp: true };
+    }
     return {
       ok: false,
       error:
@@ -218,5 +230,10 @@ export async function askTeacher(
                     : "This Lesson’s chat isn’t yours to use.",
     };
   }
-  return { ok: true, messages: asked.messages, proposal: asked.proposal };
+  return {
+    ok: true,
+    messages: asked.messages,
+    proposal: asked.proposal,
+    questionsLeft: asked.questionsLeft,
+  };
 }

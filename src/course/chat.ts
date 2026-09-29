@@ -5,6 +5,7 @@ import type { ChatMessage, ChatPart, CommunityEntry, LessonResource } from ".";
 import { missionOf } from "./course-creation";
 import { LessonContent } from "./lesson-content";
 import { findOwnLessonIn } from "./lessons";
+import { questionsLeft, QUESTIONS_USED_UP, type QuestionsUsedUp } from "./allowance";
 import type { DailyCaps, DailyLimitReached } from "./limits";
 import {
   insertProposal,
@@ -36,6 +37,8 @@ export type AskTeacherResult =
       messages: ChatMessage[];
       /** A Mission change the answer proposes, waiting for the Learner; null for none. */
       proposal: ProposalView | null;
+      /** The questions left to ask across the Course's Lessons, this one counted. */
+      questionsLeft: number;
     }
   | {
       ok: false;
@@ -50,6 +53,8 @@ export type AskTeacherResult =
         /** The Teacher could not answer just now; nothing was saved. */
         | "unavailable";
     }
+  /** The Learner has asked all the questions the Course's allowance holds; nothing was saved. */
+  | QuestionsUsedUp
   /** The Learner has asked today's questions; nothing was saved. */
   | DailyLimitReached
   /** The Teacher is paused for the day; nothing was saved. */
@@ -167,9 +172,9 @@ export function createChatOperations({
 
   return {
     /**
-     * The Learner asks a question in a Lesson's chat, within their daily
-     * limit and the spend stop. The question and the answer are saved together, only once the
-     * Teacher has answered.
+     * The Learner asks a question in a Lesson's chat, within the Course's
+     * allowance, their daily limit and the spend stop. The question and the
+     * answer are saved together, only once the Teacher has answered.
      */
     async askTeacher(
       courseId: string,
@@ -187,6 +192,8 @@ export function createChatOperations({
       if (asked === "" || asked.length > MAX_QUESTION_LENGTH) {
         return { ok: false, reason: "invalid" };
       }
+      const left = await questionsLeft(db, lesson.courseId);
+      if (left === 0) return QUESTIONS_USED_UP;
       const limited = (await caps.chatMessage(learnerId)) ?? (await spend.teacherCall());
       if (limited) return limited;
       const content = LessonContent.parse(lesson.content);
@@ -310,6 +317,7 @@ export function createChatOperations({
           viewOf({ number: saved + 2, from: "teacher", text, community: entry }, resourcesByRef),
         ],
         proposal: proposal && proposalView(proposal, course, []),
+        questionsLeft: left - 1,
       };
     },
   };

@@ -1,29 +1,31 @@
-import { and, count, eq, gte, ne, not, type SQL } from "drizzle-orm";
+import { and, count, eq, gte } from "drizzle-orm";
 import { schema, type Db } from "@/db";
-import { creationFailedEmpty } from "./course-creation";
 
 /**
- * Per-Learner daily caps, which keep one Learner from running up large
- * costs. Each is enforced by counting the Learner's rows for the current
- * day. Days run midnight to midnight UTC: Apedia does not know Learners'
- * time zones.
+ * Per-Learner daily caps. What a Course costs is bounded by its allowance
+ * (./allowance), which its Course credit pays for; the Lesson and chat caps
+ * are only an abuse guard, so that no one account, however many credits it
+ * holds, can take a day's spend to the spend stop, which would pause the
+ * Teacher for everyone. Each is enforced by counting the Learner's rows for
+ * the current day. Days run midnight to midnight UTC: Apedia does not know
+ * Learners' time zones.
  */
 
 /** How much of each costly thing one Learner may start per day. Configuration: see `DEFAULT_DAILY_LIMITS`. */
 export type DailyLimits = {
-  /** New Courses. A Course whose research failed counts only if it produced Resources. */
-  newCourses: number;
   /** Lessons written (first opens of an Up next Lesson). */
   lessonGenerations: number;
   /** Questions asked in Lesson chats. */
   chatMessages: number;
 };
 
-/** The limits the MVP spec sets; the app may override them from its environment. */
+/**
+ * The defaults; the app may override them from its environment. Lessons and
+ * chat: two whole Courses' allowances a day, generous for anyone learning.
+ */
 export const DEFAULT_DAILY_LIMITS: DailyLimits = {
-  newCourses: 1,
-  lessonGenerations: 10,
-  chatMessages: 60,
+  lessonGenerations: 40,
+  chatMessages: 400,
 };
 
 /** Returned instead of doing the work once today's limit is reached. */
@@ -66,29 +68,6 @@ export function createDailyCaps({
   const one = async (query: Promise<{ n: number }[]>) => (await query)[0]?.n ?? 0;
 
   return {
-    /**
-     * Whether the Learner may start another Course today. A Course counts
-     * unless its research failed without producing Resources. `except`
-     * leaves one Course out, such as the one being retried.
-     */
-    newCourse(learnerId: string, { except }: { except?: string } = {}) {
-      return check(limits.newCourses, (since) => {
-        const conditions: SQL[] = [
-          eq(schema.course.learnerId, learnerId),
-          eq(schema.course.isExample, false),
-          gte(schema.course.createdAt, since),
-          not(creationFailedEmpty(db, schema.course.id)),
-        ];
-        if (except) conditions.push(ne(schema.course.id, except));
-        return one(
-          db
-            .select({ n: count() })
-            .from(schema.course)
-            .where(and(...conditions)),
-        );
-      });
-    },
-
     /** Whether the Learner may have another Lesson written today. */
     lessonGeneration(learnerId: string) {
       return check(limits.lessonGenerations, (since) =>

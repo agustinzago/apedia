@@ -18,17 +18,16 @@ describe("server: cost protection from the environment", () => {
     vi.restoreAllMocks();
   });
 
-  it("reads the daily limits, falling back to the spec's for unset or broken values", () => {
+  it("reads the daily limits, falling back to the defaults for unset or broken values", () => {
     vi.spyOn(console, "warn").mockImplementation(() => {});
 
     expect(dailyLimitsFromEnv({})).toEqual(DEFAULT_DAILY_LIMITS);
     expect(
       dailyLimitsFromEnv({
-        APEDIA_DAILY_NEW_COURSES: "2",
         APEDIA_DAILY_LESSONS: "lots",
         APEDIA_DAILY_CHAT_MESSAGES: "0",
       }),
-    ).toEqual({ newCourses: 2, lessonGenerations: 10, chatMessages: 0 });
+    ).toEqual({ lessonGenerations: 40, chatMessages: 0 });
   });
 
   it("reads the magic-link limits, falling back to the defaults for unset or broken values", () => {

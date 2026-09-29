@@ -91,13 +91,11 @@ export async function writeMyCourse(_previous: WriteState, form: FormData): Prom
       }
       return {
         error:
-          written.reason === "daily-limit"
-            ? `You’ve started ${written.limit === 1 ? "a new course" : `${written.limit} new courses`} today, which is the daily limit. Your answers are saved: come back ${untilReset(written.resetsAt)} and press “Write my course” again.`
-            : written.reason === "paused"
-              ? `Apedia is taking a breather today. Your answers are saved: come back ${untilReset(written.resumesAt)} and press “Write my course” again.`
-              : written.reason === "no-credit"
-                ? NO_CREDIT.goOn
-                : "Answer every question first, then your teacher can write your course.",
+          written.reason === "paused"
+            ? `Apedia is taking a breather today. Your answers are saved: come back ${untilReset(written.resumesAt)} and press “Write my course” again.`
+            : written.reason === "no-credit"
+              ? NO_CREDIT.goOn
+              : "Answer every question first, then your teacher can write your course.",
       };
     }
     courseId = written.courseId;

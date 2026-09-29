@@ -111,8 +111,8 @@ describe("course: daily limits and the spend alarm", () => {
     vi.restoreAllMocks();
   });
 
-  it("are configuration, set by default to the spec's limits", () => {
-    expect(DEFAULT_DAILY_LIMITS).toEqual({ newCourses: 1, lessonGenerations: 10, chatMessages: 60 });
+  it("are configuration, set by default to two Courses' allowances of Lessons and chat", () => {
+    expect(DEFAULT_DAILY_LIMITS).toEqual({ lessonGenerations: 40, chatMessages: 400 });
   });
 
   describe("new Courses", () => {
@@ -120,82 +120,15 @@ describe("course: daily limits and the spend alarm", () => {
       await setUp();
     });
 
-    it("lets a Learner start one a day, then says when they can start another", async () => {
+    it("are not capped a day: each Course is paid for by its own credit", async () => {
       await writeAndPrepare("ana");
-      const second = await interview("ana", "Chess");
+      await writeAndPrepare("ana", "Chess");
 
-      expect(await course.writeCourse(second, "ana")).toEqual({
-        ok: false,
-        reason: "daily-limit",
-        limit: 1,
-        resetsAt: nextMidnight(clock),
-      });
-      // Nothing was written, and the Interview keeps for tomorrow.
-      expect(calls("writeMission")).toHaveLength(1);
-      expect(await course.listCourses("ana")).toHaveLength(1);
-      expect(await course.readInterview(second, "ana")).toMatchObject({
-        stage: "complete",
-        courseId: null,
-      });
+      await expect(writeAndPrepare("ana", "Astronomy")).resolves.toMatchObject({ ok: true });
+      expect(await course.listCourses("ana")).toHaveLength(3);
     });
 
-    it("counts each Learner's Courses apart", async () => {
-      await writeAndPrepare("ana");
-      await expect(writeAndPrepare("ben")).resolves.toMatchObject({ ok: true });
-    });
-
-    it("counts only today's Courses", async () => {
-      await writeAndPrepare("ana");
-      await db.update(schema.course).set({ createdAt: yesterday() });
-
-      await expect(writeAndPrepare("ana", "Chess")).resolves.toMatchObject({ ok: true });
-    });
-
-    it("still returns a Course already written from the same Interview", async () => {
-      const interviewId = await interview("ana");
-      const first = await course.writeCourse(interviewId, "ana");
-
-      expect(await course.writeCourse(interviewId, "ana")).toEqual(first);
-    });
-
-    it("does not count a Course whose research failed without finding Resources", async () => {
-      await setUp({
-        replies: {
-          researchSearch: () => {
-            throw new Error("The web search is down.");
-          },
-        },
-      });
-      const failed = await writeAndPrepare("ana");
-      expect(await course.readCourseCreation(failed.courseId, "ana")).toMatchObject({
-        status: "failed",
-      });
-
-      await expect(writeAndPrepare("ana", "Chess")).resolves.toMatchObject({ ok: true });
-    });
-
-    it("counts a Course whose research failed after it found Resources", async () => {
-      await setUp({
-        replies: {
-          pickUpNext: () => {
-            throw new Error("Up next failed.");
-          },
-        },
-      });
-      const failed = await writeAndPrepare("ana");
-      expect(await course.readCourseCreation(failed.courseId, "ana")).toMatchObject({
-        status: "failed",
-      });
-
-      expect(await course.writeCourse(await interview("ana", "Chess"), "ana")).toMatchObject({
-        ok: false,
-        reason: "daily-limit",
-      });
-      // Retrying it runs no new research, so it needs no room today.
-      expect(await course.retryCourseCreation(failed.courseId, "ana")).toMatchObject({ ok: true });
-    });
-
-    it("lets a failed research run be retried only while today's limit has room", async () => {
+    it("let a failed research run be retried, whatever else was started today", async () => {
       let searchDown = true;
       await setUp({
         replies: {
@@ -207,31 +140,13 @@ describe("course: daily limits and the spend alarm", () => {
         },
       });
       const failed = await writeAndPrepare("ana");
-      // With no other Course today, the retry fits.
-      expect(await course.retryCourseCreation(failed.courseId, "ana")).toMatchObject({ ok: true });
-      await runToEnd(failed.jobId!);
-
       searchDown = false;
       await writeAndPrepare("ana", "Chess");
 
-      expect(await course.retryCourseCreation(failed.courseId, "ana")).toEqual({
-        ok: false,
-        reason: "daily-limit",
-        limit: 1,
-        resetsAt: nextMidnight(clock),
-      });
-      expect(calls("researchSearch")).toHaveLength(3);
-    });
-
-    it("follows the configured limit", async () => {
-      await setUp({ limits: { ...DEFAULT_DAILY_LIMITS, newCourses: 2 } });
-      await writeAndPrepare("ana");
-      await writeAndPrepare("ana", "Chess");
-
-      expect(await course.writeCourse(await interview("ana", "Astronomy"), "ana")).toMatchObject({
-        ok: false,
-        reason: "daily-limit",
-        limit: 2,
+      expect(await course.retryCourseCreation(failed.courseId, "ana")).toMatchObject({ ok: true });
+      await runToEnd(failed.jobId!);
+      expect(await course.readCourseCreation(failed.courseId, "ana")).toMatchObject({
+        status: "done",
       });
     });
   });
@@ -240,7 +155,7 @@ describe("course: daily limits and the spend alarm", () => {
     let courseId: string;
 
     beforeEach(async () => {
-      await setUp();
+      await setUp({ limits: { ...DEFAULT_DAILY_LIMITS, lessonGenerations: 10 } });
       courseId = (await writeAndPrepare("ana")).courseId;
       // Lesson 1 is Up next; add ten more, as if picked after earlier Finishes.
       await db.insert(schema.lesson).values(
@@ -254,7 +169,7 @@ describe("course: daily limits and the spend alarm", () => {
       );
     });
 
-    it("lets a Learner have ten Lessons written a day, then says when the next can be", async () => {
+    it("lets a Learner have the configured Lessons written a day, then says when the next can be", async () => {
       for (let index = 1; index <= 10; index++) {
         expect(await course.openLesson(courseId, index, "ana")).toMatchObject({ ok: true, start: true });
       }
@@ -300,15 +215,15 @@ describe("course: daily limits and the spend alarm", () => {
     let courseId: string;
 
     beforeEach(async () => {
-      await setUp();
+      await setUp({ limits: { ...DEFAULT_DAILY_LIMITS, chatMessages: 20 } });
       courseId = (await writeAndPrepare("ana")).courseId;
       const opened = await course.openLesson(courseId, 1, "ana");
       if (!opened.ok || !opened.generation) throw new Error("Lesson 1 did not start.");
       await runToEnd(opened.generation.jobId);
     });
 
-    it("lets a Learner ask sixty questions a day, then says when they can ask again", async () => {
-      for (let i = 1; i <= 60; i++) {
+    it("lets a Learner ask the configured questions a day, then says when they can ask again", async () => {
+      for (let i = 1; i <= 20; i++) {
         expect(await course.askTeacher(courseId, 1, `Question ${i}?`, "ana")).toMatchObject({
           ok: true,
         });
@@ -317,12 +232,12 @@ describe("course: daily limits and the spend alarm", () => {
       expect(await course.askTeacher(courseId, 1, "One more?", "ana")).toEqual({
         ok: false,
         reason: "daily-limit",
-        limit: 60,
+        limit: 20,
         resetsAt: nextMidnight(clock),
       });
       // The Teacher was not asked, and nothing was saved.
-      expect(calls("askTeacher")).toHaveLength(60);
-      expect(await db.select().from(schema.chatMessage)).toHaveLength(120);
+      expect(calls("askTeacher")).toHaveLength(20);
+      expect(await db.select().from(schema.chatMessage)).toHaveLength(40);
     });
 
     it("counts only today's questions, in every Lesson", async () => {

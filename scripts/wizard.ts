@@ -294,9 +294,10 @@ where you left off.`);
     "address to write to; Polar requires both. Both are shown to the public.",
     "",
     "Apedia also emails you, through the same Resend domain, the first time a",
-    "day's Claude spend passes a threshold. Per-Learner daily limits keep one",
-    "Learner under about $1.70 a day; the threshold guards against a surge of",
-    "sign-ups. That address stays private; it may be the same as the public one.",
+    "day's Claude spend passes a threshold. Each Course's allowance keeps what",
+    "it costs below what its credit brings in; the threshold guards against a",
+    "surge of sales or a bug. That address stays private; it may be the same as",
+    "the public one.",
   ]);
   await obtain("APEDIA_OPERATOR_NAME", "Your name, or your business's", {
     problem: operatorNameProblem,
