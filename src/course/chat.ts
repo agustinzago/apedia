@@ -211,6 +211,7 @@ export function createChatOperations({
       if (asked === "" || asked.length > MAX_QUESTION_LENGTH) {
         return { ok: false, reason: "invalid" };
       }
+      const content = LessonContent.parse(lesson.content);
       const paused = await spend.teacherCall();
       if (paused) return paused;
 
@@ -238,7 +239,6 @@ export function createChatOperations({
         db
           .delete(schema.chatMessage)
           .where(and(eq(schema.chatMessage.lessonId, lesson.id), eq(schema.chatMessage.number, saved)));
-      const content = LessonContent.parse(lesson.content);
 
       const { course } = found;
       const [resources, communities, rows, resourcesByRef, proposals] = await Promise.all([

@@ -207,8 +207,10 @@ export function createInterviewOperations({
   async function answerOnce(
     interviewId: string,
     answer: string,
-  ): Promise<InterviewView | NoCourseCredit | SpendPaused> {
-    const row = (await findRow(interviewId))!;
+  ): Promise<InterviewView | NoCourseCredit | SpendPaused | null> {
+    const row = await findRow(interviewId);
+    // Discarded meanwhile.
+    if (!row) return null;
     const stage = row.stage;
     if (stage !== "why" && stage !== "know" && stage !== "success") return toView(row);
     if (!(await isBacked(row))) return NO_CREDIT;
