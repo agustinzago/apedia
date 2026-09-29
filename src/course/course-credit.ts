@@ -1,10 +1,11 @@
 /**
  * What a Course credit buys, and when it is refunded. `lessons` and
  * `chatQuestions` are every Course's allowance, enforced by ./allowance; the
- * Terms and Refund policy pages and the "Buy a Course" button quote these
- * numbers, and read them from here. They have no environment override, so
- * what is sold and what is enforced can't drift apart. The price Learners
- * are charged is the Polar product's: keep it at `priceUsd`.
+ * home page, the Pricing, Terms and Refund policy pages and the "Buy a
+ * Course" button quote these numbers, and read them from here. They have no
+ * environment override, so what is sold and what is enforced can't drift
+ * apart. The price Learners are charged is the Polar product's: keep it at
+ * `priceUsd`.
  */
 export const COURSE_CREDIT = {
   /** The price of one credit, in US dollars. */

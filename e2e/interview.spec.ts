@@ -7,7 +7,7 @@ test("a visitor who picks a subject is sent to sign in, and the subject is kept"
   page,
 }) => {
   await page.goto("/");
-  await expect(page.getByText(/4 short questions/)).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Start your own Course/ })).toBeVisible();
   await page.getByRole("link", { name: "Chess", exact: true }).click();
 
   await expect(page).toHaveURL(/\/sign-in\?next=%2Finterview%3Fsubject%3DChess$/);

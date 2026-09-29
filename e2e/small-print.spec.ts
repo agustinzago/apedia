@@ -8,7 +8,7 @@ test("the footer links the small print and credits /teach", async ({ page }) => 
     "https://github.com/mattpocock/skills/tree/main/skills/productivity/teach",
   );
 
-  for (const name of ["Privacy", "Terms", "Refund policy", "Credits"]) {
+  for (const name of ["Pricing", "Privacy", "Terms", "Refund policy", "Credits"]) {
     await footer.getByRole("link", { name, exact: true }).click();
     await expect(page.getByRole("heading", { level: 1, name })).toBeVisible();
   }
