@@ -9,7 +9,15 @@ import type {
 } from "@/teacher";
 import { chatEvidence } from "./chat";
 import { missionOf, upNextProblem } from "./course-creation";
-import { resumeJob, viewOf, type RetriesUsedUp, type JobRow, type JobRun, type JobStepResult, type JobView } from "./jobs";
+import {
+  resumeJob,
+  viewOf,
+  type JobRow,
+  type JobRun,
+  type JobStepResult,
+  type JobView,
+  type RetriesUsedUp,
+} from "./jobs";
 import { LessonContent, type Question } from "./lesson-content";
 import { findLessonJob, findOwnLessonIn, type LessonRow } from "./lessons";
 import {
@@ -56,7 +64,7 @@ export type FinishLessonResult =
 export type RetryFinishResult =
   | { ok: true; jobId: string }
   | { ok: false; reason: "not-found" | "read-only" | "nothing-to-retry" | "done" }
-  /** Finish has had its three attempts. */
+  /** Finish has had all its attempts. */
   | RetriesUsedUp
   | SpendPaused;
 

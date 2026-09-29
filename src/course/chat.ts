@@ -235,7 +235,7 @@ export function createChatOperations({
       });
       if ("reason" in claimed) return claimed;
       const { number: saved, left } = claimed;
-      const giveBack = () =>
+      const takeBackQuestion = () =>
         db
           .delete(schema.chatMessage)
           .where(and(eq(schema.chatMessage.lessonId, lesson.id), eq(schema.chatMessage.number, saved)));
@@ -294,13 +294,13 @@ export function createChatOperations({
         });
       } catch (error) {
         console.warn(`Lesson ${lesson.id}: the Teacher could not answer a chat question.`, error);
-        await giveBack();
+        await takeBackQuestion();
         return { ok: false, reason: "unavailable" };
       }
       const text = reply.answer.trim();
       if (text === "") {
         console.warn(`Lesson ${lesson.id}: the Teacher's chat answer was empty.`);
-        await giveBack();
+        await takeBackQuestion();
         return { ok: false, reason: "unavailable" };
       }
       // Only a Community the Learner has not opted out of, and one that exists.

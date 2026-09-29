@@ -21,6 +21,7 @@ export async function lockLearner(tx: Tx, learnerId: string): Promise<void> {
 export const BUSY = { ok: false, reason: "busy" } as const;
 export type Busy = typeof BUSY;
 
+/** Whether `withLease` found another request doing the work. */
 export function isBusy(result: unknown): result is Busy {
   return result === BUSY;
 }

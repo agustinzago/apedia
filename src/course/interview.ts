@@ -260,8 +260,11 @@ export function createInterviewOperations({
   }
 
   /** "Write my course", once no other press of it is being handled. */
-  async function writeOnce(row: InterviewRow, learnerId: string): Promise<WriteCourseResult> {
-
+  async function writeOnce(
+    row: InterviewRow,
+    sittingMinutes: number,
+    learnerId: string,
+  ): Promise<WriteCourseResult> {
     const existing = await findCourseFor(row.id);
     if (existing) return { ok: true, ...existing };
     const creditId = row.courseCreditId;
@@ -269,7 +272,6 @@ export function createInterviewOperations({
     const paused = await spend.teacherCall();
     if (paused) return paused;
 
-    const sittingMinutes = row.sittingMinutes!;
     const mission = await teacher.writeMission({
       subject: row.subject,
       language: row.language,
@@ -566,13 +568,13 @@ export function createInterviewOperations({
       if (row.stage !== "complete" || row.sittingMinutes === null) {
         return { ok: false, reason: "not-finished" };
       }
-      // Pressed again while the Mission is being written: that press waits
-      // for this one rather than asking the Teacher again.
-      return withLease(db, `write-course:${row.id}`, () => writeOnce(row, learnerId));
+      // Pressed again while the Mission is being written, that press is
+      // told so rather than asking the Teacher again.
+      const sittingMinutes = row.sittingMinutes;
+      return withLease(db, `write-course:${row.id}`, () => writeOnce(row, sittingMinutes, learnerId));
     },
   };
 }
-
 
 function lastTeacherMessage(messages: InterviewMessage[]): string {
   return messages.findLast((m) => m.from === "teacher")?.text ?? "";

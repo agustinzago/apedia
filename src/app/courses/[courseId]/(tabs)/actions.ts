@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import type { CourseCreationView } from "@/course";
+import { MAX_ATTEMPTS_PER_STEP, type CourseCreationView } from "@/course";
 import type { DeleteState } from "@/components/confirm-delete";
 import { retriesUsedUpNote, stillPausedNote } from "@/app/daily-limit";
 import { getViewer } from "@/server/auth";
@@ -34,7 +34,7 @@ export async function retryCourseCreation(courseId: string): Promise<RetryState>
         retried.reason === "paused"
           ? stillPausedNote(retried.resumesAt)
           : retried.reason === "retries-used-up"
-            ? retriesUsedUpNote(operatorFromEnv().contactEmail)
+            ? retriesUsedUpNote(MAX_ATTEMPTS_PER_STEP, operatorFromEnv().contactEmail)
             : retried.reason === "nothing-to-retry"
               ? "This Course is already prepared. Reload the page to see it."
               : "This Course isn’t yours to prepare.",

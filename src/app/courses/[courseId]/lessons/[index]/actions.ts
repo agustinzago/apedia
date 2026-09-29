@@ -1,6 +1,12 @@
 "use server";
 
-import type { ChatMessage, DailyLimitReached, JobView, ProposalView } from "@/course";
+import {
+  MAX_ATTEMPTS_PER_STEP,
+  type ChatMessage,
+  type DailyLimitReached,
+  type JobView,
+  type ProposalView,
+} from "@/course";
 import { lessonsUsedUpNote, questionsUsedUpNote } from "@/app/allowance";
 import { breatherNote, retriesUsedUpNote, stillPausedNote, untilReset } from "@/app/daily-limit";
 import { getViewer } from "@/server/auth";
@@ -85,7 +91,7 @@ export async function retryLessonGeneration(courseId: string, index: number): Pr
             : retried.reason === "paused"
               ? stillPausedNote(retried.resumesAt)
               : retried.reason === "retries-used-up"
-                ? retriesUsedUpNote(operatorFromEnv().contactEmail)
+                ? retriesUsedUpNote(MAX_ATTEMPTS_PER_STEP, operatorFromEnv().contactEmail)
                 : retried.reason === "nothing-to-retry"
                   ? "This Lesson is already written. Reload the page to see it."
                   : retried.reason === "done"
@@ -186,7 +192,7 @@ export async function retryFinish(courseId: string, index: number): Promise<Retr
         retried.reason === "paused"
           ? stillPausedNote(retried.resumesAt)
           : retried.reason === "retries-used-up"
-            ? retriesUsedUpNote(operatorFromEnv().contactEmail)
+            ? retriesUsedUpNote(MAX_ATTEMPTS_PER_STEP, operatorFromEnv().contactEmail)
             : retried.reason === "nothing-to-retry"
               ? "This Lesson is already finished. Reload the page to see it."
               : retried.reason === "done"

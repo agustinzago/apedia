@@ -71,6 +71,7 @@ export type {
 export type { FinishLessonResult, RetryFinishResult } from "./finish";
 export type { DecideProposalResult, ProposalView } from "./proposals";
 export type { JobStepResult, JobView } from "./jobs";
+export { MAX_ATTEMPTS_PER_STEP } from "./jobs";
 export type {
   AnswerQuestionResult,
   OpenLessonResult,

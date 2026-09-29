@@ -29,7 +29,7 @@ export function pausedJobNote(resumesAt: Date, now: Date = new Date()): string {
     : "Apedia took a breather. Nothing is lost: this picks up where it stopped.";
 }
 
-/** A step that failed three times: no more "Try again". */
-export function retriesUsedUpNote(contactEmail: string): string {
-  return `This has failed three times, so it won’t be tried again. Write to ${contactEmail} and we’ll sort it out.`;
+/** A step that failed at every attempt: no more "Try again". */
+export function retriesUsedUpNote(attempts: number, contactEmail: string): string {
+  return `This has failed ${attempts} times, so it won’t be tried again. Write to ${contactEmail} and we’ll sort it out.`;
 }

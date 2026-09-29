@@ -39,7 +39,7 @@ export type CourseCreationView = JobView;
 export type RetryCourseCreationResult =
   | { ok: true; jobId: string }
   | { ok: false; reason: "not-found" | "not-yours" | "nothing-to-retry" }
-  /** The step that failed has had its three attempts. */
+  /** The step that failed has had all its attempts. */
   | RetriesUsedUp
   /** The Teacher is paused for the day; the job stays where it stopped. */
   | SpendPaused;

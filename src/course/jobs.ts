@@ -193,11 +193,14 @@ export async function runJobStep(
 }
 
 /**
- * "Try again"s a step gets after its first run: three attempts in all, so a
- * step that keeps failing, perhaps on purpose, can't rerun costly calls
- * without end. Resuming a step the spend stop paused uses none.
+ * Runs a step gets, its first included, so a step that keeps failing,
+ * perhaps on purpose, can't rerun costly calls without end. Resuming a step
+ * the spend stop paused uses none.
  */
-export const MAX_RETRIES_PER_STEP = 2;
+export const MAX_ATTEMPTS_PER_STEP = 3;
+
+/** "Try again"s a step gets after its first run. */
+const MAX_RETRIES_PER_STEP = MAX_ATTEMPTS_PER_STEP - 1;
 
 /** Returned instead of resuming a step that has used its "Try again"s. */
 export type RetriesUsedUp = { ok: false; reason: "retries-used-up" };
