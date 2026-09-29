@@ -2,9 +2,16 @@
 
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import type { ChatMessage, CommunityEntry, ProposalView } from "@/course";
+import { COURSE_CREDIT } from "@/course/course-credit";
+import {
+  questionsLeftNote,
+  questionsUsedUpNote,
+  SHOW_QUESTIONS_LEFT_BELOW,
+} from "@/app/allowance";
+import { BuyCourse } from "@/app/purchase/buy-course";
 import { Mascot } from "@/components/mascot";
 import { ProposalCard } from "../../proposal-card";
-import { askTeacher } from "./actions";
+import { askTeacher, type AskState } from "./actions";
 import styles from "./lesson.module.css";
 
 /**
@@ -12,6 +19,8 @@ import styles from "./lesson.module.css";
  * once the Teacher has replied, so the chat is there on the next visit.
  * Citations show as numbered links to the Course's Resources. A Mission
  * change the Teacher proposes shows under the chat, to confirm or not.
+ * Once fewer than 20 of the Course's questions are left, it says how many;
+ * with none left, it takes no more.
  */
 export function AskTeacher({
   courseId,
@@ -20,6 +29,7 @@ export function AskTeacher({
   proposals: initialProposals,
   maxLength,
   closedNote,
+  questionsLeft: initialLeft,
 }: {
   courseId: string;
   lessonIndex: number;
@@ -29,9 +39,13 @@ export function AskTeacher({
   maxLength: number;
   /** Why the chat takes no questions (read-only or finished); null while it is open. */
   closedNote: string | null;
+  /** The questions left across the Course's Lessons; null when there is no allowance. */
+  questionsLeft: number | null;
 }) {
   const inputId = useId();
   const [messages, setMessages] = useState(initial);
+  const [left, setLeft] = useState(initialLeft);
+  const usedUp = left === 0;
   const [proposals, setProposals] = useState(initialProposals);
   const [draft, setDraft] = useState("");
   const [asking, setAsking] = useState<string | null>(null);
@@ -47,22 +61,26 @@ export function AskTeacher({
   async function ask(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const question = draft.trim();
-    if (question === "" || asking !== null) return;
+    if (question === "" || asking !== null || usedUp) return;
     setAsking(question);
     setDraft("");
     setError(null);
-    const asked = await askTeacher(courseId, lessonIndex, question).catch(() => ({
-      ok: false as const,
-      error: "Your question didn’t go through. Check your connection and ask again.",
-    }));
+    const asked = await askTeacher(courseId, lessonIndex, question).catch(
+      (): AskState => ({
+        ok: false,
+        error: "Your question didn’t go through. Check your connection and ask again.",
+      }),
+    );
     setAsking(null);
     if (!asked.ok) {
       // Nothing was saved: give the question back to try again.
       setDraft(question);
-      setError(asked.error);
+      if (asked.usedUp) setLeft(0);
+      else setError(asked.error);
       return;
     }
     setMessages((current) => [...current, ...asked.messages]);
+    setLeft(asked.questionsLeft);
     const { proposal } = asked;
     // A newer proposal takes the place of an earlier one of its kind.
     if (proposal) {
@@ -110,27 +128,43 @@ export function AskTeacher({
       {closedNote !== null ? (
         <p className={styles.askNote}>{closedNote}</p>
       ) : (
-        <form onSubmit={ask} className={styles.askForm}>
-          <label htmlFor={inputId} className="visually-hidden">
-            Your question
-          </label>
-          <input
-            id={inputId}
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            maxLength={maxLength}
-            placeholder="Anything unclear?"
-            autoComplete="off"
-            className={styles.askInput}
-          />
-          <button
-            type="submit"
-            className={`button-ink ${styles.askButton}`}
-            disabled={asking !== null || draft.trim() === ""}
-          >
-            ask
-          </button>
-        </form>
+        <>
+          <form onSubmit={ask} className={styles.askForm}>
+            <label htmlFor={inputId} className="visually-hidden">
+              Your question
+            </label>
+            <input
+              id={inputId}
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              maxLength={maxLength}
+              placeholder={usedUp ? "No questions left in this Course" : "Anything unclear?"}
+              autoComplete="off"
+              disabled={usedUp}
+              className={styles.askInput}
+            />
+            <button
+              type="submit"
+              className={`button-ink ${styles.askButton}`}
+              disabled={usedUp || asking !== null || draft.trim() === ""}
+            >
+              ask
+            </button>
+          </form>
+          {usedUp ? (
+            <>
+              <p className={styles.askNote} role="status">
+                {questionsUsedUpNote(COURSE_CREDIT.chatQuestions)}
+              </p>
+              <BuyCourse from="/" />
+            </>
+          ) : (
+            left !== null &&
+            left < SHOW_QUESTIONS_LEFT_BELOW && (
+              <p className={styles.askNote}>{questionsLeftNote(left)}</p>
+            )
+          )}
+        </>
       )}
       {error && (
         <p className={styles.error} role="alert">

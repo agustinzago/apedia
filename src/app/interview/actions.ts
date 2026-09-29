@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import type { InterviewView, NoCourseCredit, SpendPaused } from "@/course";
+import type { DailyLimitReached, InterviewView, NoCourseCredit, SpendPaused } from "@/course";
 import type { DeleteState } from "@/components/confirm-delete";
 import { breatherNote, untilReset } from "@/app/daily-limit";
 import { getViewer } from "@/server/auth";
@@ -43,7 +43,7 @@ export async function sendAnswer(
   const answer = String(form.get("answer") ?? "");
   const minutes = form.get("minutes");
 
-  let view: InterviewView | NoCourseCredit | SpendPaused | null;
+  let view: InterviewView | NoCourseCredit | DailyLimitReached | SpendPaused | null;
   try {
     if (previous.view === null) {
       view = await course.startInterview({ subject, why: answer }, learnerId);
@@ -61,12 +61,20 @@ export async function sendAnswer(
     if (view.reason === "no-credit") {
       return { ...previous, error: previous.view === null ? NO_CREDIT.start : NO_CREDIT.goOn };
     }
+    if (view.reason === "daily-limit") {
+      return { ...previous, error: interviewLimitNote(view) };
+    }
     return {
       ...previous,
       error: `${breatherNote(view.resumesAt)}${previous.view ? " Your answers so far are saved." : ""}`,
     };
   }
   return { view, error: null };
+}
+
+/** Only starting counts toward the limit: Interviews under way go on. */
+function interviewLimitNote({ limit, resetsAt }: DailyLimitReached): string {
+  return `You’ve started ${limit === 1 ? "an Interview" : `${limit} Interviews`} today, which is the daily limit. Your Course credit is kept for you: come back ${untilReset(resetsAt)} to start this one.`;
 }
 
 export type WriteState = { error: string | null };
@@ -91,13 +99,11 @@ export async function writeMyCourse(_previous: WriteState, form: FormData): Prom
       }
       return {
         error:
-          written.reason === "daily-limit"
-            ? `You’ve started ${written.limit === 1 ? "a new course" : `${written.limit} new courses`} today, which is the daily limit. Your answers are saved: come back ${untilReset(written.resetsAt)} and press “Write my course” again.`
-            : written.reason === "paused"
-              ? `Apedia is taking a breather today. Your answers are saved: come back ${untilReset(written.resumesAt)} and press “Write my course” again.`
-              : written.reason === "no-credit"
-                ? NO_CREDIT.goOn
-                : "Answer every question first, then your teacher can write your course.",
+          written.reason === "paused"
+            ? `Apedia is taking a breather today. Your answers are saved: come back ${untilReset(written.resumesAt)} and press “Write my course” again.`
+            : written.reason === "no-credit"
+              ? NO_CREDIT.goOn
+              : "Answer every question first, then your teacher can write your course.",
       };
     }
     courseId = written.courseId;

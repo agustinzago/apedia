@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { CoursePath, FinishedLesson, UpNextLesson } from "@/course";
+import { lessonsUsedUpNote } from "@/app/allowance";
+import { BuyCourse } from "@/app/purchase/buy-course";
 import { ConfirmDelete } from "@/components/confirm-delete";
 import { loadCoursePath } from "@/server/course";
 import { ProposalCard } from "../proposal-card";
@@ -41,7 +43,11 @@ export default async function PathTab({
               />
             ))}
             {course.upNext && (
-              <UpNextItem courseId={course.id} lesson={course.upNext} />
+              <UpNextItem
+                courseId={course.id}
+                lesson={course.upNext}
+                of={course.lessonAllowance?.lessons ?? null}
+              />
             )}
           </ol>
           {course.doneAt ? (
@@ -52,6 +58,8 @@ export default async function PathTab({
               initial={course.creation}
               givesCreditBack={course.givesCreditBack}
             />
+          ) : course.lessonsUsedUp && course.lessonAllowance ? (
+            <UsedUpNote lessons={course.lessonAllowance.lessons} />
           ) : (
             course.finishedLessons.length === 0 &&
             !course.upNext && <p className={styles.muted}>No Lessons yet.</p>
@@ -84,6 +92,16 @@ function DoneNote({ doneAt }: { doneAt: Date }) {
       You marked this Course Done on {shortDate.format(doneAt)}. Your Lessons and
       Reference sheet stay here whenever you want them.
     </p>
+  );
+}
+
+/** The Course's Lessons are all written: Up next stays shown, and another Course keeps them going. */
+function UsedUpNote({ lessons }: { lessons: number }) {
+  return (
+    <div data-noprint className={`sketchy ${styles.usedUpNote}`}>
+      <p className={styles.usedUpText}>{lessonsUsedUpNote(lessons)}</p>
+      <BuyCourse from="/" />
+    </div>
   );
 }
 
@@ -165,9 +183,12 @@ function FinishedLessonItem({
 function UpNextItem({
   courseId,
   lesson,
+  of,
 }: {
   courseId: string;
   lesson: UpNextLesson;
+  /** The Lessons the Course's allowance holds; null for the Example course. */
+  of: number | null;
 }) {
   return (
     <li className={styles.lesson}>
@@ -183,6 +204,7 @@ function UpNextItem({
         <span className={styles.lessonMeta}>
           <span>
             Lesson {lesson.index}
+            {of !== null && lesson.index <= of && ` of ${of}`}
             {lesson.minutes !== null && ` · about ${lesson.minutes} min`}
             {lesson.started && " · started"}
           </span>
@@ -197,12 +219,21 @@ function UpNextItem({
 
 function LearningRecords({ course }: { course: CoursePath }) {
   const finished = course.finishedLessons.length;
+  const allowance = course.lessonAllowance;
+  const left = allowance && Math.max(0, allowance.lessons - allowance.written);
   return (
     <aside aria-labelledby="records-heading" className={`sketchy-mirror ${styles.records}`}>
       <p className={styles.progress}>
         {finished === 0
           ? "No Lessons finished yet."
           : `${finished} ${finished === 1 ? "Lesson" : "Lessons"} finished`}
+        {allowance && course.status === "active" && (
+          <span className={styles.lessonsLeft}>
+            {left === 0
+              ? `All ${allowance.lessons} Lessons written`
+              : `${left} of ${allowance.lessons} Lessons left to write`}
+          </span>
+        )}
       </p>
       <h2 id="records-heading" className={`kicker ${styles.recordsKicker}`}>
         Learning records
