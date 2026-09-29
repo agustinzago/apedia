@@ -43,6 +43,13 @@ const PROPOSALS_NOTE = `Never repeat a proposal listed in <proposals> that is st
 /** Longest answer the chat asks for, in words. */
 export const CHAT_ANSWER_WORDS = 80;
 
+/**
+ * The chat's latest question-and-answer pairs sent with each question.
+ * Older ones are left out: resending a whole long chat with every question
+ * would cost more than the Course brings in. Finish still weighs it all.
+ */
+export const CHAT_HISTORY_TURNS = 10;
+
 /** Returned for a chat question the model declines to answer. */
 const CHAT_REFUSAL =
   "That isn’t something I can help with. Is anything in this Lesson unclear? I’m happy to go over it.";
@@ -74,6 +81,13 @@ export function createClaudeTeacher({
   type Request = {
     operation: keyof Teacher;
     system: string;
+    /**
+     * The start of the user turn that stays the same across calls, such as
+     * a Lesson the chat asks about: cached, with the system prompt, and
+     * sent ahead of `user`. The cache takes it only past the model's
+     * minimum length; shorter, it is sent as usual, at no extra cost.
+     */
+    cachedPrefix?: string;
     user: string;
     maxTokens: number;
     model?: Model;
@@ -109,7 +123,22 @@ export function createClaudeTeacher({
       model,
       max_tokens: request.maxTokens,
       system: request.system,
-      messages: [{ role: "user", content: request.user }],
+      messages: [
+        {
+          role: "user",
+          content:
+            request.cachedPrefix === undefined
+              ? request.user
+              : [
+                  {
+                    type: "text",
+                    text: request.cachedPrefix,
+                    cache_control: { type: "ephemeral" },
+                  },
+                  { type: "text", text: request.user },
+                ],
+        },
+      ],
       output_config: { format: zodOutputFormat(schema) },
     });
     // Refused or malformed, the tokens were still spent.
@@ -540,7 +569,7 @@ ${communityRule}
 
 ${SAFETY_RULES}
 ${TONE}`,
-        user: `${DATA_NOTE}
+        cachedPrefix: `${DATA_NOTE}
 
 <subject>${subject}</subject>
 ${missionXml(mission)}
@@ -560,9 +589,12 @@ ${resources.map((r) => `- ${r.id} (${r.kind}) ${r.title}, by ${r.author}: ${r.wh
 </resources>
 <communities>
 ${communities.map((c) => `- ${c.number}. ${c.name} (${c.offline ? "offline" : "online"}), ${c.where}: ${c.why}`).join("\n")}
-</communities>
-<chat>
-${history.map((m) => `<${m.from}>${m.text}</${m.from}>`).join("\n")}
+</communities>`,
+        user: `<chat>
+${history
+  .slice(-2 * CHAT_HISTORY_TURNS)
+  .map((m) => `<${m.from}>${m.text}</${m.from}>`)
+  .join("\n")}
 </chat>
 ${proposalsXml(proposals)}
 <question>${question}</question>`,
