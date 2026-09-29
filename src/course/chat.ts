@@ -126,13 +126,25 @@ const viewOf = (row: ChatRow, resources: Map<string, LessonResource>): ChatMessa
   community: row.community,
 });
 
+/**
+ * The questions and answers before question `number` (by default, all of
+ * them), less questions without an answer: one still being answered, or
+ * one whose request died after saving it.
+ */
+function answeredBefore(rows: ChatRow[], number = Infinity): ChatRow[] {
+  const numbers = new Set(rows.map((r) => r.number));
+  return rows.filter(
+    (r) => r.number < number && (r.from === "teacher" || numbers.has(r.number + 1)),
+  );
+}
+
 /** A Lesson's chat as the Lesson page shows it, oldest first. */
 export async function readChat(
   db: Db,
   lessonId: string,
   resources: Map<string, LessonResource>,
 ): Promise<ChatMessage[]> {
-  return (await readChatRows(db, lessonId)).map((row) => viewOf(row, resources));
+  return answeredBefore(await readChatRows(db, lessonId)).map((row) => viewOf(row, resources));
 }
 
 /** A Lesson's chat as Finish weighs it: "C1", "C2"… oldest first. */
@@ -140,7 +152,7 @@ export async function chatEvidence(
   db: Db,
   lessonId: string,
 ): Promise<{ id: string; from: "teacher" | "learner"; text: string }[]> {
-  return (await readChatRows(db, lessonId)).map((m) => ({
+  return answeredBefore(await readChatRows(db, lessonId)).map((m) => ({
     id: `C${m.number}`,
     from: m.from,
     text: m.text,
@@ -154,14 +166,6 @@ export async function chatEvidence(
  */
 function nextQuestionNumber(last: number): number {
   return last % 2 === 1 ? last + 2 : last + 1;
-}
-
-/** The questions and answers before question `number`, less questions still waiting for their answer. */
-function answeredBefore(rows: ChatRow[], number: number): ChatRow[] {
-  const numbers = new Set(rows.map((r) => r.number));
-  return rows.filter(
-    (r) => r.number < number && (r.from === "teacher" || numbers.has(r.number + 1)),
-  );
 }
 
 export function createChatOperations({

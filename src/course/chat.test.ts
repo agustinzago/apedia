@@ -215,6 +215,21 @@ describe("course: asking your teacher", () => {
       expect(askInputs()).toHaveLength(2);
     });
 
+    it("shows a question only once it has its answer, so one whose request died never shows", async () => {
+      await course.askTeacher("c1", 1, "Answered?", "ana");
+      const [lesson] = await db.select().from(schema.lesson);
+      // A request cut off after saving its question, before the answer.
+      await db.insert(schema.chatMessage).values({ lessonId: lesson.id, number: 3, from: "learner", text: "Lost?" });
+      await course.askTeacher("c1", 1, "Later?", "ana");
+
+      const chat = (await readChat())!;
+      expect(chat.filter((m) => m.from === "learner").map((m) => m.parts)).toEqual([
+        [{ text: "Answered?" }],
+        [{ text: "Later?" }],
+      ]);
+      expect(askInputs()[1].history.map((m) => m.text)).not.toContain("Lost?");
+    });
+
     it("gives the question back when the Teacher cannot answer it", async () => {
       const fail: ChatReply = () => {
         throw new Error("Overloaded.");

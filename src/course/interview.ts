@@ -6,7 +6,7 @@ import type { Teacher } from "@/teacher";
 import { insertCourseCreationJob } from "./course-creation";
 import type { Tx } from "./jobs";
 import type { DailyCaps, DailyLimitReached } from "./limits";
-import { isBusy, lockLearner, withLease, type Busy } from "./locks";
+import { lockLearner, withLease, type Busy } from "./locks";
 import type { Spend, SpendPaused } from "./spend";
 
 export type { InterviewMessage } from "@/db/schema";
@@ -203,16 +203,23 @@ export function createInterviewOperations({
     return found ?? null;
   }
 
-  /** Answers the question the Interview is asking, once no other request is answering it. */
+  /**
+   * Answers the question the Interview is asking, once no other request is
+   * answering it. `seen` is how many messages the Learner saw: if the
+   * Interview has moved on since, the answer was to an earlier question, and
+   * is not taken for the next.
+   */
   async function answerOnce(
     interviewId: string,
     answer: string,
+    seen: number,
   ): Promise<InterviewView | NoCourseCredit | SpendPaused | null> {
     const row = await findRow(interviewId);
     // Discarded meanwhile.
     if (!row) return null;
     const stage = row.stage;
     if (stage !== "why" && stage !== "know" && stage !== "success") return toView(row);
+    if (row.messages.length !== seen) return toView(row);
     if (!(await isBacked(row))) return NO_CREDIT;
     const paused = await spend.teacherCall();
     if (paused) return paused;
@@ -256,7 +263,9 @@ export function createInterviewOperations({
       // Guards against a double submit racing past this question.
       .where(and(eq(schema.interview.id, row.id), eq(schema.interview.stage, stage)))
       .returning();
-    return toView(updated ?? (await findRow(interviewId))!);
+    const now = updated ?? (await findRow(interviewId));
+    // Discarded while the Teacher was answering.
+    return now ? toView(now) : null;
   }
 
   /** "Write my course", once no other press of it is being handled. */
@@ -439,16 +448,15 @@ export function createInterviewOperations({
       interviewId: string,
       rawAnswer: string,
       learnerId: string,
-    ): Promise<InterviewView | NoCourseCredit | SpendPaused | null> {
+    ): Promise<InterviewView | NoCourseCredit | SpendPaused | Busy | null> {
       const answer = Answer.parse(rawAnswer);
       const found = await findRow(interviewId);
       if (!found || !mayUse(found, learnerId)) return null;
       // The same answer sent twice at once asks the Teacher once; the other
-      // sender sees the Interview as it stands.
-      const answered = await withLease(db, `interview-answer:${interviewId}`, () =>
-        answerOnce(interviewId, answer),
+      // sender is told it is being answered.
+      return withLease(db, `interview-answer:${interviewId}`, () =>
+        answerOnce(interviewId, answer, found.messages.length),
       );
-      return isBusy(answered) ? toView(found) : answered;
     },
 
     /**

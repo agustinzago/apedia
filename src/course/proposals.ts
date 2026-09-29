@@ -487,11 +487,16 @@ export function createProposalOperations({
         return { ok: false, reason: "decided" };
       }
       // Confirmed from two tabs at once, the Teacher re-picks Up next once.
-      return withLease(db, `proposal:${proposal.id}`, () =>
-        proposal.kind === "mission_change"
-          ? confirmMissionChange(course, proposal)
-          : confirmDone(course, proposal),
-      );
+      return withLease(db, `proposal:${proposal.id}`, async () => {
+        // Decided by another tab since it was read above.
+        const again = await findOwnProposal(courseId, proposalId, learnerId);
+        if (!again || again.proposal.status !== "open" || again.course.status === "done") {
+          return { ok: false, reason: "decided" } as const;
+        }
+        return again.proposal.kind === "mission_change"
+          ? confirmMissionChange(again.course, again.proposal)
+          : confirmDone(again.course, again.proposal);
+      });
     },
 
     /** "Not now": the proposal is set aside and nothing changes. */

@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import type { DailyLimitReached, InterviewView, NoCourseCredit, SpendPaused } from "@/course";
+import type { Busy, DailyLimitReached, InterviewView, NoCourseCredit, SpendPaused } from "@/course";
 import type { DeleteState } from "@/components/confirm-delete";
 import { breatherNote, untilReset } from "@/app/daily-limit";
 import { getViewer } from "@/server/auth";
@@ -43,7 +43,7 @@ export async function sendAnswer(
   const answer = String(form.get("answer") ?? "");
   const minutes = form.get("minutes");
 
-  let view: InterviewView | NoCourseCredit | DailyLimitReached | SpendPaused | null;
+  let view: InterviewView | NoCourseCredit | DailyLimitReached | SpendPaused | Busy | null;
   try {
     if (previous.view === null) {
       view = await course.startInterview({ subject, why: answer }, learnerId);
@@ -63,6 +63,12 @@ export async function sendAnswer(
     }
     if (view.reason === "daily-limit") {
       return { ...previous, error: interviewLimitNote(view) };
+    }
+    if (view.reason === "busy") {
+      return {
+        ...previous,
+        error: "Your teacher is still on your last answer. Reload the page in a moment to see where you are.",
+      };
     }
     return {
       ...previous,

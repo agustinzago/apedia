@@ -17,6 +17,7 @@ import { createTestDb } from "@/test/db";
 import {
   createCourseModule,
   type CourseModule,
+  type Busy,
   type DailyLimitReached,
   type InterviewView,
   type NoCourseCredit,
@@ -24,7 +25,7 @@ import {
 } from ".";
 
 /** The Interview itself, not a refusal: these Learners hold a credit, start few and spend nothing. */
-function going<T>(result: T | SpendPaused | NoCourseCredit | DailyLimitReached): T {
+function going<T>(result: T | SpendPaused | NoCourseCredit | DailyLimitReached | Busy): T {
   if (result !== null && typeof result === "object" && "reason" in result) {
     throw new Error(`The Interview was refused: ${result.reason}.`);
   }
@@ -263,8 +264,11 @@ describe("course: the Interview, from subject to Course", () => {
     const [row] = await db.select().from(schema.interview);
     expect(row).toMatchObject({ stage: "success", know: "A few open chords" });
     expect(row.messages.filter((m) => m.text === "A few open chords")).toHaveLength(1);
-    // Every sender sees the Interview as it stands.
-    for (const view of sent) expect(view).toMatchObject({ id: started.id });
+    // The others are told it is being answered, or see it answered: never
+    // is the same answer taken for the next question.
+    for (const view of sent) {
+      expect([{ ok: false, reason: "busy" }, expect.objectContaining({ id: started.id })]).toContainEqual(view);
+    }
   });
 
   it("keeps an Interview to its Learner, and writes a Course only from a finished one", async () => {
