@@ -36,9 +36,7 @@ test("a visitor walks the Example course to a Lesson and answers its quiz", asyn
   page,
 }) => {
   await page.goto("/");
-  await page
-    .getByRole("link", { name: "or open the Example course: Music theory" })
-    .click();
+  await page.getByRole("link", { name: /See a real Course first, free/ }).click();
 
   await expect(
     page.getByRole("heading", {

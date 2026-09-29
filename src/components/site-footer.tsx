@@ -12,6 +12,7 @@ export function SiteFooter() {
         Apedia teaches with Matt Pocock’s <a href={TEACH_SKILL_URL}>/teach</a> method.
       </p>
       <nav aria-label="Small print" className={styles.links}>
+        <Link href="/pricing">Pricing</Link>
         <Link href="/privacy">Privacy</Link>
         <Link href="/terms">Terms</Link>
         <Link href="/refunds">Refund policy</Link>

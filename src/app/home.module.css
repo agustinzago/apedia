@@ -67,15 +67,73 @@
   justify-content: center;
 }
 
-.example {
+/* The Example course comes first: a free look before anything is bought. */
+.exampleCard {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  max-width: 520px;
+  padding: 14px 22px;
+  background: var(--card);
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.exampleCard:hover {
+  color: var(--ink);
+  background: var(--blue-hover);
+}
+
+.exampleLead {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 24px;
+  line-height: 1.2;
+}
+
+.exampleWhat {
+  color: var(--ink-muted);
   font-size: 18px;
+}
+
+.start {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  margin-top: 26px;
+}
+
+.startTitle {
+  font-size: 30px;
+  line-height: 1.2;
+}
+
+.startLine {
+  max-width: 600px;
+  color: var(--ink-secondary);
+  font-size: 19px;
+}
+
+.startLine a {
   text-underline-offset: 4px;
+  white-space: nowrap;
 }
 
 .yourCourses {
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+
+.yourCoursesHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 24px;
 }
 
 .sectionTitle {
@@ -134,16 +192,17 @@
   line-height: 1.2;
 }
 
+/* Beside "Your courses": the unused Course credits and "Buy a Course". */
 .credits {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: center;
-  gap: 16px 24px;
+  gap: 10px 20px;
 }
 
 .creditCount {
-  font-size: 21px;
+  color: var(--ink-secondary);
+  font-size: 19px;
 }
 
 .openInterview {
