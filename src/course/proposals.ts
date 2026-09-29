@@ -12,6 +12,7 @@ import type {
 import { upNextProblem } from "./course-creation";
 import type { Tx } from "./jobs";
 import { findLessonJob } from "./lessons";
+import { withLease, type Busy } from "./locks";
 import type { Spend, SpendPaused } from "./spend";
 
 /**
@@ -56,6 +57,8 @@ export type DecideProposalResult =
         /** The Teacher could not re-pick Up next just now; nothing changed. */
         | "unavailable";
     }
+  /** Confirmed again while an earlier confirm is still being handled. */
+  | Busy
   /** Re-picking Up next waits while the Teacher is paused for the day; nothing changed. */
   | SpendPaused;
 
@@ -483,9 +486,12 @@ export function createProposalOperations({
       if (proposal.status !== "open" || course.status === "done") {
         return { ok: false, reason: "decided" };
       }
-      return proposal.kind === "mission_change"
-        ? confirmMissionChange(course, proposal)
-        : confirmDone(course, proposal);
+      // Confirmed from two tabs at once, the Teacher re-picks Up next once.
+      return withLease(db, `proposal:${proposal.id}`, () =>
+        proposal.kind === "mission_change"
+          ? confirmMissionChange(course, proposal)
+          : confirmDone(course, proposal),
+      );
     },
 
     /** "Not now": the proposal is set aside and nothing changes. */

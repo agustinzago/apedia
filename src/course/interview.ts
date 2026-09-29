@@ -4,7 +4,9 @@ import { schema, type Db } from "@/db";
 import type { InterviewMessage } from "@/db/schema";
 import type { Teacher } from "@/teacher";
 import { insertCourseCreationJob } from "./course-creation";
+import type { Tx } from "./jobs";
 import type { DailyCaps, DailyLimitReached } from "./limits";
+import { isBusy, lockLearner, withLease, type Busy } from "./locks";
 import type { Spend, SpendPaused } from "./spend";
 
 export type { InterviewMessage } from "@/db/schema";
@@ -80,6 +82,8 @@ export type WriteCourseResult =
       jobId: string | null;
     }
   | { ok: false; reason: "not-found" | "not-yours" | "not-finished" }
+  /** "Write my course" was pressed again while the Course is being written. */
+  | Busy
   /** The credit backing the Interview is no longer available, say it was refunded. */
   | NoCourseCredit
   /** The Teacher is paused for the day; the Interview keeps for later. */
@@ -142,9 +146,9 @@ export function createInterviewOperations({
     );
   }
 
-  /** The Learner's oldest available Course credit that backs no Interview, or null. */
-  async function creditToStart(learnerId: string): Promise<string | null> {
-    const [credit] = await db
+  /** The Learner's oldest available Course credit that backs no Interview, or null. Inside `tx` when given. */
+  async function creditToStart(learnerId: string, tx: Tx | Db = db): Promise<string | null> {
+    const [credit] = await tx
       .select({ id: schema.courseCredit.id })
       .from(schema.courseCredit)
       .where(and(eq(schema.courseCredit.learnerId, learnerId), unreserved()))
@@ -199,6 +203,133 @@ export function createInterviewOperations({
     return found ?? null;
   }
 
+  /** Answers the question the Interview is asking, once no other request is answering it. */
+  async function answerOnce(
+    interviewId: string,
+    answer: string,
+  ): Promise<InterviewView | NoCourseCredit | SpendPaused> {
+    const row = (await findRow(interviewId))!;
+    const stage = row.stage;
+    if (stage !== "why" && stage !== "know" && stage !== "success") return toView(row);
+    if (!(await isBacked(row))) return NO_CREDIT;
+    const paused = await spend.teacherCall();
+    if (paused) return paused;
+    const next = ORDER[ORDER.indexOf(stage) + 1];
+    const asked = lastTeacherMessage(row.messages);
+    const mayFollowUp = !row.followUpAsked;
+
+    const reply = await teacher.interviewFollowUp({
+      subject: row.subject,
+      language: row.language,
+      question: asked,
+      answer,
+      mayFollowUp,
+      nextQuestion: question(next, row.subject),
+    });
+
+    // An answer to a follow-up adds to the original answer.
+    const combined = row.awaitingFollowUp
+      ? [row[stage], answer].filter(Boolean).join("\n")
+      : answer;
+    const messages: InterviewMessage[] = [...row.messages, { from: "learner", text: answer }];
+    const followUp = mayFollowUp ? reply.followUp : null;
+
+    const [updated] = await db
+      .update(schema.interview)
+      .set(
+        followUp
+          ? {
+              [stage]: combined,
+              followUpAsked: true,
+              awaitingFollowUp: true,
+              messages: [...messages, { from: "teacher", text: followUp }],
+            }
+          : {
+              [stage]: combined,
+              stage: next,
+              awaitingFollowUp: false,
+              messages: [...messages, { from: "teacher", text: reply.nextQuestion }],
+            },
+      )
+      // Guards against a double submit racing past this question.
+      .where(and(eq(schema.interview.id, row.id), eq(schema.interview.stage, stage)))
+      .returning();
+    return toView(updated ?? (await findRow(interviewId))!);
+  }
+
+  /** "Write my course", once no other press of it is being handled. */
+  async function writeOnce(row: InterviewRow, learnerId: string): Promise<WriteCourseResult> {
+
+    const existing = await findCourseFor(row.id);
+    if (existing) return { ok: true, ...existing };
+    const creditId = row.courseCreditId;
+    if (creditId === null || !(await isBacked(row))) return NO_CREDIT;
+    const paused = await spend.teacherCall();
+    if (paused) return paused;
+
+    const sittingMinutes = row.sittingMinutes!;
+    const mission = await teacher.writeMission({
+      subject: row.subject,
+      language: row.language,
+      why: row.why ?? "",
+      know: row.know ?? "",
+      success: row.success ?? "",
+      sittingMinutes,
+    });
+
+    let written: { courseId: string; jobId: string } | null;
+    try {
+      written = await db.transaction(async (tx) => {
+        const [created] = await tx
+          .insert(schema.course)
+          .values({
+            learnerId,
+            interviewId: row.id,
+            subject: row.subject,
+            title: mission.title.trim() || row.subject,
+            language: row.language,
+            missionWhy: mission.why.trim() || (row.why ?? ""),
+            missionSuccess: nonEmpty(mission.successLooksLike),
+            missionConstraints: withSittingLength(nonEmpty(mission.constraints), sittingMinutes),
+            missionOutOfScope: nonEmpty(mission.outOfScope),
+            sittingMinutes,
+          })
+          .onConflictDoNothing({ target: schema.course.interviewId })
+          .returning({ id: schema.course.id });
+        // Another request wrote this Interview's Course first, with the credit.
+        if (!created) return null;
+
+        const [used] = await tx
+          .update(schema.courseCredit)
+          .set({ status: "used", updatedAt: now() })
+          .where(
+            and(
+              eq(schema.courseCredit.id, creditId),
+              eq(schema.courseCredit.status, "available"),
+            ),
+          )
+          .returning({ id: schema.courseCredit.id });
+        // Refunded since the check above: no Course without its credit.
+        if (!used) throw new CreditGone();
+
+        await tx.insert(schema.learningRecord).values({
+          courseId: created.id,
+          number: 1,
+          kind: "prior_knowledge",
+          title: mission.priorKnowledge.title.trim(),
+          body: mission.priorKnowledge.body.trim(),
+        });
+        const jobId = await insertCourseCreationJob(tx, created.id);
+        return { courseId: created.id, jobId };
+      });
+    } catch (error) {
+      if (error instanceof CreditGone) return NO_CREDIT;
+      throw error;
+    }
+
+    return { ok: true, ...(written ?? (await findCourseFor(row.id))!) };
+  }
+
   return {
     /**
      * Starts the Learner's Interview from the subject and the answer to
@@ -216,11 +347,18 @@ export function createInterviewOperations({
     ): Promise<StartInterviewResult> {
       const subject = Subject.parse(input.subject);
       const why = Answer.parse(input.why);
-      if ((await creditToStart(learnerId)) === null) return NO_CREDIT;
-      const limited = (await caps.interviewStart(learnerId)) ?? (await spend.teacherCall());
-      if (limited) return limited;
+      const paused = await spend.teacherCall();
       // It counts from here: the Teacher is called, whatever comes of it.
-      await db.insert(schema.interviewStart).values({ learnerId, createdAt: now() });
+      // Starts sent at once take turns, so none gets past the daily limit.
+      const refused = await db.transaction(async (tx) => {
+        await lockLearner(tx, learnerId);
+        if ((await creditToStart(learnerId, tx)) === null) return NO_CREDIT;
+        const limited = (await caps.interviewStart(learnerId, tx)) ?? paused;
+        if (limited) return limited;
+        await tx.insert(schema.interviewStart).values({ learnerId, createdAt: now() });
+        return null;
+      });
+      if (refused) return refused;
 
       const safety = await teacher.checkSafety({ subject, why });
       const language = canonicalLanguage(safety.language);
@@ -298,56 +436,15 @@ export function createInterviewOperations({
       rawAnswer: string,
       learnerId: string,
     ): Promise<InterviewView | NoCourseCredit | SpendPaused | null> {
-      const row = await findRow(interviewId);
-      if (!row || !mayUse(row, learnerId)) return null;
-      const stage = row.stage;
-      if (stage !== "why" && stage !== "know" && stage !== "success") return toView(row);
-
       const answer = Answer.parse(rawAnswer);
-      if (!(await isBacked(row))) return NO_CREDIT;
-      const paused = await spend.teacherCall();
-      if (paused) return paused;
-      const next = ORDER[ORDER.indexOf(stage) + 1];
-      const asked = lastTeacherMessage(row.messages);
-      const mayFollowUp = !row.followUpAsked;
-
-      const reply = await teacher.interviewFollowUp({
-        subject: row.subject,
-        language: row.language,
-        question: asked,
-        answer,
-        mayFollowUp,
-        nextQuestion: question(next, row.subject),
-      });
-
-      // An answer to a follow-up adds to the original answer.
-      const combined = row.awaitingFollowUp
-        ? [row[stage], answer].filter(Boolean).join("\n")
-        : answer;
-      const messages: InterviewMessage[] = [...row.messages, { from: "learner", text: answer }];
-      const followUp = mayFollowUp ? reply.followUp : null;
-
-      const [updated] = await db
-        .update(schema.interview)
-        .set(
-          followUp
-            ? {
-                [stage]: combined,
-                followUpAsked: true,
-                awaitingFollowUp: true,
-                messages: [...messages, { from: "teacher", text: followUp }],
-              }
-            : {
-                [stage]: combined,
-                stage: next,
-                awaitingFollowUp: false,
-                messages: [...messages, { from: "teacher", text: reply.nextQuestion }],
-              },
-        )
-        // Guards against a double submit racing past this question.
-        .where(and(eq(schema.interview.id, row.id), eq(schema.interview.stage, stage)))
-        .returning();
-      return toView(updated ?? (await findRow(interviewId))!);
+      const found = await findRow(interviewId);
+      if (!found || !mayUse(found, learnerId)) return null;
+      // The same answer sent twice at once asks the Teacher once; the other
+      // sender sees the Interview as it stands.
+      const answered = await withLease(db, `interview-answer:${interviewId}`, () =>
+        answerOnce(interviewId, answer),
+      );
+      return isBusy(answered) ? toView(found) : answered;
     },
 
     /**
@@ -467,78 +564,13 @@ export function createInterviewOperations({
       if (row.stage !== "complete" || row.sittingMinutes === null) {
         return { ok: false, reason: "not-finished" };
       }
-
-      const existing = await findCourseFor(row.id);
-      if (existing) return { ok: true, ...existing };
-      const creditId = row.courseCreditId;
-      if (creditId === null || !(await isBacked(row))) return NO_CREDIT;
-      const paused = await spend.teacherCall();
-      if (paused) return paused;
-
-      const sittingMinutes = row.sittingMinutes;
-      const mission = await teacher.writeMission({
-        subject: row.subject,
-        language: row.language,
-        why: row.why ?? "",
-        know: row.know ?? "",
-        success: row.success ?? "",
-        sittingMinutes,
-      });
-
-      let written: { courseId: string; jobId: string } | null;
-      try {
-        written = await db.transaction(async (tx) => {
-          const [created] = await tx
-            .insert(schema.course)
-            .values({
-              learnerId,
-              interviewId: row.id,
-              subject: row.subject,
-              title: mission.title.trim() || row.subject,
-              language: row.language,
-              missionWhy: mission.why.trim() || (row.why ?? ""),
-              missionSuccess: nonEmpty(mission.successLooksLike),
-              missionConstraints: withSittingLength(nonEmpty(mission.constraints), sittingMinutes),
-              missionOutOfScope: nonEmpty(mission.outOfScope),
-              sittingMinutes,
-            })
-            .onConflictDoNothing({ target: schema.course.interviewId })
-            .returning({ id: schema.course.id });
-          // Another request wrote this Interview's Course first, with the credit.
-          if (!created) return null;
-
-          const [used] = await tx
-            .update(schema.courseCredit)
-            .set({ status: "used", updatedAt: now() })
-            .where(
-              and(
-                eq(schema.courseCredit.id, creditId),
-                eq(schema.courseCredit.status, "available"),
-              ),
-            )
-            .returning({ id: schema.courseCredit.id });
-          // Refunded since the check above: no Course without its credit.
-          if (!used) throw new CreditGone();
-
-          await tx.insert(schema.learningRecord).values({
-            courseId: created.id,
-            number: 1,
-            kind: "prior_knowledge",
-            title: mission.priorKnowledge.title.trim(),
-            body: mission.priorKnowledge.body.trim(),
-          });
-          const jobId = await insertCourseCreationJob(tx, created.id);
-          return { courseId: created.id, jobId };
-        });
-      } catch (error) {
-        if (error instanceof CreditGone) return NO_CREDIT;
-        throw error;
-      }
-
-      return { ok: true, ...(written ?? (await findCourseFor(row.id))!) };
+      // Pressed again while the Mission is being written: that press waits
+      // for this one rather than asking the Teacher again.
+      return withLease(db, `write-course:${row.id}`, () => writeOnce(row, learnerId));
     },
   };
 }
+
 
 function lastTeacherMessage(messages: InterviewMessage[]): string {
   return messages.findLast((m) => m.from === "teacher")?.text ?? "";

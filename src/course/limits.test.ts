@@ -241,6 +241,19 @@ describe("course: daily limits and the spend alarm", () => {
       expect(await db.select().from(schema.chatMessage)).toHaveLength(40);
     });
 
+    it("holds questions sent all at once to the limit: each counts before the Teacher is asked", async () => {
+      const asked = await Promise.all(
+        Array.from({ length: 30 }, (_, i) => course.askTeacher(courseId, 1, `Burst ${i}?`, "ana")),
+      );
+
+      expect(asked.filter((a) => a.ok)).toHaveLength(20);
+      expect(asked.filter((a) => !a.ok)).toEqual(
+        Array(10).fill({ ok: false, reason: "daily-limit", limit: 20, resetsAt: nextMidnight(clock) }),
+      );
+      expect(calls("askTeacher")).toHaveLength(20);
+      expect(await db.select().from(schema.chatMessage)).toHaveLength(40);
+    });
+
     it("counts only today's questions, in every Lesson", async () => {
       await setUp({ limits: { ...DEFAULT_DAILY_LIMITS, chatMessages: 2 } });
       courseId = (await writeAndPrepare("ana")).courseId;
@@ -299,6 +312,17 @@ describe("course: daily limits and the spend alarm", () => {
         creditsToStart: 1,
         openInterviews: [],
       });
+    });
+
+    it("holds starts sent all at once to the limit: each counts before the Teacher is asked", async () => {
+      for (let i = 0; i < 7; i++) await buyCourse(course, "ana");
+
+      const started = await Promise.all(
+        Array.from({ length: 8 }, (_, i) => course.startInterview({ ...chess, subject: `Chess ${i}` }, "ana")),
+      );
+
+      expect(started.filter((s) => "reason" in s && s.reason === "daily-limit")).toHaveLength(3);
+      expect(calls("checkSafety")).toHaveLength(5);
     });
 
     it("counts each Learner's starts apart", async () => {

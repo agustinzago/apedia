@@ -624,3 +624,15 @@ export const courseCredit = pgTable(
     uniqueIndex("course_credit_payment_uq").on(t.provider, t.providerPaymentId),
   ],
 );
+
+// A claim on one piece of work that asks the Teacher, such as answering an
+// Interview question or confirming a Mission change, so that the same
+// request sent twice at once asks only once. The holder deletes its row when
+// done; a row past `expiresAt` lost its holder and may be claimed again.
+export const lease = pgTable("lease", {
+  // What is being worked on, such as "interview-answer:<interview id>".
+  key: text("key").primaryKey(),
+  // Who holds it: only they release it.
+  holder: text("holder").notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+});

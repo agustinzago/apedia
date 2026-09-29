@@ -248,6 +248,25 @@ describe("course: the Interview, from subject to Course", () => {
     expect(teacher.calls.filter((c) => c.op === "writeMission")).toHaveLength(1);
   });
 
+  it("asks the Teacher once for an answer sent several times at once", async () => {
+    const started = await start(course, {
+      subject: "Music theory",
+      why: "To understand the songs I already play on guitar",
+    });
+    const before = teacher.calls.length;
+
+    const sent = await Promise.all(
+      [1, 2, 3].map(() => course.answerInterview(started.id, "A few open chords", "ana")),
+    );
+
+    expect(teacher.calls.slice(before)).toHaveLength(1);
+    const [row] = await db.select().from(schema.interview);
+    expect(row).toMatchObject({ stage: "success", know: "A few open chords" });
+    expect(row.messages.filter((m) => m.text === "A few open chords")).toHaveLength(1);
+    // Every sender sees the Interview as it stands.
+    for (const view of sent) expect(view).toMatchObject({ id: started.id });
+  });
+
   it("keeps an Interview to its Learner, and writes a Course only from a finished one", async () => {
     const interviewId = await interviewAbout();
 
@@ -407,12 +426,19 @@ describe("course: Course credits back Interviews", () => {
     });
 
     await finish(started.id);
-    const [first, again] = await Promise.all([
+    const pressed = await Promise.all([
+      course.writeCourse(started.id, "ana"),
       course.writeCourse(started.id, "ana"),
       course.writeCourse(started.id, "ana"),
     ]);
 
-    expect(again).toEqual(first);
+    // One press writes it; presses meanwhile are told it is being written.
+    const [first] = pressed.filter((p) => p.ok);
+    expect(pressed.filter((p) => !p.ok)).toEqual([
+      { ok: false, reason: "busy" },
+      { ok: false, reason: "busy" },
+    ]);
+    expect(teacher.calls.filter((c) => c.op === "writeMission")).toHaveLength(1);
     expect(await course.writeCourse(started.id, "ana")).toEqual(first);
     expect(await credits()).toEqual({ available: 1, used: 1, refunded: 0 });
     expect(await course.readInterviewStart("ana")).toEqual({

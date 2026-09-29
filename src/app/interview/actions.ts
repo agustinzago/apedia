@@ -103,7 +103,9 @@ export async function writeMyCourse(_previous: WriteState, form: FormData): Prom
             ? `Apedia is taking a breather today. Your answers are saved: come back ${untilReset(written.resumesAt)} and press “Write my course” again.`
             : written.reason === "no-credit"
               ? NO_CREDIT.goOn
-              : "Answer every question first, then your teacher can write your course.",
+              : written.reason === "busy"
+                ? "Your teacher is already writing your course. Reload the page in a moment to open it."
+                : "Answer every question first, then your teacher can write your course.",
       };
     }
     courseId = written.courseId;

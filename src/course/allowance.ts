@@ -1,6 +1,7 @@
 import { and, count, eq, exists, isNotNull, or } from "drizzle-orm";
 import { schema, type Db } from "@/db";
 import { COURSE_CREDIT } from "./course-credit";
+import type { Tx } from "./jobs";
 
 /**
  * A Course's allowance: the Lessons and chat questions its Course credit
@@ -58,8 +59,8 @@ export async function countedLessonIds(db: Db, courseId: string): Promise<Set<st
   return new Set(rows.map((r) => r.id));
 }
 
-/** The questions the Learner has asked across the Course's Lessons. */
-export async function countQuestions(db: Db, courseId: string): Promise<number> {
+/** The questions the Learner has asked across the Course's Lessons. Inside `tx` when given one. */
+export async function countQuestions(db: Tx | Db, courseId: string): Promise<number> {
   const [row] = await db
     .select({ n: count() })
     .from(schema.chatMessage)
@@ -75,8 +76,8 @@ export async function lessonsUsedUp(db: Db, courseId: string): Promise<LessonsUs
   return { ok: false, reason: "lessons-used-up", allowance };
 }
 
-/** The questions left to ask across the Course's Lessons, never below 0. */
-export async function questionsLeft(db: Db, courseId: string): Promise<number> {
+/** The questions left to ask across the Course's Lessons, never below 0. Inside `tx` when given one. */
+export async function questionsLeft(db: Tx | Db, courseId: string): Promise<number> {
   return Math.max(0, COURSE_CREDIT.chatQuestions - (await countQuestions(db, courseId)));
 }
 

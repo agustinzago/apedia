@@ -9,6 +9,7 @@ import { createTestDb } from "@/test/db";
 import { createFakeUrlFetcher } from "@/url-fetcher/fake";
 import { createCourseModule, EXAMPLE_COURSE_ID, MAX_QUESTION_LENGTH, type CourseModule } from ".";
 import { chatParts } from "./chat";
+import { COURSE_CREDIT } from "./course-credit";
 
 const ana = { learnerId: "ana" };
 
@@ -179,6 +180,51 @@ describe("course: asking your teacher", () => {
       [3, "learner", "Two?"],
       [4, "teacher", "The "],
     ]);
+  });
+
+  describe("questions sent at once", () => {
+    it("keeps each answer right after its question", async () => {
+      await Promise.all(["One?", "Two?", "Three?"].map((q) => course.askTeacher("c1", 1, q, "ana")));
+
+      const chat = (await readChat())!;
+      expect(chat).toHaveLength(6);
+      chat.forEach((message, i) => expect(message.from).toBe(i % 2 === 0 ? "learner" : "teacher"));
+      expect(chat.filter((m) => m.from === "learner").map((m) => m.parts)).toEqual(
+        expect.arrayContaining([[{ text: "One?" }], [{ text: "Two?" }], [{ text: "Three?" }]]),
+      );
+    });
+
+    it("never goes past the Course's allowance: each question counts before the Teacher is asked", async () => {
+      const [lesson] = await db.select().from(schema.lesson);
+      const allowance = COURSE_CREDIT.chatQuestions;
+      await db.insert(schema.chatMessage).values(
+        Array.from({ length: allowance - 2 }, (_, i) => [
+          { lessonId: lesson.id, number: 2 * i + 1, from: "learner" as const, text: `Q${i}` },
+          { lessonId: lesson.id, number: 2 * i + 2, from: "teacher" as const, text: `A${i}` },
+        ]).flat(),
+      );
+
+      const asked = await Promise.all(
+        Array.from({ length: 6 }, (_, i) => course.askTeacher("c1", 1, `Burst ${i}?`, "ana")),
+      );
+
+      expect(asked.filter((a) => a.ok)).toHaveLength(2);
+      expect(asked.filter((a) => !a.ok)).toEqual(
+        Array(4).fill({ ok: false, reason: "questions-used-up", allowance }),
+      );
+      expect(askInputs()).toHaveLength(2);
+    });
+
+    it("gives the question back when the Teacher cannot answer it", async () => {
+      const fail: ChatReply = () => {
+        throw new Error("Overloaded.");
+      };
+      answers = [fail, fail];
+      await course.askTeacher("c1", 1, "Lost?", "ana");
+
+      const asked = await course.askTeacher("c1", 1, "Again?", "ana");
+      expect(asked).toMatchObject({ ok: true, questionsLeft: COURSE_CREDIT.chatQuestions - 1 });
+    });
   });
 
   describe("Communities", () => {
