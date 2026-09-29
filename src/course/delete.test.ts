@@ -283,6 +283,8 @@ describe("course: deleting", () => {
         messages: [],
         claimedAt: new Date(),
       });
+      // A start counted toward today's Interview limit.
+      await db.insert(schema.interviewStart).values({ learnerId: "ana" });
       await db.insert(schema.session).values({
         sessionToken: "ana-session",
         userId: "ana",

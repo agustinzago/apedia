@@ -21,12 +21,16 @@ import type { PolarSettings } from "@/payments";
 
 type Env = Record<string, string | undefined>;
 
-/** APEDIA_DAILY_NEW_COURSES, APEDIA_DAILY_LESSONS and APEDIA_DAILY_CHAT_MESSAGES. */
+/**
+ * APEDIA_DAILY_NEW_COURSES, APEDIA_DAILY_LESSONS and APEDIA_DAILY_CHAT_MESSAGES.
+ * APEDIA_DAILY_INTERVIEWS: Interview starts (default 5).
+ */
 export function dailyLimitsFromEnv(env: Env = process.env): DailyLimits {
   return {
     newCourses: count(env, "APEDIA_DAILY_NEW_COURSES", DEFAULT_DAILY_LIMITS.newCourses),
     lessonGenerations: count(env, "APEDIA_DAILY_LESSONS", DEFAULT_DAILY_LIMITS.lessonGenerations),
     chatMessages: count(env, "APEDIA_DAILY_CHAT_MESSAGES", DEFAULT_DAILY_LIMITS.chatMessages),
+    interviews: count(env, "APEDIA_DAILY_INTERVIEWS", DEFAULT_DAILY_LIMITS.interviews),
   };
 }
 
@@ -109,6 +113,7 @@ export function alertEmail({ day, spentUsd, thresholdUsd, stopUsd }: SpendAlert)
       `  select operation, count(*), sum(cost_usd) from teacher_call where created_at >= '${day}' group by operation;`,
       "",
       "Per-Learner caps are set by APEDIA_DAILY_NEW_COURSES, APEDIA_DAILY_LESSONS and APEDIA_DAILY_CHAT_MESSAGES; the threshold by APEDIA_SPEND_ALARM_USD; the stop by APEDIA_SPEND_STOP_USD.",
+      "Interview starts per Learner are capped by APEDIA_DAILY_INTERVIEWS.",
     ].join("\n"),
   };
 }

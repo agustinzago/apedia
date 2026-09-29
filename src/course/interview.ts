@@ -67,6 +67,8 @@ export type StartInterviewResult =
   | InterviewView
   /** No available Course credit is free to back a new Interview: buy a Course first. */
   | NoCourseCredit
+  /** The Learner has started today's Interviews; the credit keeps for later. */
+  | DailyLimitReached
   /** The Teacher is paused for the day. */
   | SpendPaused;
 
@@ -203,10 +205,12 @@ export function createInterviewOperations({
     /**
      * Starts the Learner's Interview from the subject and the answer to
      * "why". It needs an available Course credit that backs no other
-     * Interview; without one, nothing runs. The Teacher first checks the two
-     * for safety: a redirected subject gets a kind message, nothing else
-     * runs, and no credit is reserved. Otherwise the Interview reserves the
-     * Learner's oldest such credit, which "Write my course" later uses.
+     * Interview; without one, nothing runs. Each start counts toward the
+     * Learner's daily limit, discarded or not; past it, or past the spend
+     * stop, nothing runs and the credit stays free. The Teacher first checks
+     * the two for safety: a redirected subject gets a kind message, nothing
+     * else runs, and no credit is reserved. Otherwise the Interview reserves
+     * the Learner's oldest such credit, which "Write my course" later uses.
      */
     async startInterview(
       input: { subject: string; why: string },
@@ -215,8 +219,10 @@ export function createInterviewOperations({
       const subject = Subject.parse(input.subject);
       const why = Answer.parse(input.why);
       if ((await creditToStart(learnerId)) === null) return NO_CREDIT;
-      const paused = await spend.teacherCall();
-      if (paused) return paused;
+      const limited = (await caps.interviewStart(learnerId)) ?? (await spend.teacherCall());
+      if (limited) return limited;
+      // It counts from here: the Teacher is called, whatever comes of it.
+      await db.insert(schema.interviewStart).values({ learnerId, createdAt: now() });
 
       const safety = await teacher.checkSafety({ subject, why });
       const language = canonicalLanguage(safety.language);

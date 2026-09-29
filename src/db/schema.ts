@@ -155,6 +155,22 @@ export const interview = pgTable(
   (t) => [index("interview_learner_idx").on(t.learnerId)],
 );
 
+// Every Interview start that went on to the Teacher, for the per-Learner
+// daily limit on starts. Discarding the Interview deletes its row but not
+// this one, so letting an Interview go gives no start back. It holds nothing
+// the Learner said.
+export const interviewStart = pgTable(
+  "interview_start",
+  {
+    id: id(),
+    learnerId: text("learner_id")
+      .notNull()
+      .references(() => learner.id, { onDelete: "cascade" }),
+    createdAt: createdAt(),
+  },
+  (t) => [index("interview_start_learner_idx").on(t.learnerId, t.createdAt)],
+);
+
 export const courseStatus = pgEnum("course_status", ["active", "done"]);
 
 export const course = pgTable(

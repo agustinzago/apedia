@@ -17,6 +17,8 @@ export type DailyLimits = {
   lessonGenerations: number;
   /** Questions asked in Lesson chats. */
   chatMessages: number;
+  /** Interviews started. Discarding one gives no start back; answering or coming back to one is not starting. */
+  interviews: number;
 };
 
 /** The limits the MVP spec sets; the app may override them from its environment. */
@@ -24,6 +26,7 @@ export const DEFAULT_DAILY_LIMITS: DailyLimits = {
   newCourses: 1,
   lessonGenerations: 10,
   chatMessages: 60,
+  interviews: 5,
 };
 
 /** Returned instead of doing the work once today's limit is reached. */
@@ -122,6 +125,23 @@ export function createDailyCaps({
                 eq(schema.course.learnerId, learnerId),
                 eq(schema.chatMessage.from, "learner"),
                 gte(schema.chatMessage.createdAt, since),
+              ),
+            ),
+        ),
+      );
+    },
+
+    /** Whether the Learner may start another Interview today. */
+    interviewStart(learnerId: string) {
+      return check(limits.interviews, (since) =>
+        one(
+          db
+            .select({ n: count() })
+            .from(schema.interviewStart)
+            .where(
+              and(
+                eq(schema.interviewStart.learnerId, learnerId),
+                gte(schema.interviewStart.createdAt, since),
               ),
             ),
         ),

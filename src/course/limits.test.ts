@@ -3,6 +3,7 @@ import { schema, type Db } from "@/db";
 import { createFakeTeacher, type FakeTeacher, type FakeTeacherReplies } from "@/teacher/fake";
 import researchSearch from "@/teacher/fixtures/research-search-music-theory.json";
 import researchStructure from "@/teacher/fixtures/research-structure-music-theory.json";
+import safetyRedirect from "@/teacher/fixtures/safety-redirect.json";
 import { buyCourse } from "@/test/credits";
 import { createTestDb } from "@/test/db";
 import { createFakeUrlFetcher } from "@/url-fetcher/fake";
@@ -112,7 +113,12 @@ describe("course: daily limits and the spend alarm", () => {
   });
 
   it("are configuration, set by default to the spec's limits", () => {
-    expect(DEFAULT_DAILY_LIMITS).toEqual({ newCourses: 1, lessonGenerations: 10, chatMessages: 60 });
+    expect(DEFAULT_DAILY_LIMITS).toEqual({
+      newCourses: 1,
+      lessonGenerations: 10,
+      chatMessages: 60,
+      interviews: 5,
+    });
   });
 
   describe("new Courses", () => {
@@ -341,6 +347,114 @@ describe("course: daily limits and the spend alarm", () => {
 
       await db.update(schema.chatMessage).set({ createdAt: yesterday() });
       expect(await course.askTeacher(courseId, 1, "Third?", "ana")).toMatchObject({ ok: true });
+    });
+  });
+
+  describe("Interview starts", () => {
+    const chess = { subject: "Chess", why: "To beat my brother on Sundays" };
+
+    /** Starts an Interview on Ana's one credit and lets it go, freeing the credit again. */
+    const startAndDiscard = async (subject = "Chess") => {
+      const started = await course.startInterview({ ...chess, subject }, "ana");
+      if ("reason" in started) throw new Error(`The Interview was refused: ${started.reason}.`);
+      expect(await course.discardInterview(started.id, "ana")).toEqual({ ok: true });
+    };
+
+    /** The Teacher calls a start makes: the safety check and the first follow-up. */
+    const teacherCalls = () => calls("checkSafety").length + calls("interviewFollowUp").length;
+
+    beforeEach(async () => {
+      await setUp();
+      await buyCourse(course, "ana");
+    });
+
+    it("lets a Learner start five a day, discarded or not, then says when they can start another", async () => {
+      // Under the limit, and at it: the fifth start still goes ahead.
+      for (let i = 1; i <= 5; i++) await startAndDiscard(`Chess ${i}`);
+      expect(teacherCalls()).toBe(10);
+
+      // Over it: refused, before the Teacher is asked anything.
+      expect(await course.startInterview(chess, "ana")).toEqual({
+        ok: false,
+        reason: "daily-limit",
+        limit: 5,
+        resetsAt: nextMidnight(clock),
+      });
+      expect(teacherCalls()).toBe(10);
+      expect(await db.$count(schema.interview)).toBe(0);
+
+      // The credit stays available, free to start an Interview tomorrow.
+      expect(await course.readCourseCredits("ana")).toEqual({ available: 1, used: 0, refunded: 0 });
+      expect(await course.readInterviewStart("ana")).toEqual({
+        creditsToStart: 1,
+        openInterviews: [],
+      });
+    });
+
+    it("counts each Learner's starts apart", async () => {
+      for (let i = 1; i <= 5; i++) await startAndDiscard();
+      expect(await course.startInterview(chess, "ana")).toMatchObject({ reason: "daily-limit" });
+
+      await expect(startInterview("ben", "Chess")).resolves.toMatchObject({ stage: "know" });
+    });
+
+    it("counts a start whose subject is redirected, and follows the configured limit", async () => {
+      await setUp({
+        limits: { ...DEFAULT_DAILY_LIMITS, interviews: 2 },
+        replies: { checkSafety: safetyRedirect },
+      });
+      await buyCourse(course, "ana");
+      const harmful = { subject: "Making explosives", why: "To hurt someone" };
+
+      expect(await course.startInterview(harmful, "ana")).toMatchObject({ stage: "redirected" });
+      expect(await course.startInterview(harmful, "ana")).toMatchObject({ stage: "redirected" });
+      expect(await course.startInterview(harmful, "ana")).toMatchObject({
+        reason: "daily-limit",
+        limit: 2,
+      });
+      expect(calls("checkSafety")).toHaveLength(2);
+    });
+
+    it("starts counting again at midnight UTC", async () => {
+      clock = new Date(Date.UTC(2026, 8, 29, 22, 0));
+      for (let i = 1; i <= 5; i++) await startAndDiscard();
+
+      clock = new Date(Date.UTC(2026, 8, 29, 23, 59, 59));
+      expect(await course.startInterview(chess, "ana")).toEqual({
+        ok: false,
+        reason: "daily-limit",
+        limit: 5,
+        resetsAt: new Date(Date.UTC(2026, 8, 30)),
+      });
+
+      clock = new Date(Date.UTC(2026, 8, 30));
+      expect(await course.startInterview(chess, "ana")).toMatchObject({ stage: "know" });
+    });
+
+    it("lets Interviews already started go on past the limit", async () => {
+      await buyCourse(course, "ana");
+      const open = await course.startInterview(chess, "ana");
+      if ("reason" in open) throw new Error(`The Interview was refused: ${open.reason}.`);
+      for (let i = 1; i <= 4; i++) await startAndDiscard(`Astronomy ${i}`);
+      expect(
+        await course.startInterview({ subject: "Drawing", why: "For fun" }, "ana"),
+      ).toMatchObject({ reason: "daily-limit" });
+
+      // Coming back to it and answering are not starting.
+      expect((await course.readInterviewStart("ana")).openInterviews).toEqual([
+        { id: open.id, subject: "Chess", stage: "know" },
+      ]);
+      expect(await course.readInterview(open.id, "ana")).toMatchObject({ backed: true });
+      expect(await course.answerInterview(open.id, "How the pieces move", "ana")).toMatchObject({
+        stage: "success",
+      });
+      expect(await course.answerInterview(open.id, "Win a game", "ana")).toMatchObject({
+        stage: "sitting",
+      });
+      expect(await course.chooseSittingLength(open.id, 10, "ana")).toMatchObject({
+        stage: "complete",
+      });
+      expect(await course.writeCourse(open.id, "ana")).toMatchObject({ ok: true });
     });
   });
 

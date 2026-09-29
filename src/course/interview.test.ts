@@ -17,13 +17,14 @@ import { createTestDb } from "@/test/db";
 import {
   createCourseModule,
   type CourseModule,
+  type DailyLimitReached,
   type InterviewView,
   type NoCourseCredit,
   type SpendPaused,
 } from ".";
 
-/** The Interview itself, not a refusal: these Learners hold a credit and nothing is spent. */
-function going<T>(result: T | SpendPaused | NoCourseCredit): T {
+/** The Interview itself, not a refusal: these Learners hold a credit, start few and spend nothing. */
+function going<T>(result: T | SpendPaused | NoCourseCredit | DailyLimitReached): T {
   if (result !== null && typeof result === "object" && "reason" in result) {
     throw new Error(`The Interview was refused: ${result.reason}.`);
   }
