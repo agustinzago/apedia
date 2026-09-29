@@ -7,7 +7,7 @@ export function untilReset(resetsAt: Date, now: Date = new Date()): string {
   return hours === 1 ? "in about an hour" : `in about ${hours} hours`;
 }
 
-/** Apedia's spend for the day reached its alarm: sales pause, so no new Interview starts. */
+/** Apedia's spend for the day reached its alarm: sales pause, so no Course credit is sold. */
 export function salesPausedNote(resumesAt: Date, now: Date = new Date()): string {
   return `Apedia is taking a breather today, come back tomorrow: new courses open again ${untilReset(resumesAt, now)}.`;
 }

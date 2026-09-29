@@ -1,54 +1,117 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { redirect } from "next/navigation";
-import { openingMessages } from "@/course";
-import { salesPausedNote } from "@/app/daily-limit";
+import { COURSE_CREDIT, openingMessages, type OpenInterview } from "@/course";
+import { BuyCourse } from "@/app/purchase/buy-course";
+import { ConfirmDelete } from "@/components/confirm-delete";
+import { Mascot } from "@/components/mascot";
 import { getViewer } from "@/server/auth";
-import { getCourse } from "@/server/course";
-import { loadInterview } from "@/server/interview";
+import { getCourse, loadInterviewStart } from "@/server/course";
+import { startOverOn } from "./actions";
 import { InterviewChat } from "./interview-chat";
+import { interviewPath, openInterviewPath, typedSubject } from "./subject";
+import purchase from "../purchase/purchase.module.css";
+import styles from "./interview.module.css";
 
 export const metadata: Metadata = { title: "Interview · Apedia" };
 
 /**
- * The Interview: `?subject=` starts a new one (it is stored once the first
- * question is answered), unless sales are paused for the day; without it,
- * this browser's Interview is resumed, for example on returning from sign-in.
+ * The Interview, for a signed-in Learner with a Course credit (ADR 0007).
+ * `?subject=` starts a new one (stored once the first question is
+ * answered); `?id=` comes back to one under way. A visitor signs in first,
+ * and a Learner with no credit free buys a Course first; both come back
+ * here with the subject they typed.
  */
 export default async function InterviewPage({ searchParams }: PageProps<"/interview">) {
-  const [{ subject }, viewer] = await Promise.all([searchParams, getViewer()]);
-  const signedIn = viewer.learnerId !== null;
+  const [params, viewer] = await Promise.all([searchParams, getViewer()]);
+  const subject = typedSubject(params.subject);
+  const interviewId = typeof params.id === "string" ? params.id : null;
 
-  const typed = typeof subject === "string" ? subject.trim().slice(0, 120) : "";
-  if (typed) {
-    // While sales are paused, the Teacher says so instead of asking why.
-    const paused = await (await getCourse()).readSalesPause();
-    const opening = openingMessages(typed);
+  if (viewer.learnerId === null) {
+    if (!interviewId && !subject) redirect("/");
+    const here = interviewId ? openInterviewPath(interviewId) : interviewPath(subject);
+    redirect(`/sign-in?${new URLSearchParams({ next: here })}`);
+  }
+
+  if (interviewId) {
+    const view = await (await getCourse()).readInterview(interviewId, viewer.learnerId);
+    if (!view) redirect("/");
+    if (view.courseId) redirect(`/courses/${view.courseId}`);
     return (
       <InterviewChat
-        key={`new:${typed}`}
-        subject={typed}
-        openingMessages={
-          paused
-            ? [...opening.slice(0, 2), { from: "teacher", text: salesPausedNote(paused.resumesAt) }]
-            : opening
-        }
-        initial={null}
-        signedIn={signedIn}
-        paused={paused !== null}
+        key={view.id}
+        subject={view.subject}
+        openingMessages={view.messages}
+        initial={view}
       />
     );
   }
 
-  const view = await loadInterview();
-  if (!view) redirect("/");
-  if (view.courseId) redirect(`/courses/${view.courseId}`);
+  const start = (await loadInterviewStart())!;
+  if (!subject) {
+    // Say, an old link: the newest Interview under way, if any.
+    const [newest] = start.openInterviews;
+    redirect(newest ? openInterviewPath(newest.id) : "/");
+  }
+
+  if (start.creditsToStart > 0) {
+    return (
+      <InterviewChat
+        key={`new:${subject}`}
+        subject={subject}
+        openingMessages={openingMessages(subject)}
+        initial={null}
+      />
+    );
+  }
+  return <BuyFirst subject={subject} openInterviews={start.openInterviews} />;
+}
+
+/** No Course credit is free to back a new Interview: buy a Course, or come back to one under way. */
+function BuyFirst({
+  subject,
+  openInterviews,
+}: {
+  subject: string;
+  openInterviews: OpenInterview[];
+}) {
+  const [holding] = openInterviews;
+
   return (
-    <InterviewChat
-      key={view.id}
-      subject={view.subject}
-      openingMessages={view.messages}
-      initial={view}
-      signedIn={signedIn}
-    />
+    <main className={purchase.main}>
+      <Mascot size={88} />
+      <h1 className={purchase.title}>
+        First, a <span className="highlight">Course</span>
+      </h1>
+      <p className={purchase.lede}>
+        Your teacher is ready to ask you about {subject}. A Course costs US$
+        {COURSE_CREDIT.priceUsd}: the Interview, your Mission and up to{" "}
+        {COURSE_CREDIT.lessons} Lessons written for you.
+      </p>
+      <BuyCourse from={interviewPath(subject)} />
+      {holding && (
+        <section className={`sticky-note ${styles.holding}`} aria-labelledby="holding">
+          <h2 id="holding" className={styles.holdingTitle}>
+            Your Interview on {holding.subject} is waiting
+          </h2>
+          <p>
+            Your Course credit is keeping it for you. Come back to it, or let
+            it go and use the credit for {subject} instead.
+          </p>
+          <Link href={openInterviewPath(holding.id)} className="button-ink">
+            Continue the Interview on {holding.subject}
+          </Link>
+          <ConfirmDelete
+            label={`Start on ${subject} instead`}
+            warning={`Your answers about ${holding.subject} go for good, and its Course credit starts an Interview on ${subject}.`}
+            confirmLabel={`Yes, start on ${subject}`}
+            action={startOverOn.bind(null, holding.id, subject)}
+          />
+        </section>
+      )}
+      <Link href="/" className={purchase.small}>
+        Back to the home page
+      </Link>
+    </main>
   );
 }

@@ -7,9 +7,10 @@ import { utcDay } from "./limits";
  * Org-wide spend: every call the Teacher makes to Claude is recorded, and
  * the day's spend (UTC) is held to two limits, so a bug, a retry loop or a
  * surge of sign-ups can't drain the Anthropic credits. At the first, the
- * alarm, the operator is alerted once and sales pause: no new Interview
- * starts. At the second, the stop, nothing calls the Teacher until the next
- * UTC day; everything already written stays readable.
+ * alarm, the operator is alerted once and sales pause: no Course credit is
+ * sold. Credits already bought still start Interviews: they are paid for
+ * (ADR 0007). At the second, the stop, nothing calls the Teacher until the
+ * next UTC day; everything already written stays readable.
  */
 
 /** Org-wide daily spend limits, in US dollars. Configuration: see `DEFAULT_SPEND_LIMITS`. */
@@ -109,7 +110,7 @@ export function createSpendOperations({
       }
     },
 
-    /** Whether a new sale (for now, a new Interview) may start today. Starting one calls the Teacher too. */
+    /** Whether a new sale ("Buy a Course") may happen today. */
     newSale() {
       return check(Math.min(limits.alarmUsd, limits.stopUsd));
     },

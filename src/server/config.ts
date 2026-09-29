@@ -103,7 +103,7 @@ export function alertEmail({ day, spentUsd, thresholdUsd, stopUsd }: SpendAlert)
     subject: `Apedia spend passed ${usd(thresholdUsd)} on ${day}`,
     text: [
       `Claude spend on ${day} (UTC) reached ${usd(spentUsd)}, past the alarm threshold of ${usd(thresholdUsd)}.`,
-      `New Interviews are paused until midnight UTC. Courses already started keep going until spend reaches ${usd(stopUsd)}, when the Teacher stops for the rest of the day.`,
+      `Sales of Course credits are paused until midnight UTC. Credits already bought and Courses already started keep going until spend reaches ${usd(stopUsd)}, when the Teacher stops for the rest of the day.`,
       "",
       "This is the only alert for today. Each call is in the teacher_call table:",
       `  select operation, count(*), sum(cost_usd) from teacher_call where created_at >= '${day}' group by operation;`,

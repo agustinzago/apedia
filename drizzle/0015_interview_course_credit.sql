@@ -1,0 +1,3 @@
+ALTER TABLE "interview" ADD COLUMN "course_credit_id" text;--> statement-breakpoint
+ALTER TABLE "interview" ADD CONSTRAINT "interview_course_credit_id_course_credit_id_fk" FOREIGN KEY ("course_credit_id") REFERENCES "public"."course_credit"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "interview" ADD CONSTRAINT "interview_course_credit_id_unique" UNIQUE("course_credit_id");

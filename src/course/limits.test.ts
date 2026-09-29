@@ -3,6 +3,7 @@ import { schema, type Db } from "@/db";
 import { createFakeTeacher, type FakeTeacher, type FakeTeacherReplies } from "@/teacher/fake";
 import researchSearch from "@/teacher/fixtures/research-search-music-theory.json";
 import researchStructure from "@/teacher/fixtures/research-structure-music-theory.json";
+import { buyCourse } from "@/test/credits";
 import { createTestDb } from "@/test/db";
 import { createFakeUrlFetcher } from "@/url-fetcher/fake";
 import {
@@ -63,20 +64,20 @@ describe("course: daily limits and the spend alarm", () => {
     ]);
   };
 
-  /** An Interview with only its first question answered. */
-  const startInterview = async (subject = "Music theory") => {
-    const started = await course.startInterview({ subject, why: "To play better" });
-    if ("reason" in started) throw new Error("The Interview was paused.");
+  /** A bought Course credit and an Interview with only its first question answered. */
+  const startInterview = async (learnerId: string, subject = "Music theory") => {
+    await buyCourse(course, learnerId);
+    const started = await course.startInterview({ subject, why: "To play better" }, learnerId);
+    if ("reason" in started) throw new Error(`The Interview was refused: ${started.reason}.`);
     return started;
   };
 
-  /** A finished Interview, claimed by the Learner. */
+  /** A finished Interview. */
   const interview = async (learnerId: string, subject = "Music theory") => {
-    const started = await startInterview(subject);
-    await course.answerInterview(started.id, "A few chords");
-    await course.answerInterview(started.id, "Work out a song's chords");
-    await course.chooseSittingLength(started.id, 10);
-    await course.claimInterview(started.id, learnerId);
+    const started = await startInterview(learnerId, subject);
+    await course.answerInterview(started.id, "A few chords", learnerId);
+    await course.answerInterview(started.id, "Work out a song's chords", learnerId);
+    await course.chooseSittingLength(started.id, 10, learnerId);
     return started.id;
   };
 
@@ -492,27 +493,30 @@ describe("course: daily limits and the spend alarm", () => {
       const courseId = await readyToFinish();
 
       expect(await course.readSalesPause()).toBeNull();
-      await expect(startInterview("Chess")).resolves.toMatchObject({ stage: "know" });
+      await expect(startInterview("ana", "Chess")).resolves.toMatchObject({ stage: "know" });
       expect(await course.askTeacher(courseId, 1, "Why?", "ana")).toMatchObject({ ok: true });
       expect(await finish(courseId)).toMatchObject({ status: "done" });
     });
 
-    it("between them, pause sales but keep Courses already started going", async () => {
+    it("between them, pause sales but let credits already bought start Interviews and Courses keep going", async () => {
       await setUp({ spendLimits, spendAlarm: operator });
       const courseId = await readyToFinish();
       const finished = await interview("ben", "Chess");
-      const started = await startInterview("Astronomy");
+      const started = await startInterview("ana", "Astronomy");
+      await buyCourse(course, "ben");
       await spent(0.4);
       expect(alerts).toHaveLength(1);
 
-      // No new Interview starts, and the Teacher is not asked.
-      const asked = teacher.calls.length;
-      expect(await course.startInterview({ subject: "Drawing", why: "For fun" })).toEqual(paused());
+      // No Course credit is sold.
       expect(await course.readSalesPause()).toEqual(paused());
-      expect(teacher.calls).toHaveLength(asked);
+
+      // A credit already bought is paid for: its Interview starts.
+      expect(
+        await course.startInterview({ subject: "Drawing", why: "For fun" }, "ben"),
+      ).toMatchObject({ stage: "know" });
 
       // An Interview already started goes on, and a finished one is written.
-      expect(await course.answerInterview(started.id, "Nothing yet")).toMatchObject({
+      expect(await course.answerInterview(started.id, "Nothing yet", "ana")).toMatchObject({
         stage: "success",
       });
       const written = await course.writeCourse(finished, "ben");
@@ -557,12 +561,15 @@ describe("course: daily limits and the spend alarm", () => {
         })
         .returning({ id: schema.proposal.id });
       const finished = await interview("ben", "Chess");
-      const started = await startInterview("Astronomy");
+      const started = await startInterview("ana", "Astronomy");
+      await buyCourse(course, "ben");
       await spent(2);
       const asked = teacher.calls.length;
 
-      expect(await course.startInterview({ subject: "Drawing", why: "For fun" })).toEqual(paused());
-      expect(await course.answerInterview(started.id, "Nothing yet")).toEqual(paused());
+      expect(await course.startInterview({ subject: "Drawing", why: "For fun" }, "ben")).toEqual(
+        paused(),
+      );
+      expect(await course.answerInterview(started.id, "Nothing yet", "ana")).toEqual(paused());
       expect(await course.writeCourse(finished, "ben")).toEqual(paused());
       expect(await course.openLesson(courseId, 2, "ana")).toEqual(paused());
       expect(await course.retryLessonGeneration(courseId, 2, "ana")).toEqual(paused());
@@ -572,7 +579,7 @@ describe("course: daily limits and the spend alarm", () => {
 
       // The Teacher was not asked, and nothing was saved or started.
       expect(teacher.calls).toHaveLength(asked);
-      expect(await course.readInterview(started.id)).toMatchObject({ stage: "know" });
+      expect(await course.readInterview(started.id, "ana")).toMatchObject({ stage: "know" });
       expect(await course.listCourses("ben")).toEqual([]);
       expect(await db.select().from(schema.job)).toHaveLength(2);
       expect(await db.select().from(schema.chatMessage)).toEqual([]);
