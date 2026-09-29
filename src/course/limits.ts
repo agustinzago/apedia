@@ -1,5 +1,6 @@
 import { and, count, eq, gte } from "drizzle-orm";
 import { schema, type Db } from "@/db";
+import type { Tx } from "./jobs";
 
 /**
  * Per-Learner daily caps. What a Course costs is bounded by its allowance
@@ -90,11 +91,11 @@ export function createDailyCaps({
       );
     },
 
-    /** Whether the Learner may ask the Teacher another question today. */
-    chatMessage(learnerId: string) {
+    /** Whether the Learner may ask the Teacher another question today. Inside `tx` when given. */
+    chatMessage(learnerId: string, tx: Tx | Db = db) {
       return check(limits.chatMessages, (since) =>
         one(
-          db
+          tx
             .select({ n: count() })
             .from(schema.chatMessage)
             .innerJoin(schema.lesson, eq(schema.lesson.id, schema.chatMessage.lessonId))
@@ -110,11 +111,11 @@ export function createDailyCaps({
       );
     },
 
-    /** Whether the Learner may start another Interview today. */
-    interviewStart(learnerId: string) {
+    /** Whether the Learner may start another Interview today. Inside `tx` when given. */
+    interviewStart(learnerId: string, tx: Tx | Db = db) {
       return check(limits.interviews, (since) =>
         one(
-          db
+          tx
             .select({ n: count() })
             .from(schema.interviewStart)
             .where(

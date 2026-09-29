@@ -240,6 +240,22 @@ describe("course: Mission change and Done", () => {
       });
     });
 
+    it("re-picks Up next once when confirmed from several tabs at once", async () => {
+      const proposal = await openProposal("mission_change");
+
+      const confirmed = await Promise.all(
+        [1, 2, 3].map(() => course.confirmProposal("c1", proposal.id, "ana")),
+      );
+
+      expect(confirmed.filter((c) => c.ok)).toHaveLength(1);
+      expect(confirmed.filter((c) => !c.ok)).toEqual([
+        { ok: false, reason: "busy" },
+        { ok: false, reason: "busy" },
+      ]);
+      expect(picksMade()).toHaveLength(1);
+      expect((await readRecords()).filter((r) => r.kind === "mission_change")).toHaveLength(1);
+    });
+
     it("and the next Lesson and Finish work from the new Mission", async () => {
       await course.confirmProposal("c1", (await openProposal("mission_change")).id, "ana");
 

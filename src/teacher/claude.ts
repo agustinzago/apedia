@@ -43,6 +43,13 @@ const PROPOSALS_NOTE = `Never repeat a proposal listed in <proposals> that is st
 /** Longest answer the chat asks for, in words. */
 export const CHAT_ANSWER_WORDS = 80;
 
+/**
+ * The chat's latest question-and-answer pairs sent with each question.
+ * Older ones are left out: resending a whole long chat with every question
+ * would cost more than the Course brings in. Finish still weighs it all.
+ */
+export const CHAT_HISTORY_TURNS = 10;
+
 /** Returned for a chat question the model declines to answer. */
 const CHAT_REFUSAL =
   "That isn’t something I can help with. Is anything in this Lesson unclear? I’m happy to go over it.";
@@ -50,6 +57,17 @@ const CHAT_REFUSAL =
 /** Returned for a subject the model declines to even screen. */
 const REFUSAL_MESSAGE =
   "That isn’t something I can teach. If there’s something else you’ve been curious about, I’d love to help you learn it.";
+
+/**
+ * Sonnet thinks by default, and thinking is billed as output. Its calls
+ * here write structured drafts that code checks and retries, so they think
+ * little: low effort, and output caps near what a draft needs, which bound
+ * what one call can cost. Haiku does not think unless asked, and takes no
+ * effort setting.
+ */
+function effortFor(model: Model): { effort?: "low" } {
+  return model === SONNET ? { effort: "low" } : {};
+}
 
 export class TeacherError extends Error {
   constructor(message: string, options?: { cause?: unknown }) {
@@ -74,6 +92,13 @@ export function createClaudeTeacher({
   type Request = {
     operation: keyof Teacher;
     system: string;
+    /**
+     * The start of the user turn that stays the same across calls, such as
+     * a Lesson the chat asks about: cached, with the system prompt, and
+     * sent ahead of `user`. The cache takes it only past the model's
+     * minimum length; shorter, it is sent as usual, at no extra cost.
+     */
+    cachedPrefix?: string;
     user: string;
     maxTokens: number;
     model?: Model;
@@ -109,8 +134,23 @@ export function createClaudeTeacher({
       model,
       max_tokens: request.maxTokens,
       system: request.system,
-      messages: [{ role: "user", content: request.user }],
-      output_config: { format: zodOutputFormat(schema) },
+      messages: [
+        {
+          role: "user",
+          content:
+            request.cachedPrefix === undefined
+              ? request.user
+              : [
+                  {
+                    type: "text",
+                    text: request.cachedPrefix,
+                    cache_control: { type: "ephemeral" },
+                  },
+                  { type: "text", text: request.user },
+                ],
+        },
+      ],
+      output_config: { ...effortFor(model), format: zodOutputFormat(schema) },
     });
     // Refused or malformed, the tokens were still spent.
     await record(request.operation, model, response.usage);
@@ -244,7 +284,8 @@ ${missionXml(mission)}`,
       while (searches < SEARCH_MAX_USES && Date.now() < deadline) {
         const stream = client.messages.stream({
           model: SONNET,
-          max_tokens: 16000,
+          max_tokens: 8000,
+          output_config: effortFor(SONNET),
           system,
           messages,
           tools: [
@@ -294,7 +335,7 @@ ${missionXml(mission)}`,
       return mustAnswer(ResearchDraft, {
         operation: "researchStructure",
         model: SONNET,
-        maxTokens: 16000,
+        maxTokens: 6000,
         system: `You are the Teacher in Apedia. From your research notes and the web search results below, choose the Course's Resources, Communities and Gaps. Write every "why", "where" and gap description in the language tagged "${language}" (BCP 47); keep titles and author names as published.
 
 - "resources": 5 to 10, best first. Use only URLs that appear in <search_results>, copied exactly. "kind" is book, docs, course, article or site. A book's URL must be on openlibrary.org or on its publisher's own website: never a store (such as Amazon) and never Goodreads. "author" is a person or an organisation. "language" is the BCP 47 tag of the Resource's language. "why" is one line on why it serves this Mission.
@@ -371,7 +412,7 @@ ${resources.map((r) => `- (${r.kind}) ${r.title}: ${r.why}`).join("\n")}
       return mustAnswer(LessonDraft, {
         operation: "writeLesson",
         model: SONNET,
-        maxTokens: 8192,
+        maxTokens: 6000,
         system: `You are the Teacher in Apedia. Write one Lesson: a short, self-contained piece of teaching that gives the Learner a single tangible win toward their Mission, in one ${mission.sittingMinutes}-minute sitting. Teach only what the Lesson's goal needs, then make them practise. Build on the Learning records: skip what they already know, and meet them just beyond it. Write every word in the language tagged "${language}" (BCP 47).
 
 - "hook": one or two sentences on why this matters for their Mission.
@@ -459,7 +500,7 @@ What is wrong with it: ${problem}`,
       return mustAnswer(FinishDraft, {
         operation: "finishLesson",
         model: SONNET,
-        maxTokens: 8192,
+        maxTokens: 6000,
         system: `You are the Teacher in Apedia. The Learner has just finished Lesson ${lesson.index}. Weigh the evidence it gave, update the Course, and choose the next Lesson. Write every word in the language tagged "${language}" (BCP 47).
 
 - "learningRecords": what the Learner now knows, written only on evidence. Covering material is not evidence. Each record has "kind", a "title" of at most 8 words, a "body" of one or two sentences in the third person naming the evidence ("Picked … in Lesson 1, and again in Lesson 2's review question."), "evidence" (the ids of the quiz attempts, such as "${thisLesson}1", and chat messages, such as "C1", that show it) and "supersedes" (the numbers of standing records it replaces, such as a prior-knowledge record it overtakes or a misconception now corrected; often empty). Every record must cite at least one piece of evidence from this Lesson (ids starting "${thisLesson}", or chat). The evidence rules:
@@ -540,7 +581,7 @@ ${communityRule}
 
 ${SAFETY_RULES}
 ${TONE}`,
-        user: `${DATA_NOTE}
+        cachedPrefix: `${DATA_NOTE}
 
 <subject>${subject}</subject>
 ${missionXml(mission)}
@@ -560,9 +601,12 @@ ${resources.map((r) => `- ${r.id} (${r.kind}) ${r.title}, by ${r.author}: ${r.wh
 </resources>
 <communities>
 ${communities.map((c) => `- ${c.number}. ${c.name} (${c.offline ? "offline" : "online"}), ${c.where}: ${c.why}`).join("\n")}
-</communities>
-<chat>
-${history.map((m) => `<${m.from}>${m.text}</${m.from}>`).join("\n")}
+</communities>`,
+        user: `<chat>
+${history
+  .slice(-2 * CHAT_HISTORY_TURNS)
+  .map((m) => `<${m.from}>${m.text}</${m.from}>`)
+  .join("\n")}
 </chat>
 ${proposalsXml(proposals)}
 <question>${question}</question>`,

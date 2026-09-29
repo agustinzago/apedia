@@ -2,7 +2,15 @@ import { and, asc, desc, eq, isNotNull, isNull, lt } from "drizzle-orm";
 import { schema, type Db } from "@/db";
 import type { LessonDraft, QuestionDraft, Teacher, WriteLessonInput } from "@/teacher";
 import { missionOf } from "./course-creation";
-import { resumeJob, viewOf, type JobRow, type JobRun, type JobStepResult, type JobView } from "./jobs";
+import {
+  resumeJob,
+  viewOf,
+  type JobRow,
+  type JobRun,
+  type JobStepResult,
+  type JobView,
+  type RetriesUsedUp,
+} from "./jobs";
 import { LessonContent, readingMinutes } from "./lesson-content";
 import { lessonsUsedUp, type LessonsUsedUp } from "./allowance";
 import type { DailyCaps, DailyLimitReached } from "./limits";
@@ -54,6 +62,8 @@ export type RetryLessonGenerationResult =
   | { ok: false; reason: "not-found" | "read-only" | "nothing-to-retry" | "done" }
   | LessonsUsedUp
   | DailyLimitReached
+  /** Writing it has had all its attempts. */
+  | RetriesUsedUp
   | SpendPaused;
 
 export type QuizAttemptEntry = {
@@ -462,8 +472,8 @@ export function createLessonOperations({
       }
       const paused = await spend.teacherCall();
       if (paused) return paused;
-      await resumeJob(db, job.id, "Trying again.");
-      // Pending, running or done: nothing to reset; starting it again is harmless.
+      const resumed = await resumeJob(db, job.id, "Trying again.");
+      if (resumed !== "resumed") return resumed;
       return { ok: true, jobId: job.id };
     },
 

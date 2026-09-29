@@ -1,9 +1,16 @@
 "use server";
 
-import type { ChatMessage, DailyLimitReached, JobView, ProposalView } from "@/course";
+import {
+  MAX_ATTEMPTS_PER_STEP,
+  type ChatMessage,
+  type DailyLimitReached,
+  type JobView,
+  type ProposalView,
+} from "@/course";
 import { lessonsUsedUpNote, questionsUsedUpNote } from "@/app/allowance";
-import { breatherNote, stillPausedNote, untilReset } from "@/app/daily-limit";
+import { breatherNote, retriesUsedUpNote, stillPausedNote, untilReset } from "@/app/daily-limit";
 import { getViewer } from "@/server/auth";
+import { operatorFromEnv } from "@/server/config";
 import { getCourse } from "@/server/course";
 import { requestOrigin, startJobStep } from "@/server/jobs";
 
@@ -83,11 +90,13 @@ export async function retryLessonGeneration(courseId: string, index: number): Pr
             ? lessonLimitNote(retried)
             : retried.reason === "paused"
               ? stillPausedNote(retried.resumesAt)
-              : retried.reason === "nothing-to-retry"
-                ? "This Lesson is already written. Reload the page to see it."
-                : retried.reason === "done"
-                  ? DONE_NOTE
-                  : "This Lesson isn’t yours to write.",
+              : retried.reason === "retries-used-up"
+                ? retriesUsedUpNote(MAX_ATTEMPTS_PER_STEP, operatorFromEnv().contactEmail)
+                : retried.reason === "nothing-to-retry"
+                  ? "This Lesson is already written. Reload the page to see it."
+                  : retried.reason === "done"
+                    ? DONE_NOTE
+                    : "This Lesson isn’t yours to write.",
     };
   }
   await startJobStep(retried.jobId, await requestOrigin());
@@ -182,11 +191,13 @@ export async function retryFinish(courseId: string, index: number): Promise<Retr
       error:
         retried.reason === "paused"
           ? stillPausedNote(retried.resumesAt)
-          : retried.reason === "nothing-to-retry"
-            ? "This Lesson is already finished. Reload the page to see it."
-            : retried.reason === "done"
-              ? "This Course is Done, so Lessons are no longer finished."
-              : "This Lesson isn’t yours to finish.",
+          : retried.reason === "retries-used-up"
+            ? retriesUsedUpNote(MAX_ATTEMPTS_PER_STEP, operatorFromEnv().contactEmail)
+            : retried.reason === "nothing-to-retry"
+              ? "This Lesson is already finished. Reload the page to see it."
+              : retried.reason === "done"
+                ? "This Course is Done, so Lessons are no longer finished."
+                : "This Lesson isn’t yours to finish.",
     };
   }
   await startJobStep(retried.jobId, await requestOrigin());

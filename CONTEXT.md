@@ -93,6 +93,6 @@ _Avoid_: Cheat sheet, summary
 ## Relationships
 
 - **Course credit → Interview**: an available Course credit backs at most one open Interview. A redirected subject uses no credit.
-- **Course credit → Course**: "Write my course" uses the Interview's credit, which becomes that one Course. Giving up on (deleting) a Course whose creation failed before finding any Resources gives the credit back.
+- **Course credit → Course**: "Write my course" uses the Interview's credit, which becomes that one Course. Giving up on (deleting) a Course whose creation failed before finding any Resources gives the credit back, at most twice per credit.
 - **Interview → Course**: one Interview, one Course.
 - **Course → Allowance**: every Course a Learner owns has one allowance, counted from its own Lessons and chat; the Example courses have none.

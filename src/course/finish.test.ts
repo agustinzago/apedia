@@ -241,6 +241,24 @@ describe("course: finishing a Lesson", () => {
     });
   });
 
+  it("stops offering Try again after three attempts at Finish", async () => {
+    await writeAndAnswer(1, [true, true, true]);
+    finishes = Array(6).fill(() => {
+      throw new Error("Overloaded");
+    });
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    await finish(1);
+
+    for (let retry = 1; retry <= 2; retry++) {
+      const retried = await course.retryFinish("c1", 1, "ana");
+      if (!retried.ok) throw new Error(`Not retried: ${retried.reason}`);
+      await course.runJobStep(retried.jobId);
+    }
+
+    expect(await course.retryFinish("c1", 1, "ana")).toEqual({ ok: false, reason: "retries-used-up" });
+    expect(finishInputs()).toHaveLength(6);
+  });
+
   it("gives the Teacher the Mission, the Lesson, every quiz attempt by id, the chat, standing records and the Glossary", async () => {
     await writeAndAnswer(1, [true, false, true]);
     await finish(1);

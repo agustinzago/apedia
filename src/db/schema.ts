@@ -535,6 +535,8 @@ export const job = pgTable(
     searchOutput: jsonb("search_output").$type<SearchFindings>(),
     // For the operator; the Learner sees a friendly message instead.
     error: text("error"),
+    // "Try again"s used at `step`; back to 0 when the job moves on.
+    retries: integer("retries").notNull().default(0),
     // Set when a runner claims the job; only that runner may advance it.
     runId: text("run_id"),
     startedAt: timestamp("started_at", { withTimezone: true }),
@@ -613,6 +615,8 @@ export const courseCredit = pgTable(
     // ISO 4217, lowercase, as the provider reports it: "usd".
     currency: text("currency").notNull(),
     status: courseCreditStatus("status").notNull().default("available"),
+    // Times giving up on a Course whose creation failed made it available again.
+    givenBack: integer("given_back").notNull().default(0),
     // Set by a full refund, whatever the status; a used credit keeps "used".
     refundedAt: timestamp("refunded_at", { withTimezone: true }),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
@@ -624,3 +628,15 @@ export const courseCredit = pgTable(
     uniqueIndex("course_credit_payment_uq").on(t.provider, t.providerPaymentId),
   ],
 );
+
+// A claim on one piece of work that asks the Teacher, such as answering an
+// Interview question or confirming a Mission change, so that the same
+// request sent twice at once asks only once. The holder deletes its row when
+// done; a row past `expiresAt` lost its holder and may be claimed again.
+export const lease = pgTable("lease", {
+  // What is being worked on, such as "interview-answer:<interview id>".
+  key: text("key").primaryKey(),
+  // Who holds it: only they release it.
+  holder: text("holder").notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+});

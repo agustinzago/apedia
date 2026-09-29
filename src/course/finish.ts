@@ -9,7 +9,15 @@ import type {
 } from "@/teacher";
 import { chatEvidence } from "./chat";
 import { missionOf, upNextProblem } from "./course-creation";
-import { resumeJob, viewOf, type JobRow, type JobRun, type JobStepResult, type JobView } from "./jobs";
+import {
+  resumeJob,
+  viewOf,
+  type JobRow,
+  type JobRun,
+  type JobStepResult,
+  type JobView,
+  type RetriesUsedUp,
+} from "./jobs";
 import { LessonContent, type Question } from "./lesson-content";
 import { findLessonJob, findOwnLessonIn, type LessonRow } from "./lessons";
 import {
@@ -56,6 +64,8 @@ export type FinishLessonResult =
 export type RetryFinishResult =
   | { ok: true; jobId: string }
   | { ok: false; reason: "not-found" | "read-only" | "nothing-to-retry" | "done" }
+  /** Finish has had all its attempts. */
+  | RetriesUsedUp
   | SpendPaused;
 
 /** A quiz attempt as a record's evidence, by its id ("L2Q3"). */
@@ -485,8 +495,8 @@ export function createFinishOperations({
       if (found.course.status === "done") return { ok: false, reason: "done" };
       const paused = await spend.teacherCall();
       if (paused) return paused;
-      await resumeJob(db, job.id, "Trying again.");
-      // Pending, running or done: nothing to reset; starting it again is harmless.
+      const resumed = await resumeJob(db, job.id, "Trying again.");
+      if (resumed !== "resumed") return resumed;
       return { ok: true, jobId: job.id };
     },
   };

@@ -13,6 +13,8 @@ function errorFor(result: Extract<DecideProposalResult, { ok: false }>): string 
   switch (result.reason) {
     case "decided":
       return "This has already been decided. Reload the page to see where things stand.";
+    case "busy":
+      return "Your teacher is already on it. Reload the page in a moment to see where things stand.";
     case "unavailable":
       return "Your teacher couldn’t choose your next Lesson just now, so nothing changed. Please try again in a moment.";
     case "paused":

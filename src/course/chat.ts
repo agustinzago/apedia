@@ -1,9 +1,10 @@
-import { asc, eq, max } from "drizzle-orm";
+import { and, asc, eq, max } from "drizzle-orm";
 import { schema, type Db } from "@/db";
 import type { AskTeacherInput, ChatAnswer, Teacher } from "@/teacher";
 import type { ChatMessage, ChatPart, CommunityEntry, LessonResource } from ".";
 import { missionOf } from "./course-creation";
 import { LessonContent } from "./lesson-content";
+import { lockLearner } from "./locks";
 import { findOwnLessonIn } from "./lessons";
 import { questionsLeft, QUESTIONS_USED_UP, type QuestionsUsedUp } from "./allowance";
 import type { DailyCaps, DailyLimitReached } from "./limits";
@@ -125,13 +126,25 @@ const viewOf = (row: ChatRow, resources: Map<string, LessonResource>): ChatMessa
   community: row.community,
 });
 
+/**
+ * The questions and answers before question `number` (by default, all of
+ * them), less questions without an answer: one still being answered, or
+ * one whose request died after saving it.
+ */
+function answeredBefore(rows: ChatRow[], number = Infinity): ChatRow[] {
+  const numbers = new Set(rows.map((r) => r.number));
+  return rows.filter(
+    (r) => r.number < number && (r.from === "teacher" || numbers.has(r.number + 1)),
+  );
+}
+
 /** A Lesson's chat as the Lesson page shows it, oldest first. */
 export async function readChat(
   db: Db,
   lessonId: string,
   resources: Map<string, LessonResource>,
 ): Promise<ChatMessage[]> {
-  return (await readChatRows(db, lessonId)).map((row) => viewOf(row, resources));
+  return answeredBefore(await readChatRows(db, lessonId)).map((row) => viewOf(row, resources));
 }
 
 /** A Lesson's chat as Finish weighs it: "C1", "C2"… oldest first. */
@@ -139,11 +152,20 @@ export async function chatEvidence(
   db: Db,
   lessonId: string,
 ): Promise<{ id: string; from: "teacher" | "learner"; text: string }[]> {
-  return (await readChatRows(db, lessonId)).map((m) => ({
+  return answeredBefore(await readChatRows(db, lessonId)).map((m) => ({
     id: `C${m.number}`,
     from: m.from,
     text: m.text,
   }));
+}
+
+/**
+ * The number a new question takes: a question is always odd and its answer
+ * the next number, even while it is still being answered. So questions
+ * sent at once each keep their answer right after them.
+ */
+function nextQuestionNumber(last: number): number {
+  return last % 2 === 1 ? last + 2 : last + 1;
 }
 
 export function createChatOperations({
@@ -173,8 +195,9 @@ export function createChatOperations({
   return {
     /**
      * The Learner asks a question in a Lesson's chat, within the Course's
-     * allowance, their daily limit and the spend stop. The question and the
-     * answer are saved together, only once the Teacher has answered.
+     * allowance, their daily limit and the spend stop. The question is saved,
+     * and counts, before the Teacher is asked; the answer once it comes. If
+     * the Teacher cannot answer, the question is taken back.
      */
     async askTeacher(
       courseId: string,
@@ -192,14 +215,37 @@ export function createChatOperations({
       if (asked === "" || asked.length > MAX_QUESTION_LENGTH) {
         return { ok: false, reason: "invalid" };
       }
-      const left = await questionsLeft(db, lesson.courseId);
-      if (left === 0) return QUESTIONS_USED_UP;
-      const limited = (await caps.chatMessage(learnerId)) ?? (await spend.teacherCall());
-      if (limited) return limited;
       const content = LessonContent.parse(lesson.content);
+      const paused = await spend.teacherCall();
+      if (paused) return paused;
+
+      // The question counts from here, before the Teacher is asked, so
+      // questions sent at once can't all pass the allowance and daily limit.
+      const claimed = await db.transaction(async (tx) => {
+        await lockLearner(tx, learnerId);
+        const left = await questionsLeft(tx, lesson.courseId);
+        if (left === 0) return QUESTIONS_USED_UP;
+        const limited = await caps.chatMessage(learnerId, tx);
+        if (limited) return limited;
+        const [{ last }] = await tx
+          .select({ last: max(schema.chatMessage.number) })
+          .from(schema.chatMessage)
+          .where(eq(schema.chatMessage.lessonId, lesson.id));
+        const number = nextQuestionNumber(last ?? 0);
+        await tx
+          .insert(schema.chatMessage)
+          .values({ lessonId: lesson.id, number, from: "learner", text: asked });
+        return { number, left };
+      });
+      if ("reason" in claimed) return claimed;
+      const { number: saved, left } = claimed;
+      const takeBackQuestion = () =>
+        db
+          .delete(schema.chatMessage)
+          .where(and(eq(schema.chatMessage.lessonId, lesson.id), eq(schema.chatMessage.number, saved)));
 
       const { course } = found;
-      const [resources, communities, history, resourcesByRef, proposals] = await Promise.all([
+      const [resources, communities, rows, resourcesByRef, proposals] = await Promise.all([
         db.select().from(schema.resource).where(eq(schema.resource.courseId, lesson.courseId)),
         db
           .select()
@@ -214,6 +260,7 @@ export function createChatOperations({
       // In the Teacher's order: r1, r2, … r10.
       resources.sort((a, b) => Number(a.ref.slice(1)) - Number(b.ref.slice(1)));
       const offered = course.communityOptOut ? [] : communities;
+      const history = answeredBefore(rows, saved);
 
       let reply: ChatAnswer;
       try {
@@ -251,11 +298,13 @@ export function createChatOperations({
         });
       } catch (error) {
         console.warn(`Lesson ${lesson.id}: the Teacher could not answer a chat question.`, error);
+        await takeBackQuestion();
         return { ok: false, reason: "unavailable" };
       }
       const text = reply.answer.trim();
       if (text === "") {
         console.warn(`Lesson ${lesson.id}: the Teacher's chat answer was empty.`);
+        await takeBackQuestion();
         return { ok: false, reason: "unavailable" };
       }
       // Only a Community the Learner has not opted out of, and one that exists.
@@ -273,34 +322,24 @@ export function createChatOperations({
         else console.warn(`Lesson ${lesson.id}: dropping the proposed Mission change: ${problem}`);
       }
 
-      const { number: saved, proposal } = await db.transaction(async (tx) => {
-        const [{ last }] = await tx
-          .select({ last: max(schema.chatMessage.number) })
-          .from(schema.chatMessage)
-          .where(eq(schema.chatMessage.lessonId, lesson.id));
-        const number = last ?? 0;
-        await tx.insert(schema.chatMessage).values([
-          { lessonId: lesson.id, number: number + 1, from: "learner", text: asked },
-          {
-            lessonId: lesson.id,
-            number: number + 2,
-            from: "teacher",
-            text,
-            communityId: community?.id ?? null,
-          },
-        ]);
-        const proposal =
-          missionChange && reply.missionChange
-            ? await insertProposal(tx, {
-                courseId: course.id,
-                lessonId: lesson.id,
-                source: "chat",
-                kind: "mission_change",
-                reason: reply.missionChange.reason,
-                mission: missionChange,
-              })
-            : null;
-        return { number, proposal };
+      const proposal = await db.transaction(async (tx) => {
+        await tx.insert(schema.chatMessage).values({
+          lessonId: lesson.id,
+          number: saved + 1,
+          from: "teacher",
+          text,
+          communityId: community?.id ?? null,
+        });
+        return missionChange && reply.missionChange
+          ? await insertProposal(tx, {
+              courseId: course.id,
+              lessonId: lesson.id,
+              source: "chat",
+              kind: "mission_change",
+              reason: reply.missionChange.reason,
+              mission: missionChange,
+            })
+          : null;
       });
 
       const entry = community && {
@@ -313,8 +352,8 @@ export function createChatOperations({
       return {
         ok: true,
         messages: [
-          viewOf({ number: saved + 1, from: "learner", text: asked, community: null }, resourcesByRef),
-          viewOf({ number: saved + 2, from: "teacher", text, community: entry }, resourcesByRef),
+          viewOf({ number: saved, from: "learner", text: asked, community: null }, resourcesByRef),
+          viewOf({ number: saved + 1, from: "teacher", text, community: entry }, resourcesByRef),
         ],
         proposal: proposal && proposalView(proposal, course, []),
         questionsLeft: left - 1,

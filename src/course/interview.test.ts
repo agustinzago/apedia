@@ -17,6 +17,7 @@ import { createTestDb } from "@/test/db";
 import {
   createCourseModule,
   type CourseModule,
+  type Busy,
   type DailyLimitReached,
   type InterviewView,
   type NoCourseCredit,
@@ -24,7 +25,7 @@ import {
 } from ".";
 
 /** The Interview itself, not a refusal: these Learners hold a credit, start few and spend nothing. */
-function going<T>(result: T | SpendPaused | NoCourseCredit | DailyLimitReached): T {
+function going<T>(result: T | SpendPaused | NoCourseCredit | DailyLimitReached | Busy): T {
   if (result !== null && typeof result === "object" && "reason" in result) {
     throw new Error(`The Interview was refused: ${result.reason}.`);
   }
@@ -248,6 +249,28 @@ describe("course: the Interview, from subject to Course", () => {
     expect(teacher.calls.filter((c) => c.op === "writeMission")).toHaveLength(1);
   });
 
+  it("asks the Teacher once for an answer sent several times at once", async () => {
+    const started = await start(course, {
+      subject: "Music theory",
+      why: "To understand the songs I already play on guitar",
+    });
+    const before = teacher.calls.length;
+
+    const sent = await Promise.all(
+      [1, 2, 3].map(() => course.answerInterview(started.id, "A few open chords", "ana")),
+    );
+
+    expect(teacher.calls.slice(before)).toHaveLength(1);
+    const [row] = await db.select().from(schema.interview);
+    expect(row).toMatchObject({ stage: "success", know: "A few open chords" });
+    expect(row.messages.filter((m) => m.text === "A few open chords")).toHaveLength(1);
+    // The others are told it is being answered, or see it answered: never
+    // is the same answer taken for the next question.
+    for (const view of sent) {
+      expect([{ ok: false, reason: "busy" }, expect.objectContaining({ id: started.id })]).toContainEqual(view);
+    }
+  });
+
   it("keeps an Interview to its Learner, and writes a Course only from a finished one", async () => {
     const interviewId = await interviewAbout();
 
@@ -407,12 +430,19 @@ describe("course: Course credits back Interviews", () => {
     });
 
     await finish(started.id);
-    const [first, again] = await Promise.all([
+    const pressed = await Promise.all([
+      course.writeCourse(started.id, "ana"),
       course.writeCourse(started.id, "ana"),
       course.writeCourse(started.id, "ana"),
     ]);
 
-    expect(again).toEqual(first);
+    // One press writes it; presses meanwhile are told it is being written.
+    const [first] = pressed.filter((p) => p.ok);
+    expect(pressed.filter((p) => !p.ok)).toEqual([
+      { ok: false, reason: "busy" },
+      { ok: false, reason: "busy" },
+    ]);
+    expect(teacher.calls.filter((c) => c.op === "writeMission")).toHaveLength(1);
     expect(await course.writeCourse(started.id, "ana")).toEqual(first);
     expect(await credits()).toEqual({ available: 1, used: 1, refunded: 0 });
     expect(await course.readInterviewStart("ana")).toEqual({
@@ -589,6 +619,30 @@ describe("course: Course credits back Interviews", () => {
         openInterviews: [],
       });
       expect(await start(course, chess)).toMatchObject({ stage: "know" });
+    });
+
+    it("gives the credit back twice at most, so failing on purpose can't research forever", async () => {
+      await setUp({
+        researchSearch: () => {
+          throw new Error("The web search is down.");
+        },
+      });
+      await buyCourse(course, "ana");
+
+      for (let giveUp = 1; giveUp <= 2; giveUp++) {
+        const { courseId, jobId } = await writeCourse();
+        await runToEnd(jobId);
+        await course.deleteCourse(courseId, "ana");
+        expect(await credits()).toEqual({ available: 1, used: 0, refunded: 0 });
+      }
+
+      const { courseId, jobId } = await writeCourse();
+      await runToEnd(jobId);
+      expect(await course.readCoursePath(courseId, { learnerId: "ana" })).toMatchObject({
+        givesCreditBack: false,
+      });
+      await course.deleteCourse(courseId, "ana");
+      expect(await credits()).toEqual({ available: 0, used: 1, refunded: 0 });
     });
 
     it("keeps the credit used for a Course that found Resources before failing", async () => {
