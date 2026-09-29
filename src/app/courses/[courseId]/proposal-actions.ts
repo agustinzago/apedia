@@ -5,6 +5,7 @@ import type { DecideProposalResult } from "@/course";
 import { breatherNote } from "@/app/daily-limit";
 import { getViewer } from "@/server/auth";
 import { getCourse } from "@/server/course";
+import { requestOrigin, startJobStep } from "@/server/jobs";
 
 export type DecideState = { decided: "confirmed" | "declined" | null; error: string | null };
 
@@ -21,6 +22,12 @@ function errorFor(result: Extract<DecideProposalResult, { ok: false }>): string 
   }
 }
 
+/** With the proposal decided, Up next can be written in the background. */
+async function writeUpNextAhead(courseId: string, learnerId: string) {
+  const jobId = await (await getCourse()).writeUpNextAhead(courseId, learnerId);
+  if (jobId) await startJobStep(jobId, await requestOrigin());
+}
+
 /** "Confirm": the Mission change or Done takes effect. */
 export async function confirmProposal(courseId: string, proposalId: string): Promise<DecideState> {
   const [course, viewer] = await Promise.all([getCourse(), getViewer()]);
@@ -28,6 +35,7 @@ export async function confirmProposal(courseId: string, proposalId: string): Pro
 
   const result = await course.confirmProposal(courseId, proposalId, viewer.learnerId);
   if (!result.ok) return { decided: null, error: errorFor(result) };
+  await writeUpNextAhead(courseId, viewer.learnerId);
   refresh();
   return { decided: "confirmed", error: null };
 }
@@ -39,6 +47,7 @@ export async function declineProposal(courseId: string, proposalId: string): Pro
 
   const result = await course.declineProposal(courseId, proposalId, viewer.learnerId);
   if (!result.ok) return { decided: null, error: errorFor(result) };
+  await writeUpNextAhead(courseId, viewer.learnerId);
   refresh();
   return { decided: "declined", error: null };
 }

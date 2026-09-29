@@ -1,0 +1,92 @@
+/* Choosing what to learn, once there is a Course credit to use. */
+
+.main {
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 48px var(--gutter) 96px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 22px;
+}
+
+.credit {
+  font-size: 17px;
+  padding: 4px 14px;
+  background: var(--green-tint);
+  border: 1.5px solid var(--green);
+  border-radius: var(--sketch-radius-small);
+  color: var(--green-deep);
+}
+
+.title {
+  font-size: clamp(44px, 7vw, 66px);
+  line-height: 1.05;
+}
+
+.title :global(.highlight) {
+  padding: 0 10px;
+}
+
+.lede {
+  max-width: 560px;
+  color: var(--ink-secondary);
+  font-size: 21px;
+}
+
+.form {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 22px;
+  margin-top: 6px;
+}
+
+.inputRow {
+  display: flex;
+  gap: 12px;
+  width: 100%;
+  max-width: 660px;
+}
+
+.input {
+  flex: 1;
+  min-width: 0;
+  font-size: 24px;
+  padding: 14px 20px;
+  background: var(--card);
+  color: var(--ink);
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--blue);
+}
+
+.chips {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.openInterview {
+  font-size: 21px;
+  color: var(--ink);
+  text-underline-offset: 4px;
+}
+
+.examples {
+  margin-top: 18px;
+  font-size: 18px;
+  color: var(--ink-secondary);
+  text-underline-offset: 4px;
+}
+
+@media (max-width: 520px) {
+  .inputRow {
+    flex-direction: column;
+  }
+}

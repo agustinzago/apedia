@@ -163,6 +163,10 @@
   cursor: pointer;
 }
 
+.send:hover {
+  color: var(--highlighter);
+}
+
 .step {
   align-self: flex-end;
   color: var(--ink-muted);

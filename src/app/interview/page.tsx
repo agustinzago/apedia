@@ -51,7 +51,7 @@ export default async function InterviewPage({ searchParams }: PageProps<"/interv
   if (!subject) {
     // Say, an old link: the newest Interview under way, if any.
     const [newest] = start.openInterviews;
-    redirect(newest ? openInterviewPath(newest.id) : "/");
+    redirect(newest ? openInterviewPath(newest.id) : "/start");
   }
 
   if (start.creditsToStart > 0) {

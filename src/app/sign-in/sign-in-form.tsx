@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useActionState, useState } from "react";
-import { EXAMPLE_COURSE_ID } from "@/course";
 import { requestMagicLink, type SignInState } from "./actions";
 import styles from "./sign-in.module.css";
 
@@ -30,7 +29,7 @@ function SignInForm({ next, onStartOver }: { next: string; onStartOver: () => vo
         </p>
         <p>
           Until then, you’re welcome to look around the{" "}
-          <Link href={`/courses/${EXAMPLE_COURSE_ID}`}>Example course</Link>.
+          <Link href="/#examples">Example courses</Link>.
         </p>
         <button type="button" className={styles.textButton} onClick={onStartOver}>
           Go back

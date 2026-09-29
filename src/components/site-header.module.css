@@ -1,4 +1,6 @@
 .header {
+  /* Stays put while pages slide beneath it (globals.css). */
+  view-transition-name: site-header;
   display: flex;
   align-items: center;
   gap: 28px;

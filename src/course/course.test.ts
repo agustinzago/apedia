@@ -5,6 +5,11 @@ import { createFakeTeacher } from "@/teacher/fake";
 import { createFakeUrlFetcher } from "@/url-fetcher/fake";
 import { createTestDb } from "@/test/db";
 import { createCourseModule, EXAMPLE_COURSE_ID, type CourseModule } from ".";
+import { exampleCourses, type ExampleCourseFixture } from "./example-course";
+
+/** How many rows of one kind the Example courses hold between them. */
+const inExamples = (rows: (fx: ExampleCourseFixture) => unknown[]) =>
+  exampleCourses.reduce((n, fx) => n + rows(fx).length, 0);
 
 const visitor = { learnerId: null };
 
@@ -55,6 +60,7 @@ describe("course: reading the Example course's Path", () => {
       goal: "Build a major scale from any note on one string",
       minutes: null,
       started: true,
+      ready: true,
     });
   });
 
@@ -67,11 +73,11 @@ describe("course: reading the Example course's Path", () => {
     ]);
   });
 
-  it("seeds the Example course only once", async () => {
+  it("seeds each Example course only once", async () => {
     await course.ensureExampleCourse();
 
-    expect(await db.$count(schema.course)).toBe(1);
-    expect(await db.$count(schema.lesson)).toBe(3);
+    expect(await db.$count(schema.course)).toBe(exampleCourses.length);
+    expect(await db.$count(schema.lesson)).toBe(inExamples((fx) => fx.lessons));
   });
 
   it("returns null for a Course that does not exist", async () => {
@@ -210,8 +216,8 @@ describe("course: reading an Example course Lesson", () => {
 
     await course.ensureExampleCourse();
 
-    expect(await db.$count(schema.resource)).toBe(5);
-    expect(await db.$count(schema.lesson)).toBe(3);
+    expect(await db.$count(schema.resource)).toBe(inExamples((fx) => fx.resources));
+    expect(await db.$count(schema.lesson)).toBe(inExamples((fx) => fx.lessons));
   });
 });
 
@@ -612,8 +618,10 @@ describe("course: reading a Reference sheet", () => {
     await course.ensureExampleCourse();
     await course.ensureExampleCourse();
 
-    expect(await db.$count(schema.glossaryTerm)).toBe(4);
-    expect(await db.$count(schema.referenceSection)).toBe(2);
-    expect(await db.$count(schema.lesson)).toBe(3);
+    expect(await db.$count(schema.glossaryTerm)).toBe(inExamples((fx) => fx.glossary));
+    expect(await db.$count(schema.referenceSection)).toBe(
+      inExamples((fx) => fx.referenceSections),
+    );
+    expect(await db.$count(schema.lesson)).toBe(inExamples((fx) => fx.lessons));
   });
 });

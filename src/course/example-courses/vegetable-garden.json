@@ -1,0 +1,446 @@
+{
+  "id": "example-vegetable-garden",
+  "subject": "Vegetable gardening",
+  "title": "Your first vegetable bed, in a small sunny corner of the garden",
+  "language": "en",
+  "createdAt": "2026-09-02T17:30:00Z",
+  "mission": {
+    "why": "Grow a few vegetables I will actually eat in the sunny patch at the back of my garden, instead of buying bagged salad every week.",
+    "success": [
+      "Turn a patch of lawn into one bed that is ready to sow",
+      "Pick a first harvest from seeds I sowed myself"
+    ],
+    "constraints": [
+      "15 minutes per sitting",
+      "A 2 m by 1 m patch of lawn and two large pots; no greenhouse",
+      "Hand tools only: a spade, a trowel and a watering can"
+    ],
+    "sittingMinutes": 15,
+    "outOfScope": ["Greenhouses and heated propagators", "Fruit trees and bushes", "Saving seed from your own plants"]
+  },
+  "resources": [
+    {
+      "id": "r1",
+      "kind": "site",
+      "title": "RHS Gardening advice",
+      "author": "Royal Horticultural Society",
+      "url": "https://www.rhs.org.uk/advice",
+      "why": "A grow-your-own guide for every common vegetable, with sowing months, depths and spacing written for beginners.",
+      "language": "en"
+    },
+    {
+      "id": "r2",
+      "kind": "site",
+      "title": "Garden Organic",
+      "author": "Garden Organic",
+      "url": "https://www.gardenorganic.org.uk/",
+      "why": "A charity that has taught organic food growing for decades. Its advice on home composting and watering fits a small bed with no chemicals.",
+      "language": "en"
+    },
+    {
+      "id": "r3",
+      "kind": "site",
+      "title": "Charles Dowding — No dig",
+      "author": "Charles Dowding",
+      "url": "https://charlesdowding.co.uk/",
+      "why": "Short, practical articles and videos on starting a bed on lawn with cardboard and compost — the method this Course uses.",
+      "language": "en"
+    },
+    {
+      "id": "r4",
+      "kind": "book",
+      "title": "Grow Your Own Veg",
+      "author": "Carol Klein",
+      "url": "https://openlibrary.org/search?q=Grow+Your+Own+Veg+Carol+Klein",
+      "why": "A friendly, well-illustrated RHS book that covers soil, sowing and each easy crop in turn. Good to keep by the back door.",
+      "language": "en"
+    },
+    {
+      "id": "r5",
+      "kind": "site",
+      "title": "University of Minnesota Extension",
+      "author": "University of Minnesota Extension",
+      "url": "https://extension.umn.edu/",
+      "why": "Research-based university guides on siting a vegetable garden, sunlight and watering, useful for checking a fact in full.",
+      "language": "en"
+    }
+  ],
+  "communities": [
+    {
+      "name": "r/vegetablegardening",
+      "where": "Reddit, online",
+      "url": "https://www.reddit.com/r/vegetablegardening/",
+      "why": "Post a photo of your bed or a struggling seedling and get answers from growers at every level.",
+      "offline": false
+    },
+    {
+      "name": "Permies",
+      "where": "Online forum",
+      "url": "https://permies.com/",
+      "why": "A large, long-running forum on growing food with little money and no chemicals, with a patient beginners' section.",
+      "offline": false
+    },
+    {
+      "name": "A community garden, allotment site or seed swap near you",
+      "where": "Councils, libraries and garden centres often list them",
+      "url": null,
+      "why": "Neighbouring growers know your local frost dates and pests, and often give away spare seedlings.",
+      "offline": true
+    }
+  ],
+  "gaps": [
+    {
+      "description": "Local timing: no Resource gives sowing dates for the Learner's own area, so they must look up their average last frost date themselves."
+    }
+  ],
+  "lessons": [
+    {
+      "index": 1,
+      "title": "Finding the sunniest spot",
+      "goal": "Choose the spot for a first bed by checking how much sun it gets",
+      "openedAt": "2026-09-02T17:45:00Z",
+      "finishedAt": "2026-09-02T17:58:00Z",
+      "content": {
+        "hook": "Plants make their food from sunlight, and vegetables are hungry plants. Before you buy a single seed, the most useful thing you can do is find out where the sun really falls in your garden — it decides almost everything that follows.",
+        "sections": [
+          {
+            "heading": "Sun comes first",
+            "body": "Vegetables that give you fruit, pods or roots — tomatoes, courgettes, beans, carrots — need at least six hours of direct sun a day in summer, and do better with eight. Leafy crops such as lettuce, spinach and rocket manage with about four hours, and even like a little shade in hot weather. Direct sun means the sun itself on the leaves, not just daylight. Shadows move through the day and grow longer in spring and autumn, so a spot that is sunny at noon may sit in the shade of a fence or a tree by mid-afternoon.",
+            "citations": ["r1", "r5"]
+          },
+          {
+            "heading": "Water, shelter and drainage",
+            "body": "Seedlings need watering often, so choose a place within easy reach of a tap or a water butt; carrying full cans across the garden gets old fast. Avoid spots under trees, whose roots drink the water and whose leaves block the light. A wall or hedge that breaks strong wind helps, as long as it does not shade the bed. Finally, look at the ground after heavy rain. If puddles sit there for a day, the soil drains badly and roots may rot; pick somewhere else, or plan to build the bed up higher.",
+            "citations": ["r1", "r2"]
+          }
+        ],
+        "keyIdea": "Choose the spot with the most direct sun — six hours or more — close to water and away from trees.",
+        "practice": {
+          "title": "Make a sun map",
+          "steps": [
+            "Sketch your garden on paper, with the house, fences and trees.",
+            "On one sunny day, look out at about 9:00, 13:00 and 17:00 and shade in where the shadows fall.",
+            "Mark the areas that were in sun at all three checks: they get about six hours or more.",
+            "Circle the sunny area closest to a tap. That is your bed."
+          ]
+        },
+        "practiceMinutes": 5,
+        "quiz": [
+          {
+            "question": "How much direct sun a day do fruiting crops like tomatoes need in summer?",
+            "options": ["At least two hours", "At least four hours", "At least six hours", "At least ten hours"],
+            "answer": 2,
+            "explanation": "Crops that make fruit, pods or roots need six hours or more of direct sun; eight is even better.",
+            "review": false
+          },
+          {
+            "question": "Why is the ground under a large tree a poor place for a bed?",
+            "options": [
+              "Falling fruit damages the seedlings",
+              "Roots and shade starve crops",
+              "Birds there eat every seed",
+              "Tree leaves make soil salty"
+            ],
+            "answer": 1,
+            "explanation": "A tree's roots take the water and its leaves take the light, so the vegetables go short of both.",
+            "review": false
+          },
+          {
+            "question": "Puddles stay on your chosen spot for a whole day after rain. What does that tell you?",
+            "options": ["The soil drains badly", "The soil is rich", "The spot gets sun", "The ground is sandy"],
+            "answer": 0,
+            "explanation": "Water that sits on top is not soaking away: the soil drains badly, and roots there can rot.",
+            "review": false
+          }
+        ],
+        "readNext": "r1",
+        "newTerms": [
+          { "term": "Direct sun", "definition": "Sunlight falling straight on a plant, not just daylight." },
+          { "term": "Full sun", "definition": "A spot that gets at least six hours of direct sun a day in summer." },
+          { "term": "Drainage", "definition": "How quickly water soaks away through the soil after rain." }
+        ]
+      },
+      "quizAttempts": [
+        { "questionIndex": 0, "chosenOption": 2, "at": "2026-09-02T17:55:00Z" },
+        { "questionIndex": 1, "chosenOption": 1, "at": "2026-09-02T17:56:00Z" },
+        { "questionIndex": 2, "chosenOption": 0, "at": "2026-09-02T17:57:00Z" }
+      ]
+    },
+    {
+      "index": 2,
+      "title": "Soil, compost and a no-dig bed",
+      "goal": "Find out your soil type and mark out a first bed to cover with compost",
+      "openedAt": "2026-09-05T09:10:00Z",
+      "finishedAt": "2026-09-05T09:22:00Z",
+      "content": {
+        "hook": "Good soil is what feeds your vegetables, and you do not have to dig to get it. Find out what your soil is like with one squeeze, then learn how to turn a patch of lawn into a bed by adding to it rather than digging it up.",
+        "sections": [
+          {
+            "heading": "What your soil is made of",
+            "body": "Garden soil is a mix of sand, silt and clay, plus organic matter: the rotted remains of plants. Sandy soil feels gritty, drains fast and dries out quickly. Clay soil feels sticky and holds water and nutrients well, but it can be heavy and slow to warm in spring. Loam sits in between: dark, crumbly and the easiest soil to grow in. Whatever you have, the fix is the same. Add plenty of organic matter such as garden compost or well-rotted manure, which helps sandy soil hold water and helps clay soil drain.",
+            "citations": ["r1", "r4"]
+          },
+          {
+            "heading": "Build up, don't dig down",
+            "body": "A no-dig bed starts on top of the ground. Mow any grass short, cover the area with plain brown cardboard, overlapping the edges so no light gets through, and soak it. Spread 10 to 15 centimetres of compost on top. The cardboard smothers the grass and weeds, and worms pull the compost down into the soil and break up the cardboard within a few months. Skipping the digging leaves the soil's structure and life intact and brings fewer weed seeds to the surface. Keep the bed no wider than 1.2 metres, so you can reach the middle without stepping on it. Autumn is a good time to start: by spring the bed is ready to sow.",
+            "citations": ["r3", "r2"]
+          }
+        ],
+        "keyIdea": "Whatever your soil, add organic matter on top: a no-dig bed is cardboard plus 10 to 15 centimetres of compost.",
+        "practice": {
+          "title": "Squeeze your soil and mark out a bed",
+          "steps": [
+            "Take a handful of soil from your chosen spot with a trowel and dampen it if it is dry.",
+            "Squeeze it into a ball: gritty and falling apart means sandy; sticky and shiny means clay; soft and crumbly means loam.",
+            "Mark out a bed no wider than 1.2 metres with four sticks and string.",
+            "Collect enough plain cardboard to cover it, with all tape and staples removed."
+          ]
+        },
+        "practiceMinutes": 7,
+        "quiz": [
+          {
+            "question": "What does a sandy soil feel like when you squeeze a damp handful?",
+            "options": ["Sticky and holds shape", "Smooth and very shiny", "Soft and smells sour", "Gritty and falls apart"],
+            "answer": 3,
+            "explanation": "Sand grains are large, so sandy soil feels gritty and will not hold a ball shape.",
+            "review": false
+          },
+          {
+            "question": "How do you start a no-dig bed on a patch of lawn?",
+            "options": [
+              "Dig out turf, then add gravel",
+              "Cover with cardboard, then add compost",
+              "Spray the grass, then dig deeply",
+              "Turn the soil over, then rake"
+            ],
+            "answer": 1,
+            "explanation": "Cardboard smothers the grass and compost on top becomes the growing layer. No digging is needed: worms do the mixing.",
+            "review": false
+          },
+          {
+            "question": "How much direct sun a day makes a spot full sun?",
+            "options": ["Six hours or more", "Four hours or more", "Two hours or more", "Ten hours or more"],
+            "answer": 0,
+            "explanation": "Full sun means at least six hours of direct sun a day in summer — from Lesson 1.",
+            "review": true
+          }
+        ],
+        "readNext": "r3",
+        "newTerms": [
+          { "term": "Loam", "definition": "A dark, crumbly soil with a balance of sand, silt and clay; the easiest to grow in." },
+          { "term": "Organic matter", "definition": "Rotted plant or animal material, such as compost or manure, that feeds the soil." },
+          { "term": "No-dig", "definition": "Growing by spreading compost on top of the soil instead of digging it over." }
+        ]
+      },
+      "quizAttempts": [
+        { "questionIndex": 0, "chosenOption": 3, "at": "2026-09-05T09:19:00Z" },
+        { "questionIndex": 1, "chosenOption": 3, "at": "2026-09-05T09:20:00Z" },
+        { "questionIndex": 2, "chosenOption": 0, "at": "2026-09-05T09:21:00Z" }
+      ]
+    },
+    {
+      "index": 3,
+      "title": "Easy first crops and when to sow them",
+      "goal": "Choose four easy crops and write their sowing months on a calendar",
+      "openedAt": "2026-09-08T18:30:00Z",
+      "finishedAt": "2026-09-08T18:43:00Z",
+      "content": {
+        "hook": "Some vegetables almost grow themselves; others sulk for a beginner. Starting with forgiving crops, sown at the right time, gives you a first harvest quickly — and the confidence to try more.",
+        "sections": [
+          {
+            "heading": "Hardy or tender",
+            "body": "Every vegetable is either hardy or tender. Hardy crops — broad beans, garlic, onions, lettuce, radishes, spinach — survive cold nights and light frost, so they can be sown in early spring, and some in autumn. Tender crops — courgettes, French and runner beans, tomatoes, squash — are killed by frost. They go outside only after your area's last frost date, which in much of northern Europe falls between late April and late May. A local weather service or a nearby allotment society can tell you yours.",
+            "citations": ["r1", "r4"]
+          },
+          {
+            "heading": "Five forgiving crops",
+            "body": "Radishes are ready four to six weeks after sowing: the quickest win there is. Loose-leaf lettuce and rocket can be picked a few leaves at a time for weeks. Garlic is planted as single cloves in autumn and simply left until the following summer. Courgettes are tender, but one plant set out after the last frost gives more than most households can eat. Above all, choose crops you like to eat: it is the best reason to keep watering them.",
+            "citations": ["r1", "r5"]
+          },
+          {
+            "heading": "Reading the seed packet",
+            "body": "The back of a seed packet is a short course in one crop. It says when to sow, how deep, how far apart, and whether to sow straight into the bed or first in small pots indoors. Sowing straight into the soil where the plant will grow is called direct sowing, and it suits roots such as radishes and carrots, which dislike being moved. The months on the packet are a guide; the soil and the weather have the final say.",
+            "citations": ["r1", "r2"]
+          }
+        ],
+        "keyIdea": "Hardy crops can go out in cold weather; tender crops wait until after the last frost.",
+        "practice": {
+          "title": "Plan four crops on a calendar",
+          "steps": [
+            "Write down four vegetables you like from this Lesson, including one hardy crop you can plant this autumn.",
+            "Look up your area's average last frost date and mark it on a calendar.",
+            "Write each crop's sowing or planting month on the calendar, keeping tender crops after the frost date.",
+            "Pin the calendar where you will see it every week."
+          ]
+        },
+        "practiceMinutes": 6,
+        "quiz": [
+          {
+            "question": "Which of these is tender, and must wait until after the last frost?",
+            "options": ["Garlic bulbs", "Lettuce plants", "Courgette plants", "Spinach plants"],
+            "answer": 2,
+            "explanation": "Courgettes are killed by frost. Garlic, lettuce and spinach are hardy and cope with the cold.",
+            "review": false
+          },
+          {
+            "question": "Roughly how long after sowing are radishes ready to eat?",
+            "options": ["Four to six weeks", "Four to six months", "One to two weeks", "Nine to ten months"],
+            "answer": 0,
+            "explanation": "Radishes are the fastest crop for a beginner: ready four to six weeks after sowing.",
+            "review": false
+          },
+          {
+            "question": "How thick should the compost layer be on a new no-dig bed?",
+            "options": ["1 to 2 centimetres", "40 to 50 centimetres", "3 to 4 centimetres", "10 to 15 centimetres"],
+            "answer": 3,
+            "explanation": "Spread 10 to 15 centimetres of compost over the cardboard — from Lesson 2.",
+            "review": true
+          }
+        ],
+        "readNext": "r4",
+        "newTerms": [
+          { "term": "Hardy", "definition": "Able to survive cold and light frost outdoors." },
+          { "term": "Tender", "definition": "Killed or badly damaged by frost, so planted out only after the last frost." },
+          { "term": "Last frost date", "definition": "The average date of the last spring frost where you live." }
+        ]
+      },
+      "quizAttempts": [
+        { "questionIndex": 0, "chosenOption": 2, "at": "2026-09-08T18:40:00Z" },
+        { "questionIndex": 1, "chosenOption": 0, "at": "2026-09-08T18:41:00Z" },
+        { "questionIndex": 2, "chosenOption": 3, "at": "2026-09-08T18:42:00Z" }
+      ]
+    },
+    {
+      "index": 4,
+      "title": "Sowing seeds and watering seedlings",
+      "goal": "Sow a short row of rocket and keep it watered until it comes up",
+      "openedAt": "2026-09-12T08:50:00Z",
+      "finishedAt": null,
+      "content": {
+        "hook": "Early September is still warm enough for quick salad leaves. Sowing is simple once you know three things: how deep, how thinly, and how to water without washing the seeds away.",
+        "sections": [
+          {
+            "heading": "How deep and how far apart",
+            "body": "A useful rule: sow a seed about twice as deep as it is wide. Tiny seeds such as lettuce and rocket go only about 1 centimetre deep; big broad bean seeds go about 5 centimetres. For a row, run the edge of a trowel along the soil to make a shallow groove called a drill, water it first, then sprinkle the seeds thinly along it and cover them with fine soil. When the seedlings come up, pull out the extras so the rest stand at the spacing on the packet. This is thinning, and it gives each plant room to grow.",
+            "citations": ["r1", "r3"]
+          },
+          {
+            "heading": "Watering little plants",
+            "body": "Seeds need soil that stays evenly moist, not soggy, until they come up. Use a watering can fitted with a rose, the cap with small holes on the spout, so the water falls like light rain and does not wash seeds out of place. Water in the morning or evening, at the soil rather than over the leaves. Once plants are growing well, water less often but more deeply: a thorough soaking once or twice a week in dry weather sends roots down, where the soil stays moist for longer.",
+            "citations": ["r2", "r5"]
+          }
+        ],
+        "keyIdea": "Sow about twice as deep as the seed is wide, thin to the packet's spacing, and water gently through a rose.",
+        "practice": {
+          "title": "Sow a row of rocket",
+          "steps": [
+            "Make a drill about 1 centimetre deep across your bed with the edge of a trowel.",
+            "Water the drill gently through a rose, then sprinkle rocket seed thinly along it.",
+            "Cover with fine soil, press it down lightly and push a labelled stick in at one end.",
+            "Check the soil each day and water when the top feels dry."
+          ]
+        },
+        "practiceMinutes": 7,
+        "quiz": [
+          {
+            "question": "How deep should you sow a small seed like rocket?",
+            "options": [
+              "About 5 centimetres deep",
+              "About 1 centimetre deep",
+              "About 10 centimetres deep",
+              "On the surface, uncovered"
+            ],
+            "answer": 1,
+            "explanation": "Sow about twice as deep as the seed is wide, so small seeds go about 1 centimetre down.",
+            "review": false
+          },
+          {
+            "question": "What does thinning mean?",
+            "options": [
+              "Watering seedlings through a rose",
+              "Covering seeds with fine soil",
+              "Adding compost on top again",
+              "Pulling out extra seedlings early"
+            ],
+            "answer": 3,
+            "explanation": "Thinning is pulling out the extra seedlings so the rest have room to grow.",
+            "review": false
+          },
+          {
+            "question": "Which kind of crop must wait until after the last frost?",
+            "options": ["Tender crops", "Hardy crops", "Leafy crops", "Root crops"],
+            "answer": 0,
+            "explanation": "Tender crops are killed by frost, so they go out after the last frost date — from Lesson 3.",
+            "review": true
+          }
+        ],
+        "readNext": "r3",
+        "newTerms": [
+          { "term": "Drill", "definition": "A shallow groove in the soil for sowing a row of seeds." },
+          { "term": "Thinning", "definition": "Pulling out extra seedlings so the rest have room to grow." },
+          { "term": "Rose", "definition": "The cap with small holes on a watering can's spout, for a gentle shower." }
+        ]
+      },
+      "quizAttempts": []
+    }
+  ],
+  "learningRecords": [
+    {
+      "number": 1,
+      "kind": "prior_knowledge",
+      "title": "Keeps herbs alive on a windowsill",
+      "body": "Said in the Interview they grow basil and parsley in pots indoors, have never grown anything outdoors, and have a 2 m by 1 m patch of lawn that seems sunny most of the day.",
+      "lessonIndex": null,
+      "createdAt": "2026-09-02T17:30:00Z"
+    },
+    {
+      "number": 2,
+      "kind": "understanding",
+      "title": "Knows how much sun fruiting crops need",
+      "body": "Picked six hours of direct sun for tomatoes in Lesson 1, and chose the back of the lawn after it was sunny at all three checks of the sun map.",
+      "lessonIndex": 1,
+      "createdAt": "2026-09-02T17:58:00Z"
+    },
+    {
+      "number": 3,
+      "kind": "misconception",
+      "title": "Thought a new bed must be dug over first",
+      "body": "In Lesson 2 chose turning the soil over as the way to start a bed on lawn. The explanation corrected it: cardboard and compost on top smother the grass, and worms do the mixing.",
+      "lessonIndex": 2,
+      "createdAt": "2026-09-05T09:22:00Z"
+    },
+    {
+      "number": 4,
+      "kind": "understanding",
+      "title": "Tells hardy crops from tender ones",
+      "body": "Picked courgettes as the tender crop in Lesson 3, planned garlic for this autumn and courgettes for after the last frost, and recalled the 10 to 15 cm compost layer from Lesson 2.",
+      "lessonIndex": 3,
+      "createdAt": "2026-09-08T18:43:00Z"
+    }
+  ],
+  "glossary": [
+    { "term": "Direct sun", "definition": "Sunlight falling straight on a plant, not just daylight.", "lessonIndex": 1 },
+    { "term": "Full sun", "definition": "A spot that gets at least six hours of direct sun a day in summer.", "lessonIndex": 1 },
+    { "term": "Drainage", "definition": "How quickly water soaks away through the soil after rain.", "lessonIndex": 1 },
+    { "term": "Loam", "definition": "A dark, crumbly soil with a balance of sand, silt and clay; the easiest to grow in.", "lessonIndex": 2 },
+    { "term": "Organic matter", "definition": "Rotted plant or animal material, such as compost or manure, that feeds the soil.", "lessonIndex": 2 },
+    { "term": "No-dig", "definition": "Growing by spreading compost on top of the soil instead of digging it over.", "lessonIndex": 2 },
+    { "term": "Hardy", "definition": "Able to survive cold and light frost outdoors.", "lessonIndex": 3 },
+    { "term": "Tender", "definition": "Killed or badly damaged by frost, so planted out only after the last frost.", "lessonIndex": 3 },
+    { "term": "Last frost date", "definition": "The average date of the last spring frost where you live.", "lessonIndex": 3 }
+  ],
+  "referenceSections": [
+    {
+      "title": "Sun and water at a glance",
+      "body": "Fruit, pods and roots (tomatoes, courgettes, beans, carrots): 6–8 hours of direct sun · Leafy crops (lettuce, spinach, rocket): about 4 hours · Seeds and seedlings: keep the soil evenly moist, water through a rose · Growing plants in dry weather: a thorough soaking once or twice a week, at the soil, morning or evening — a full 10-litre can per square metre."
+    },
+    {
+      "title": "Soil and a no-dig bed",
+      "body": "Squeeze test: gritty and falls apart = sandy · sticky and shiny = clay · soft and crumbly = loam · New bed on lawn: mow short, wet cardboard, then 10–15 cm of compost · Bed width: 1.2 m at most · Each autumn: top up with 2–5 cm of compost."
+    },
+    {
+      "title": "Easy first crops and spacing",
+      "body": "Radish: hardy, sow March–September, 1 cm deep, thin to 2–3 cm, ready in 4–6 weeks · Loose-leaf lettuce: hardy, sow March–August, 1 cm deep, thin to 15 cm · Rocket: hardy, sow April–September, 1 cm deep, thin to 15 cm · Garlic: hardy, plant cloves October–November, tips 2–3 cm below the surface, 15 cm apart · Courgette: tender, plant out after the last frost, 90 cm apart. Months are for a temperate northern climate; check your seed packet."
+    }
+  ]
+}

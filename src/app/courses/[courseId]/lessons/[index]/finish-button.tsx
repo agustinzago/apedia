@@ -5,6 +5,7 @@ import { useActionState, useEffect, useState } from "react";
 import type { JobView } from "@/course";
 import { pausedJobNote } from "@/app/daily-limit";
 import { Mascot } from "@/components/mascot";
+import { BACK } from "@/components/page-transition";
 import { checkFinish, finishLesson, retryFinish, type RetryState } from "./actions";
 import styles from "./lesson.module.css";
 
@@ -64,7 +65,7 @@ export function FinishButton({
 
   const status = view?.status;
   useEffect(() => {
-    if (status === "done") router.push(`/courses/${courseId}`);
+    if (status === "done") router.push(`/courses/${courseId}`, { transitionTypes: BACK });
   }, [status, courseId, router]);
 
   const working = status === "working";

@@ -6,7 +6,7 @@ import { createFakeTeacher, type FakeTeacher, type FakeTeacherReplies } from "@/
 import lessonFixture from "@/teacher/fixtures/lesson-music-theory.json";
 import { createTestDb } from "@/test/db";
 import { createFakeUrlFetcher } from "@/url-fetcher/fake";
-import { createCourseModule, EXAMPLE_COURSE_ID, type CourseModule } from ".";
+import { createCourseModule, DEFAULT_DAILY_LIMITS, EXAMPLE_COURSE_ID, type CourseModule } from ".";
 
 const lesson = lessonFixture as LessonDraft;
 const ana = { learnerId: "ana" };
@@ -600,6 +600,92 @@ describe("course: writing the Up next Lesson and answering its quiz", () => {
         ok: false,
         reason: "not-written",
       });
+    });
+  });
+
+  describe("writing Up next ahead of its first open", () => {
+    it("writes the Lesson in the background, so the first open finds it ready", async () => {
+      const jobId = await course.writeUpNextAhead("c1", "ana");
+      expect(jobId).not.toBeNull();
+      expect(await readJob(jobId!)).toMatchObject({ kind: "lesson_generation", lessonId: "l1" });
+      expect(await course.runJobStep(jobId!)).toBe("stop");
+
+      // Written, but not opened: the Path doesn't call it started.
+      const path = await course.readCoursePath("c1", ana);
+      expect(path?.upNext).toMatchObject({ index: 1, started: false, ready: true });
+
+      expect(await course.openLesson("c1", 1, "ana")).toEqual({
+        ok: true,
+        generation: null,
+        start: false,
+      });
+      expect((await course.readLesson("c1", 1, ana))?.content?.keyIdea).toBe(lesson.keyIdea);
+      expect(calls("writeLesson")).toHaveLength(1);
+    });
+
+    it("lets a first open during the writing follow the same job", async () => {
+      const jobId = await course.writeUpNextAhead("c1", "ana");
+      const opened = await course.openLesson("c1", 1, "ana");
+      expect(opened).toMatchObject({ ok: true, generation: { jobId, status: "working" }, start: true });
+      expect(await course.writeUpNextAhead("c1", "ana")).toBeNull();
+    });
+
+    it("counts against the Course's allowance like an open", async () => {
+      await course.writeUpNextAhead("c1", "ana");
+      const path = await course.readCoursePath("c1", ana);
+      expect(path?.lessonAllowance).toEqual({ lessons: 20, written: 1 });
+    });
+
+    it("waits while a Mission change waits for the Learner, since it may re-pick Up next", async () => {
+      await db.insert(schema.proposal).values({
+        courseId: "c1",
+        kind: "mission_change",
+        source: "finish",
+        reason: "You said you want to write songs now.",
+      });
+      expect(await course.writeUpNextAhead("c1", "ana")).toBeNull();
+
+      await db.update(schema.proposal).set({ status: "declined", decidedAt: new Date() });
+      expect(await course.writeUpNextAhead("c1", "ana")).not.toBeNull();
+    });
+
+    it("writes nothing for another Learner, a Done Course or the Example course", async () => {
+      expect(await course.writeUpNextAhead("c1", "ben")).toBeNull();
+      await course.ensureExampleCourse();
+      expect(await course.writeUpNextAhead(EXAMPLE_COURSE_ID, "ana")).toBeNull();
+      await db.update(schema.course).set({ status: "done" }).where(eq(schema.course.id, "c1"));
+      expect(await course.writeUpNextAhead("c1", "ana")).toBeNull();
+      expect(await db.$count(schema.job)).toBe(0);
+    });
+
+    it("leaves the Lesson for its first open when today's Lessons are used up", async () => {
+      course = createCourseModule({
+        db,
+        teacher,
+        fetchUrl: createFakeUrlFetcher(),
+        random: firstToLast,
+        limits: { ...DEFAULT_DAILY_LIMITS, lessonGenerations: 0 },
+      });
+      expect(await course.writeUpNextAhead("c1", "ana")).toBeNull();
+      expect(await course.openLesson("c1", 1, "ana")).toMatchObject({
+        ok: false,
+        reason: "daily-limit",
+      });
+    });
+
+    it("starts once the job that picked Up next is done, and only then", async () => {
+      const [creation] = await db
+        .insert(schema.job)
+        .values({ courseId: "c1", kind: "course_creation", step: "up_next", status: "running" })
+        .returning();
+      expect(await course.writeUpNextAfter(creation.id)).toBeNull();
+
+      await db.update(schema.job).set({ status: "done" }).where(eq(schema.job.id, creation.id));
+      const jobId = await course.writeUpNextAfter(creation.id);
+      expect(jobId).not.toBeNull();
+      // A Lesson generation job starts no other.
+      expect(await course.writeUpNextAfter(jobId!)).toBeNull();
+      expect(await course.writeUpNextAfter("no-such-job")).toBeNull();
     });
   });
 });

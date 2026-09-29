@@ -9,6 +9,40 @@
   gap: 34px;
 }
 
+/*
+ * Entering a Lesson: its parts arrive one after another, top to bottom.
+ * The same happens when a Lesson that was being written appears.
+ */
+.main > * {
+  animation: rise-in 420ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.main > :nth-child(2) { animation-delay: 50ms; }
+.main > :nth-child(3) { animation-delay: 100ms; }
+.main > :nth-child(4) { animation-delay: 150ms; }
+.main > :nth-child(5) { animation-delay: 200ms; }
+.main > :nth-child(6) { animation-delay: 250ms; }
+.main > :nth-child(7) { animation-delay: 300ms; }
+.main > :nth-child(8) { animation-delay: 350ms; }
+.main > :nth-child(n + 9) { animation-delay: 400ms; }
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    translate: 0 14px;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .main > * {
+    animation: none;
+  }
+}
+
 .back {
   align-self: flex-start;
   font-size: 19px;
@@ -174,12 +208,48 @@
   font-size: 21px;
 }
 
+/* A hand-drawn checkbox; ticked, an ink check and the step fades. */
 .box {
+  appearance: none;
   flex: 0 0 24px;
   height: 24px;
-  margin-top: 4px;
+  margin: 4px 0 0;
+  display: grid;
+  place-content: center;
+  background: var(--card);
   border: var(--sketch-border);
   border-radius: 4px 2px 5px 2px;
+  cursor: pointer;
+}
+
+.box::before {
+  content: "✓";
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 22px;
+  line-height: 1;
+  color: var(--green-deep);
+  transform: scale(0) rotate(-12deg);
+  transition: transform 160ms ease-out;
+}
+
+.box:checked::before {
+  transform: scale(1) rotate(-6deg);
+}
+
+.box:hover {
+  background: var(--blue-hover);
+}
+
+.stepText {
+  cursor: pointer;
+  transition: color 160ms ease-out;
+}
+
+.box:checked + .stepText {
+  color: var(--ink-muted);
+  text-decoration: line-through;
+  text-decoration-color: var(--ink-faint);
 }
 
 /* ---- Check yourself ---- */
