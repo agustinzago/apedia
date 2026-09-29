@@ -259,6 +259,35 @@ describe("teacher: talking to Claude", () => {
     expect(request.messages[0].content).toContain("What is wrong with it: The options have 1, 2, 1, 1 words.");
   });
 
+  it("keeps Sonnet's thinking and output short: low effort, and a lower output cap", async () => {
+    const { client, parse } = clientReturning({ stop_reason: "end_turn", parsed_output: lessonFixture });
+    await createClaudeTeacher({ client }).writeLesson(writeLessonInput);
+    const { client: searching, stream } = clientStreaming([{ stop_reason: "end_turn", content: [] }]);
+    await createClaudeTeacher({ client: searching }).researchSearch({
+      subject: "Music theory",
+      language: "en",
+      mission,
+    });
+
+    const lesson = parse.mock.calls[0][0];
+    expect(lesson.output_config.effort).toBe("low");
+    expect(lesson.max_tokens).toBeLessThanOrEqual(6000);
+    const search = (stream.mock.calls[0] as unknown[])[0] as {
+      output_config: { effort: string };
+      max_tokens: number;
+    };
+    expect(search.output_config.effort).toBe("low");
+    expect(search.max_tokens).toBeLessThanOrEqual(8000);
+  });
+
+  it("sets no effort for Haiku, which takes none", async () => {
+    const { client, parse } = clientReturning({ stop_reason: "end_turn", parsed_output: safetyRedirect });
+
+    await createClaudeTeacher({ client }).checkSafety({ subject: "Chess", why: "To win" });
+
+    expect(parse.mock.calls[0][0].output_config.effort).toBeUndefined();
+  });
+
   it("finishes a Lesson with Sonnet and a structured output, giving it the evidence by id", async () => {
     const { client, parse } = clientReturning({ stop_reason: "end_turn", parsed_output: finishFixture });
 
