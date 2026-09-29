@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useState } from "react";
 import type { JobView } from "@/course";
 import { pausedJobNote } from "@/app/daily-limit";
+import { BuyCourse } from "@/app/purchase/buy-course";
 import { Mascot } from "@/components/mascot";
 import {
   checkLessonGeneration,
@@ -34,10 +35,14 @@ export function LessonGeneration({
   const router = useRouter();
   const [view, setView] = useState(initial);
   const [openError, setOpenError] = useState<string | null>(null);
-  /** Set when today's Lessons are used up or the Teacher is paused: says when this one can be written. */
-  const [limit, setLimit] = useState<{ reason: "daily-limit" | "paused"; note: string } | null>(
-    null,
-  );
+  /**
+   * Set when the Course's Lessons or today's are used up, or the Teacher is
+   * paused: says what next.
+   */
+  const [limit, setLimit] = useState<{
+    reason: "lessons-used-up" | "daily-limit" | "paused";
+    note: string;
+  } | null>(null);
   const [retryState, retry, retrying] = useActionState(
     async (): Promise<RetryState> => {
       const result = await retryLessonGeneration(courseId, index);
@@ -102,15 +107,17 @@ export function LessonGeneration({
       <div className={styles.writingHeader}>
         <Mascot size={44} />
         <h2 id="writing-heading" className={styles.writingTitle}>
-          {limit?.reason === "daily-limit"
-            ? "That’s all the new Lessons for today"
-            : limit || pausedUntil
-              ? "Your teacher is taking a breather"
-              : failed
-                ? "Your teacher hit a snag"
-                : view?.status === "done"
-                  ? "Your Lesson is ready"
-                  : "Your teacher is writing this Lesson"}
+          {limit?.reason === "lessons-used-up"
+            ? "This Course’s Lessons are all written"
+            : limit?.reason === "daily-limit"
+              ? "That’s all the new Lessons for today"
+              : limit || pausedUntil
+                ? "Your teacher is taking a breather"
+                : failed
+                  ? "Your teacher hit a snag"
+                  : view?.status === "done"
+                    ? "Your Lesson is ready"
+                    : "Your teacher is writing this Lesson"}
         </h2>
       </div>
 
@@ -123,9 +130,12 @@ export function LessonGeneration({
       )}
 
       {limit ? (
-        <p className={styles.writingNote} role="status">
-          {limit.note}
-        </p>
+        <>
+          <p className={styles.writingNote} role="status">
+            {limit.note}
+          </p>
+          {limit.reason === "lessons-used-up" && <BuyCourse from="/" />}
+        </>
       ) : openError ? (
         <p className={styles.error} role="alert">
           {openError}

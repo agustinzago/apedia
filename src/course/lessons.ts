@@ -4,6 +4,7 @@ import type { LessonDraft, QuestionDraft, Teacher, WriteLessonInput } from "@/te
 import { missionOf } from "./course-creation";
 import { resumeJob, viewOf, type JobRow, type JobRun, type JobStepResult, type JobView } from "./jobs";
 import { LessonContent, readingMinutes } from "./lesson-content";
+import { lessonsUsedUp, type LessonsUsedUp } from "./allowance";
 import type { DailyCaps, DailyLimitReached } from "./limits";
 import type { Spend, SpendPaused } from "./spend";
 
@@ -37,6 +38,11 @@ export type OpenLessonResult =
   | { ok: false; reason: "not-found" | "read-only" }
   /** The Lesson is unwritten and the Course is Done: no new Lessons are written. */
   | { ok: false; reason: "done" }
+  /**
+   * The Lesson is unwritten and the Course has had all the Lessons its
+   * allowance holds written. Up next stays shown; nothing else changes.
+   */
+  | LessonsUsedUp
   /** The Lesson is unwritten and the Learner has had today's Lessons written. */
   | DailyLimitReached
   /** The Lesson is unwritten and the Teacher is paused for the day. */
@@ -45,6 +51,7 @@ export type OpenLessonResult =
 export type RetryLessonGenerationResult =
   | { ok: true; jobId: string }
   | { ok: false; reason: "not-found" | "read-only" | "nothing-to-retry" | "done" }
+  | LessonsUsedUp
   | DailyLimitReached
   | SpendPaused;
 
@@ -123,14 +130,19 @@ export function createLessonOperations({
   const findGenerationJob = (lessonId: string) =>
     findLessonJob(db, lessonId, "lesson_generation");
 
-  /** Starts writing the Lesson, if today's limit allows another and the Teacher is not paused. */
-  async function startGeneration(
+  /**
+   * Whether a Lesson with no generation job may start one: the Course's
+   * allowance, today's cap and the spend stop all allow it. Null if so.
+   */
+  async function generationRefused(
     lesson: LessonRow,
     learnerId: string,
-  ): Promise<JobRow | DailyLimitReached | SpendPaused> {
-    const limited = (await caps.lessonGeneration(learnerId)) ?? (await spend.teacherCall());
-    if (limited) return limited;
-    return insertGenerationJob(lesson);
+  ): Promise<LessonsUsedUp | DailyLimitReached | SpendPaused | null> {
+    return (
+      (await lessonsUsedUp(db, lesson.courseId)) ??
+      (await caps.lessonGeneration(learnerId)) ??
+      (await spend.teacherCall())
+    );
   }
 
   async function insertGenerationJob(lesson: LessonRow): Promise<JobRow> {
@@ -343,8 +355,9 @@ export function createLessonOperations({
 
     /**
      * The Learner opens a Lesson. The first open of an unwritten Lesson starts
-     * its generation job, within the Learner's daily limit and the spend
-     * stop; later opens report on that job. A written Lesson needs nothing.
+     * its generation job, within the Course's allowance, the Learner's daily
+     * limit and the spend stop; later opens report on that job. A written
+     * Lesson needs nothing. A refused open leaves the Lesson unopened.
      */
     async openLesson(
       courseId: string,
@@ -355,18 +368,20 @@ export function createLessonOperations({
       if (!found.ok) return found;
       const { lesson, course } = found;
       if (lesson.content === null && course.status === "done") return { ok: false, reason: "done" };
+      const written = lesson.content !== null || lesson.finishedAt !== null;
+      const existing = written ? null : await findGenerationJob(lesson.id);
+      if (!written && !existing) {
+        const refused = await generationRefused(lesson, learnerId);
+        if (refused) return refused;
+      }
 
       await db
         .update(schema.lesson)
         .set({ openedAt: new Date() })
         .where(and(eq(schema.lesson.id, lesson.id), isNull(schema.lesson.openedAt)));
-      if (lesson.content !== null || lesson.finishedAt !== null) {
-        return { ok: true, generation: null, start: false };
-      }
+      if (written) return { ok: true, generation: null, start: false };
 
-      const job =
-        (await findGenerationJob(lesson.id)) ?? (await startGeneration(lesson, learnerId));
-      if ("reason" in job) return job;
+      const job = existing ?? (await insertGenerationJob(lesson));
       return { ok: true, generation: viewOf(job), start: job.status === "pending" };
     },
 
@@ -399,8 +414,9 @@ export function createLessonOperations({
 
       const job = await findGenerationJob(lesson.id);
       if (!job) {
-        const started = await startGeneration(lesson, learnerId);
-        return "reason" in started ? started : { ok: true, jobId: started.id };
+        const refused = await generationRefused(lesson, learnerId);
+        if (refused) return refused;
+        return { ok: true, jobId: (await insertGenerationJob(lesson)).id };
       }
       const paused = await spend.teacherCall();
       if (paused) return paused;

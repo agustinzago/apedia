@@ -134,6 +134,7 @@ export default async function LessonPage({
               initial={lesson.chat}
               proposals={lesson.proposals}
               maxLength={MAX_QUESTION_LENGTH}
+              questionsLeft={lesson.questionsLeft}
               closedNote={
                 lesson.readOnly
                   ? "This is a sample course, so the chat is off. Start your own course to ask your teacher."

@@ -82,8 +82,6 @@ export type WriteCourseResult =
   | { ok: false; reason: "not-found" | "not-yours" | "not-finished" }
   /** The credit backing the Interview is no longer available, say it was refunded. */
   | NoCourseCredit
-  /** The Learner has started today's new Courses; the Interview keeps for later. */
-  | DailyLimitReached
   /** The Teacher is paused for the day; the Interview keeps for later. */
   | SpendPaused;
 
@@ -459,8 +457,8 @@ export function createInterviewOperations({
      * the caller to run. The Course credit backing the Interview becomes
      * used in the same transaction, so every Course uses exactly one credit.
      * Writing the same Interview again returns the same Course and job and
-     * uses nothing more. A new Course counts toward the Learner's daily
-     * limit, and waits past the spend stop.
+     * uses nothing more. A new Course waits past the spend stop; it needs
+     * no daily cap, since its credit pays for it.
      */
     async writeCourse(interviewId: string, learnerId: string): Promise<WriteCourseResult> {
       const row = await findRow(interviewId);
@@ -474,8 +472,8 @@ export function createInterviewOperations({
       if (existing) return { ok: true, ...existing };
       const creditId = row.courseCreditId;
       if (creditId === null || !(await isBacked(row))) return NO_CREDIT;
-      const limited = (await caps.newCourse(learnerId)) ?? (await spend.teacherCall());
-      if (limited) return limited;
+      const paused = await spend.teacherCall();
+      if (paused) return paused;
 
       const sittingMinutes = row.sittingMinutes;
       const mission = await teacher.writeMission({

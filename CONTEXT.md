@@ -22,6 +22,10 @@ _Avoid_: Notebook (that is the visual style, not a concept), workspace
 What one purchase buys a Learner: the right to start one Course. It is available until "Write my course" uses it, and a full refund takes back an unused one.
 _Avoid_: Token, ticket, license, seat, purchase (for the credit itself)
 
+**Allowance**:
+What a Course credit lets its Course use: a fixed number of Lessons written (Finish included) and of questions to the Teacher across its Lessons. Once it is used up, everything written stays, and another Course keeps the Learner going on a new Mission.
+_Avoid_: Quota, budget, limit (limits are the daily caps and spend limits)
+
 **Example course**:
 A pre-made, read-only Course ("Music theory") that anyone can open to see what a Course looks like.
 _Avoid_: Example notebook, demo
@@ -91,3 +95,4 @@ _Avoid_: Cheat sheet, summary
 - **Course credit → Interview**: an available Course credit backs at most one open Interview. A redirected subject uses no credit.
 - **Course credit → Course**: "Write my course" uses the Interview's credit, which becomes that one Course. Giving up on (deleting) a Course whose creation failed before finding any Resources gives the credit back.
 - **Interview → Course**: one Interview, one Course.
+- **Course → Allowance**: every Course a Learner owns has one allowance, counted from its own Lessons and chat; the Example course has none.

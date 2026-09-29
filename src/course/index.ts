@@ -7,7 +7,9 @@ import {
   readCreationView,
   type CourseCreationView,
 } from "./course-creation";
+import { countedLessonIds, questionsLeft } from "./allowance";
 import { createChatOperations, readChat } from "./chat";
+import { COURSE_CREDIT } from "./course-credit";
 import { createCreditOperations } from "./credits";
 import { EXAMPLE_COURSE_ID, seedExampleCourse } from "./example-course";
 import { createFinishOperations } from "./finish";
@@ -48,6 +50,7 @@ export {
 export type { Question, Term } from "./lesson-content";
 export { MAX_QUESTION_LENGTH, type AskTeacherResult } from "./chat";
 export { COURSE_CREDIT } from "./course-credit";
+export type { LessonsUsedUp, QuestionsUsedUp } from "./allowance";
 export type { CourseCredits, CourseCreditStatus, RecordPaymentResult } from "./credits";
 export {
   DEFAULT_DAILY_LIMITS,
@@ -135,6 +138,16 @@ export type CoursePath = {
   finishedLessons: FinishedLesson[];
   /** Null once the Course is Done. */
   upNext: UpNextLesson | null;
+  /**
+   * The Lessons the Course's allowance holds, and how many are written or
+   * being written; null for the Example course, which has none.
+   */
+  lessonAllowance: { lessons: number; written: number } | null;
+  /**
+   * True when Up next is unwritten and the allowance's Lessons are all
+   * written: it stays shown, but won't be written in this Course.
+   */
+  lessonsUsedUp: boolean;
   /** Newest first. */
   learningRecords: LearningRecordEntry[];
   /** Mission changes and Done suggestions waiting for the Learner, oldest first. */
@@ -247,6 +260,8 @@ export type LessonView = {
   answers: { questionIndex: number; chosenOption: number }[];
   /** The Lesson's "Ask your teacher" chat, oldest first. */
   chat: ChatMessage[];
+  /** The questions left to ask across the Course's Lessons; null for the Example course. */
+  questionsLeft: number | null;
   /** True for the read-only Example course: answers are not saved and Finish is off. */
   readOnly: boolean;
   /** The Lesson generation job while the Lesson is unwritten; null if there is none. */
@@ -316,7 +331,7 @@ export function createCourseModule({
 }) {
   const caps = createDailyCaps({ db, limits, now });
   const spend = createSpendOperations({ db, limits: spendLimits, alarm: spendAlarm, now });
-  const creation = createCourseCreationOperations({ db, teacher, fetchUrl, caps, spend });
+  const creation = createCourseCreationOperations({ db, teacher, fetchUrl, spend });
   const lessons = createLessonOperations({ db, teacher, random, caps, spend });
   const finish = createFinishOperations({ db, teacher, spend });
   const proposals = createProposalOperations({ db, teacher, spend });
@@ -509,6 +524,19 @@ export function createCourseModule({
           }
         : null;
 
+      // Every Course a Learner owns has the allowance its credit buys, even
+      // one written before Course credits; the Example course writes nothing.
+      const counted = course.isExample ? null : await countedLessonIds(db, course.id);
+      const lessonAllowance = counted && {
+        lessons: COURSE_CREDIT.lessons,
+        written: counted.size,
+      };
+      const lessonsUsedUp =
+        next !== undefined &&
+        lessonAllowance !== null &&
+        !counted?.has(next.id) &&
+        lessonAllowance.written >= lessonAllowance.lessons;
+
       const records = await db
         .select({
           number: schema.learningRecord.number,
@@ -547,6 +575,8 @@ export function createCourseModule({
         givesCreditBack: stopped && (await credits.creditGivenBackBy(course.id)) !== null,
         finishedLessons,
         upNext,
+        lessonAllowance,
+        lessonsUsedUp,
         learningRecords: records.map(({ supersededById, ...r }) => ({
           ...r,
           superseded: supersededById !== null,
@@ -807,6 +837,7 @@ export function createCourseModule({
         content,
         answers,
         chat: await readChat(db, lesson.id, resources),
+        questionsLeft: course.isExample ? null : await questionsLeft(db, course.id),
         readOnly: course.isExample,
         generation,
         finishing,

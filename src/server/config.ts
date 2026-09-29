@@ -11,23 +11,23 @@ import type { PolarSettings } from "@/payments";
 
 /**
  * Configuration from the environment. Cost protection: unset values fall
- * back to the MVP spec's: 1 new Course, 10 Lessons and 60 chat questions per
- * Learner per day, and a spend alarm at $20 a day, which pauses sales, with
- * the Teacher stopping at twice the alarm. Magic links are limited to 3 an
- * hour and 10 a UTC day per address, and 20 an hour per IP. And the
- * operator, whom the Privacy, Terms and Refund policy pages name, and Polar,
- * which sells Course credits.
+ * back to the defaults: an abuse guard of 40 Lessons and 400 chat questions
+ * per Learner per day, and a spend alarm at $20 a day, which pauses sales,
+ * with the Teacher stopping at twice the alarm. A Course's own allowance is
+ * not configured here: it is what its credit buys, `COURSE_CREDIT`, which
+ * the Terms quote. Magic links are limited to 3 an hour and 10 a UTC day per
+ * address, and 20 an hour per IP. And the operator, whom the Privacy, Terms
+ * and Refund policy pages name, and Polar, which sells Course credits.
  */
 
 type Env = Record<string, string | undefined>;
 
 /**
- * APEDIA_DAILY_NEW_COURSES, APEDIA_DAILY_LESSONS and APEDIA_DAILY_CHAT_MESSAGES.
+ * APEDIA_DAILY_LESSONS and APEDIA_DAILY_CHAT_MESSAGES.
  * APEDIA_DAILY_INTERVIEWS: Interview starts (default 5).
  */
 export function dailyLimitsFromEnv(env: Env = process.env): DailyLimits {
   return {
-    newCourses: count(env, "APEDIA_DAILY_NEW_COURSES", DEFAULT_DAILY_LIMITS.newCourses),
     lessonGenerations: count(env, "APEDIA_DAILY_LESSONS", DEFAULT_DAILY_LIMITS.lessonGenerations),
     chatMessages: count(env, "APEDIA_DAILY_CHAT_MESSAGES", DEFAULT_DAILY_LIMITS.chatMessages),
     interviews: count(env, "APEDIA_DAILY_INTERVIEWS", DEFAULT_DAILY_LIMITS.interviews),
@@ -112,8 +112,7 @@ export function alertEmail({ day, spentUsd, thresholdUsd, stopUsd }: SpendAlert)
       "This is the only alert for today. Each call is in the teacher_call table:",
       `  select operation, count(*), sum(cost_usd) from teacher_call where created_at >= '${day}' group by operation;`,
       "",
-      "Per-Learner caps are set by APEDIA_DAILY_NEW_COURSES, APEDIA_DAILY_LESSONS and APEDIA_DAILY_CHAT_MESSAGES; the threshold by APEDIA_SPEND_ALARM_USD; the stop by APEDIA_SPEND_STOP_USD.",
-      "Interview starts per Learner are capped by APEDIA_DAILY_INTERVIEWS.",
+      "Per-Learner caps are set by APEDIA_DAILY_LESSONS, APEDIA_DAILY_CHAT_MESSAGES and APEDIA_DAILY_INTERVIEWS; the threshold by APEDIA_SPEND_ALARM_USD; the stop by APEDIA_SPEND_STOP_USD.",
     ].join("\n"),
   };
 }
