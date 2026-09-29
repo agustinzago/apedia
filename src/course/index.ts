@@ -34,11 +34,15 @@ export { EXAMPLE_COURSE_ID };
 export {
   openingMessages,
   SITTING_MINUTES,
-  type ClaimResult,
+  type DiscardInterviewResult,
   type InterviewMessage,
   type InterviewStage,
+  type InterviewStart,
   type InterviewView,
+  type NoCourseCredit,
+  type OpenInterview,
   type SittingMinutes,
+  type StartInterviewResult,
   type WriteCourseResult,
 } from "./interview";
 export type { Question, Term } from "./lesson-content";
@@ -122,6 +126,12 @@ export type CoursePath = {
   preparing: boolean;
   /** The Course creation job, while preparing; null if there is none to show. */
   creation: CourseCreationView | null;
+  /**
+   * True while deleting the Course gives its Course credit back: its
+   * creation failed before finding any Resources, so the Learner may give
+   * up on it instead of trying again.
+   */
+  givesCreditBack: boolean;
   finishedLessons: FinishedLesson[];
   /** Null once the Course is Done. */
   upNext: UpNextLesson | null;
@@ -349,7 +359,7 @@ export function createCourseModule({
   const chat = createChatOperations({ db, teacher, readResourcesByRef, caps, spend });
 
   return {
-    ...createInterviewOperations({ db, teacher, caps, spend }),
+    ...createInterviewOperations({ db, teacher, caps, spend, now }),
     readCourseCreation: creation.readCourseCreation,
     retryCourseCreation: creation.retryCourseCreation,
     openLesson: lessons.openLesson,
@@ -368,12 +378,15 @@ export function createCourseModule({
      * Idempotent: a repeated delivery changes nothing.
      */
     recordPayment: credits.recordPayment,
-    /** The Learner's Course credits by status; `available` can still start a Course. */
+    /** The Learner's Course credits by status; `available` ones can back an Interview. */
     readCourseCredits: credits.readCourseCredits,
     /** Records one call the Teacher made to Claude; wire it to the Teacher's `recordCall`. */
     recordTeacherCall: spend.recordTeacherCall,
 
-    /** Whether a new Interview may start today: null, or the pause and when it lifts. */
+    /**
+     * Whether a new sale ("Buy a Course") may happen today: null, or the
+     * pause and when it lifts. Credits already bought still start Interviews.
+     */
     async readSalesPause(): Promise<SpendPaused | null> {
       return spend.newSale();
     },
@@ -512,6 +525,8 @@ export function createCourseModule({
       // Research and the first Lesson arrive with the Course creation job.
       const preparing =
         !course.isExample && course.status === "active" && lessons.length === 0;
+      const creation = preparing ? await readCreationView(db, course.id) : null;
+      const stopped = creation?.status === "failed" || creation?.status === "paused";
 
       return {
         id: course.id,
@@ -528,7 +543,8 @@ export function createCourseModule({
           outOfScope: course.missionOutOfScope,
         },
         preparing,
-        creation: preparing ? await readCreationView(db, course.id) : null,
+        creation,
+        givesCreditBack: stopped && (await credits.creditGivenBackBy(course.id)) !== null,
         finishedLessons,
         upNext,
         learningRecords: records.map(({ supersededById, ...r }) => ({
@@ -671,7 +687,9 @@ export function createCourseModule({
      * "Delete course": removes the Course and everything under it, for good.
      * The schema's cascades remove its Lessons, records and jobs; the
      * Interview it was written from goes too, so it cannot be written again.
-     * Only the Course's own Learner may; the Example course cannot be deleted.
+     * A Course whose creation failed before finding any Resources gives its
+     * Course credit back (see `givesCreditBack`). Only the Course's own
+     * Learner may; the Example course cannot be deleted.
      */
     async deleteCourse(courseId: string, learnerId: string): Promise<DeleteCourseResult> {
       const course = await findReadableCourse(courseId, { learnerId });
@@ -679,6 +697,8 @@ export function createCourseModule({
       if (course.isExample) return { ok: false, reason: "read-only" };
 
       await db.transaction(async (tx) => {
+        const creditId = await credits.creditGivenBackBy(course.id, tx);
+        if (creditId !== null) await credits.giveBack(creditId, tx);
         await tx.delete(schema.course).where(eq(schema.course.id, course.id));
         if (course.interviewId !== null) {
           await tx.delete(schema.interview).where(eq(schema.interview.id, course.interviewId));

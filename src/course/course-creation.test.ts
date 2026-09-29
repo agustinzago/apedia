@@ -6,6 +6,7 @@ import missionMusicTheory from "@/teacher/fixtures/mission-music-theory.json";
 import researchSearch from "@/teacher/fixtures/research-search-music-theory.json";
 import researchStructure from "@/teacher/fixtures/research-structure-music-theory.json";
 import upNext from "@/teacher/fixtures/up-next-music-theory.json";
+import { buyCourse } from "@/test/credits";
 import { createTestDb } from "@/test/db";
 import type { UrlCheck } from "@/url-fetcher";
 import { createFakeUrlFetcher, type FakeUrlFetcher } from "@/url-fetcher/fake";
@@ -37,17 +38,20 @@ describe("course: the Course creation job, from research to Up next", () => {
     ]);
   };
 
-  /** Interview → sign-in claim → "Write my course", as Ana. */
+  /** Buy a Course → Interview → "Write my course", as Ana. */
   const writeCourse = async () => {
-    const started = await course.startInterview({
-      subject: "Music theory",
-      why: "To understand the songs I already play on guitar",
-    });
-    if ("reason" in started) throw new Error("The Interview was paused.");
-    await course.answerInterview(started.id, "I can strum G, C, D, Em and Am from chord charts");
-    await course.answerInterview(started.id, "Work out the chords of a song myself");
-    await course.chooseSittingLength(started.id, 10);
-    await course.claimInterview(started.id, "ana");
+    await buyCourse(course, "ana");
+    const started = await course.startInterview(
+      {
+        subject: "Music theory",
+        why: "To understand the songs I already play on guitar",
+      },
+      "ana",
+    );
+    if ("reason" in started) throw new Error(`The Interview was refused: ${started.reason}.`);
+    await course.answerInterview(started.id, "I can strum G, C, D, Em and Am from chord charts", "ana");
+    await course.answerInterview(started.id, "Work out the chords of a song myself", "ana");
+    await course.chooseSittingLength(started.id, 10, "ana");
     const written = await course.writeCourse(started.id, "ana");
     if (!written.ok || !written.jobId) throw new Error("The Course was not written.");
     return { courseId: written.courseId, jobId: written.jobId };

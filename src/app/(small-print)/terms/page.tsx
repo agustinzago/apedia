@@ -15,7 +15,7 @@ export default function TermsPage() {
       <h1 className={styles.title}>
         <span className="highlight">Terms</span>
       </h1>
-      <p className={styles.updated}>Last updated 28 September 2026</p>
+      <p className={styles.updated}>Last updated 29 September 2026</p>
       <p className={styles.lede}>
         The rules for using Apedia, kept short. By signing in you agree to
         them.
@@ -47,9 +47,12 @@ export default function TermsPage() {
         </h2>
         <p>
           A Course credit costs US${priceUsd} and buys one Course: up to{" "}
-          {lessons} Lessons and {chatQuestions} questions to the Teacher. A
-          credit is used when you ask the Teacher to write a Course. The
-          Example course is free to read.
+          {lessons} Lessons and {chatQuestions} questions to the Teacher. You
+          need one to start the Interview, and it is used when you ask the
+          Teacher to write the Course. If the Teacher turns the subject down,
+          or fails to prepare the Course before finding any sources and you
+          delete it, the credit is yours again. The Example course is free to
+          read.
         </p>
         <p>
           Credits are sold by Polar, our merchant of record: Polar takes the

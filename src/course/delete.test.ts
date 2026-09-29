@@ -29,7 +29,7 @@ async function snapshot(db: Db): Promise<Record<string, string[]>> {
 }
 
 /**
- * A claimed Interview and the Course written from it, with a row in every
+ * An Interview and the Course written from it, with a row in every
  * table under a Course: Lessons, quiz attempts, Learning records (one
  * superseding another), Resources, Glossary, Reference sheet, Communities,
  * chat, proposals, Gaps and jobs.

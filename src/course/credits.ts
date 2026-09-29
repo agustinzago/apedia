@@ -1,12 +1,16 @@
 import { and, count, eq, isNull, sql } from "drizzle-orm";
 import { schema, type Db } from "@/db";
 import type { PaymentEvent } from "@/payments";
+import { creationFailedEmpty } from "./course-creation";
+import type { Tx } from "./jobs";
 
 /**
  * Course credits: what buying a Course gives the Learner. Only a verified
  * payment event, delivered by the provider's webhook, records one; the page
  * the Learner returns to after paying grants nothing. Every event may arrive
  * more than once, so recording is idempotent on the provider's payment id.
+ * An available credit backs one open Interview, and "Write my course" uses
+ * it (./interview, ADR 0007).
  */
 
 export type CourseCreditStatus = (typeof schema.courseCreditStatus.enumValues)[number];
@@ -17,7 +21,7 @@ export type CourseCredits = Record<CourseCreditStatus, number>;
 export type RecordPaymentResult =
   /** A new Course credit. */
   | "granted"
-  /** The credit is refunded: an unused one can no longer start a Course. */
+  /** The credit is refunded: an unused one can no longer back an Interview. */
   | "refunded"
   /** Already recorded: a repeated delivery. */
   | "duplicate"
@@ -85,7 +89,45 @@ export function createCreditOperations({ db, now }: { db: Db; now: () => Date })
       return known ? "duplicate" : "unknown-payment";
     },
 
-    /** The Learner's Course credits by status. `available` is what they can still start a Course with. */
+    /**
+     * The Course credit that deleting the Course gives back, or null. A
+     * Course whose creation failed before finding any Resources produced
+     * nothing: giving it up (deleting it) returns its credit, to start
+     * another Interview or be refunded. Any other Course keeps its credit
+     * used. Inside `tx` when given.
+     */
+    async creditGivenBackBy(courseId: string, tx: Tx | Db = db): Promise<string | null> {
+      const [row] = await tx
+        .select({ id: schema.courseCredit.id })
+        .from(schema.course)
+        .innerJoin(schema.interview, eq(schema.interview.id, schema.course.interviewId))
+        .innerJoin(
+          schema.courseCredit,
+          and(
+            eq(schema.courseCredit.id, schema.interview.courseCreditId),
+            eq(schema.courseCredit.status, "used"),
+          ),
+        )
+        .where(and(eq(schema.course.id, courseId), creationFailedEmpty(db, schema.course.id)));
+      return row?.id ?? null;
+    },
+
+    /**
+     * Makes a used credit available again, or refunded if its payment was
+     * refunded while it was used. Inside `tx` when given.
+     */
+    async giveBack(creditId: string, tx: Tx | Db = db): Promise<void> {
+      const at = now();
+      await tx
+        .update(schema.courseCredit)
+        .set({
+          status: sql`case when ${schema.courseCredit.refundedAt} is null then 'available'::course_credit_status else 'refunded'::course_credit_status end`,
+          updatedAt: at,
+        })
+        .where(and(eq(schema.courseCredit.id, creditId), eq(schema.courseCredit.status, "used")));
+    },
+
+    /** The Learner's Course credits by status. `available` ones can back an Interview. */
     async readCourseCredits(learnerId: string): Promise<CourseCredits> {
       const rows = await db
         .select({ status: schema.courseCredit.status, credits: count() })

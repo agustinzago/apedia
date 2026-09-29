@@ -91,7 +91,7 @@ describe("course: Course credits from verified payments", () => {
 
   it("records the refund of a credit already used, leaving it used", async () => {
     await deliver(payments.webhook(paid("order-1")));
-    // Nothing uses credits yet; stand in for the Interview gate.
+    // Stand in for "Write my course" using it.
     await db.update(schema.courseCredit).set({ status: "used" });
 
     expect(await deliver(payments.webhook(refunded("order-1")))).toBe("refunded");

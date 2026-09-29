@@ -145,3 +145,9 @@
 .creditCount {
   font-size: 21px;
 }
+
+.openInterview {
+  font-size: 21px;
+  color: var(--ink);
+  text-underline-offset: 4px;
+}
