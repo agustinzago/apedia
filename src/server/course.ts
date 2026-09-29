@@ -55,6 +55,16 @@ export const loadCourseCredits = cache(async () => {
   return course.readCourseCredits(viewer.learnerId);
 });
 
+/**
+ * How many Interviews the signed-in Learner may start, and the open ones
+ * they may come back to; null for a visitor.
+ */
+export const loadInterviewStart = cache(async () => {
+  const [course, viewer] = await Promise.all([getCourse(), getViewer()]);
+  if (viewer.learnerId === null) return null;
+  return course.readInterviewStart(viewer.learnerId);
+});
+
 /** The Lesson read model for whoever is asking, deduplicated within one request. */
 export const loadLesson = cache(async (courseId: string, index: number) => {
   const [course, viewer] = await Promise.all([getCourse(), getViewer()]);

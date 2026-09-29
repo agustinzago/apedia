@@ -91,7 +91,7 @@ describe("success_metrics view", () => {
       interview("i-ana", "ana"),
       interview("i-ben", "ben"),
       interview("i-cy", "cy"),
-      // Abandoned before sign-in: started, never reaches a Lesson.
+      // Anonymous, from before ADR 0007, abandoned: started, never reaches a Lesson.
       interview("i-anon", null),
     ]);
 

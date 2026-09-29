@@ -1,4 +1,4 @@
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, exists, not, sql, type AnyColumn, type SQL } from "drizzle-orm";
 import { schema, type Db } from "@/db";
 import type {
   MissionInput,
@@ -45,6 +45,38 @@ export type RetryCourseCreationResult =
   | SpendPaused;
 
 type CourseRow = typeof schema.course.$inferSelect;
+
+/**
+ * Whether the Course's creation job stopped, failed or paused, before
+ * research found any Resources: it cost a research run but produced
+ * nothing. Such a Course counts toward no daily limit, and giving it up
+ * (deleting it) returns its Course credit (ADR 0007). `courseId` is the
+ * course id column of the outer query, or a value.
+ */
+export function creationFailedEmpty(db: Db, courseId: AnyColumn | SQL): SQL {
+  return and(
+    exists(
+      db
+        .select({ one: sql`1` })
+        .from(schema.job)
+        .where(
+          and(
+            eq(schema.job.courseId, courseId),
+            eq(schema.job.kind, "course_creation"),
+            eq(schema.job.status, "failed"),
+          ),
+        ),
+    ),
+    not(
+      exists(
+        db
+          .select({ one: sql`1` })
+          .from(schema.resource)
+          .where(eq(schema.resource.courseId, courseId)),
+      ),
+    ),
+  )!;
+}
 
 /** Starts the Course creation job for a new Course. Returns its id. */
 export async function insertCourseCreationJob(

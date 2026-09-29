@@ -12,9 +12,10 @@ export type BuyState = { error: string | null };
 
 /**
  * "Buy a Course": sends the signed-in Learner to the provider's checkout,
- * with their id attached, and back to the thanks page after paying. Only
+ * with their id attached, and back to the thanks page after paying, which
+ * leads on to `from`, such as the Interview on the subject they typed. Only
  * the provider's webhook grants the Course credit. A visitor signs in first
- * and comes back to the page they were on (`from`).
+ * and comes back to `from`; the checkout's back button returns there too.
  */
 export async function buyCourse(_previous: BuyState, form: FormData): Promise<BuyState> {
   const from = safeNext(form.get("from"));
@@ -33,7 +34,7 @@ export async function buyCourse(_previous: BuyState, form: FormData): Promise<Bu
     const checkout = await getPayments().startCheckout({
       learnerId,
       email,
-      successUrl: `${origin}/purchase/thanks`,
+      successUrl: `${origin}/purchase/thanks?${new URLSearchParams({ next: from })}`,
       returnUrl: `${origin}${from}`,
     });
     if (!checkout.ok) {

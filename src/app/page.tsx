@@ -1,14 +1,19 @@
 import Link from "next/link";
 import { EXAMPLE_COURSE_ID, type CourseSummary } from "@/course";
 import { Mascot } from "@/components/mascot";
-import { loadCourseCredits, loadYourCourses } from "@/server/course";
+import { loadCourseCredits, loadInterviewStart, loadYourCourses } from "@/server/course";
+import { openInterviewPath } from "./interview/subject";
 import { BuyCourse } from "./purchase/buy-course";
 import { creditsLine } from "./purchase/credits-line";
 import { SubjectForm } from "./subject-form";
 import styles from "./home.module.css";
 
 export default async function Home() {
-  const [yourCourses, credits] = await Promise.all([loadYourCourses(), loadCourseCredits()]);
+  const [yourCourses, credits, start] = await Promise.all([
+    loadYourCourses(),
+    loadCourseCredits(),
+    loadInterviewStart(),
+  ]);
 
   return (
     <main className={styles.main}>
@@ -22,6 +27,11 @@ export default async function Home() {
           write a course that fits your reason and your time.
         </p>
         <SubjectForm />
+        {start?.openInterviews.map((open) => (
+          <Link key={open.id} href={openInterviewPath(open.id)} className={styles.openInterview}>
+            Your Interview on {open.subject} is waiting: continue it
+          </Link>
+        ))}
         <Link href={`/courses/${EXAMPLE_COURSE_ID}`} className={styles.example}>
           or open the Example course: Music theory
         </Link>

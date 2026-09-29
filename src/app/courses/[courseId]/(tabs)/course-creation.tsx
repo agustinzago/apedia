@@ -18,10 +18,13 @@ const POLL_MS = 2_000;
 export function CourseCreation({
   courseId,
   initial,
+  givesCreditBack,
 }: {
   courseId: string;
   /** Null for a Course whose preparation never started. */
   initial: CourseCreationView | null;
+  /** Deleting the Course would give its Course credit back: it failed before finding anything. */
+  givesCreditBack: boolean;
 }) {
   const router = useRouter();
   const [view, setView] = useState(initial);
@@ -122,6 +125,12 @@ export function CourseCreation({
           {retryState.error && (
             <p className={styles.creationError} role="alert">
               {retryState.error}
+            </p>
+          )}
+          {givesCreditBack && view?.status === "failed" && (
+            <p className={styles.creationNote}>
+              Or give up on it: deleting this Course, below, gives your Course
+              credit back, to start another Course or to ask for a refund.
             </p>
           )}
         </form>

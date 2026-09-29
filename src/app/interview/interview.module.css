@@ -222,3 +222,20 @@
   font-size: 19px;
   text-underline-offset: 4px;
 }
+
+.holding {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 22px 26px 24px;
+  text-align: left;
+  font-size: 19px;
+}
+
+.holdingTitle {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 24px;
+}

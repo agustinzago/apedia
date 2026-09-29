@@ -19,7 +19,7 @@ Everything Apedia holds for one Learner learning one subject: its Mission, Lesso
 _Avoid_: Notebook (that is the visual style, not a concept), workspace
 
 **Course credit**:
-What one purchase buys a Learner: the right to start one Course. It is available until used, and a full refund takes back an unused one.
+What one purchase buys a Learner: the right to start one Course. It is available until "Write my course" uses it, and a full refund takes back an unused one.
 _Avoid_: Token, ticket, license, seat, purchase (for the credit itself)
 
 **Example course**:
@@ -27,7 +27,7 @@ A pre-made, read-only Course ("Music theory") that anyone can open to see what a
 _Avoid_: Example notebook, demo
 
 **Interview**:
-The short conversation in which the Teacher draws out the Mission before a Course exists. It can happen before the Learner signs in.
+The short conversation in which the Teacher draws out the Mission before a Course exists. It happens after the Learner signs in, backed by an available Course credit, and stays open until its Course is written.
 _Avoid_: Onboarding, form, wizard
 
 **Mission**:
@@ -85,3 +85,9 @@ _Avoid_: Dictionary, vocabulary list
 **Reference sheet**:
 The printable, compressed essence of a Course, designed for quick lookup. It holds the Glossary, the Key ideas, and topic-specific sections, and grows with every finished Lesson.
 _Avoid_: Cheat sheet, summary
+
+## Relationships
+
+- **Course credit → Interview**: an available Course credit backs at most one open Interview. A redirected subject uses no credit.
+- **Course credit → Course**: "Write my course" uses the Interview's credit, which becomes that one Course. Giving up on (deleting) a Course whose creation failed before finding any Resources gives the credit back.
+- **Interview → Course**: one Interview, one Course.

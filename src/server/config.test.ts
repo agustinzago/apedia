@@ -90,7 +90,7 @@ describe("server: cost protection from the environment", () => {
       subject: "Apedia spend passed $20.00 on 2026-09-28",
     });
     expect(body.text).toContain("$21.50");
-    expect(body.text).toContain("New Interviews are paused until midnight UTC");
+    expect(body.text).toContain("Sales of Course credits are paused until midnight UTC");
     expect(body.text).toContain("$40.00");
   });
 

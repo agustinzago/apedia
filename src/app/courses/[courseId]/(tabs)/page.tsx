@@ -47,7 +47,11 @@ export default async function PathTab({
           {course.doneAt ? (
             <DoneNote doneAt={course.doneAt} />
           ) : course.preparing ? (
-            <CourseCreation courseId={course.id} initial={course.creation} />
+            <CourseCreation
+              courseId={course.id}
+              initial={course.creation}
+              givesCreditBack={course.givesCreditBack}
+            />
           ) : (
             course.finishedLessons.length === 0 &&
             !course.upNext && <p className={styles.muted}>No Lessons yet.</p>
@@ -57,7 +61,11 @@ export default async function PathTab({
           <div data-noprint className={styles.deleteCourse}>
             <ConfirmDelete
               label="Delete course"
-              warning="Delete this Course for good? Its Mission, Lessons, Learning records, Reference sheet and chats go with it. This can’t be undone."
+              warning={
+                course.givesCreditBack
+                  ? "Give up on this Course? It goes for good, and your Course credit comes back: start another Course with it, or ask for a refund."
+                  : "Delete this Course for good? Its Mission, Lessons, Learning records, Reference sheet and chats go with it. This can’t be undone."
+              }
               confirmLabel="Yes, delete it"
               action={deleteCourse.bind(null, course.id)}
             />

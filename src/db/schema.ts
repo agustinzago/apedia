@@ -115,16 +115,24 @@ export const interviewStage = pgEnum("interview_stage", [
 
 export type InterviewMessage = { from: "teacher" | "learner"; text: string };
 
-// An Interview runs before sign-in, so it starts anonymous: whoever holds its
-// id may continue it. It is claimed by a Learner at "Write my course".
+// An Interview is held by a signed-in Learner and backed by one of their
+// Course credits (ADR 0007): only its Learner may continue it.
 export const interview = pgTable(
   "interview",
   {
     id: id(),
-    // Null until claimed.
+    // Null only for anonymous Interviews started before ADR 0007, which
+    // nobody can reach any more.
     learnerId: text("learner_id").references(() => learner.id, {
       onDelete: "cascade",
     }),
+    // The Course credit backing the Interview, reserved when it starts and
+    // used by "Write my course". Unique: a credit backs at most one
+    // Interview. Null for a redirected subject, which uses no credit, and
+    // for Interviews started before ADR 0007.
+    courseCreditId: text("course_credit_id")
+      .unique()
+      .references((): AnyPgColumn => courseCredit.id, { onDelete: "set null" }),
     subject: text("subject").notNull(),
     // BCP 47 tag of the language the visitor writes in.
     language: text("language").notNull(),
@@ -139,6 +147,8 @@ export const interview = pgTable(
     awaitingFollowUp: boolean("awaiting_follow_up").notNull().default(false),
     // The conversation as shown, in order.
     messages: jsonb("messages").$type<InterviewMessage[]>().notNull(),
+    // When an anonymous Interview was claimed at sign-in, before ADR 0007.
+    // No longer written.
     claimedAt: timestamp("claimed_at", { withTimezone: true }),
     createdAt: createdAt(),
   },
@@ -529,7 +539,7 @@ export const job = pgTable(
 );
 
 // Every call the Teacher makes to Claude, for the org-wide spend alarm and
-// for the operator. Not tied to a Learner: Interviews start anonymous.
+// for the operator. Not tied to a Learner: the spend limits are org-wide.
 export const teacherCall = pgTable(
   "teacher_call",
   {
@@ -558,9 +568,11 @@ export const spendAlarm = pgTable("spend_alarm", {
   createdAt: createdAt(),
 });
 
-// available: bought, not yet used. used: it started a Course (set by the
-// Interview gate, not yet built). refunded: the payment was fully refunded
-// before the credit was used, so it can no longer start a Course.
+// available: bought, not yet used; it may back one open Interview. used:
+// "Write my course" created a Course with it; it comes back to available if
+// the Learner gives up on a Course whose creation failed before finding any
+// Resources. refunded: the payment was fully refunded before the credit was
+// used, so it can no longer start or continue an Interview.
 export const courseCreditStatus = pgEnum("course_credit_status", [
   "available",
   "used",

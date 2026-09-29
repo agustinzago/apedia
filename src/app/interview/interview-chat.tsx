@@ -5,6 +5,7 @@ import { useActionState, useEffect, useRef, useState } from "react";
 import type { InterviewMessage, InterviewView } from "@/course";
 import { Mascot } from "@/components/mascot";
 import { sendAnswer, writeMyCourse, type InterviewState } from "./actions";
+import { openInterviewPath } from "./subject";
 import styles from "./interview.module.css";
 
 const SITTING_CHIPS = [5, 10, 20, 30];
@@ -19,23 +20,18 @@ export function InterviewChat({
   subject,
   openingMessages,
   initial,
-  signedIn,
-  paused = false,
 }: {
   subject: string;
   /** What to show before the Interview is stored. */
   openingMessages: InterviewMessage[];
   initial: InterviewView | null;
-  signedIn: boolean;
-  /** Sales are paused for the day: the opening says so, and no answer is taken. */
-  paused?: boolean;
 }) {
   const [state, send, sending] = useActionState(sendAnswer, {
     view: initial,
     error: null,
   } satisfies InterviewState);
   const [draft, setDraft] = useState("");
-  // What the visitor just sent, shown while the Teacher replies.
+  // What the Learner just sent, shown while the Teacher replies.
   const [sent, setSent] = useState("");
 
   // Clear the box once an answer has gone through; keep it if it failed.
@@ -49,11 +45,14 @@ export function InterviewChat({
   const messages = view ? view.messages : openingMessages;
   const stage = view ? view.stage : "why";
   const questionNumber = view ? view.questionNumber : 1;
+  // A refunded Course credit stops the Interview where it is.
+  const stopped = view !== null && !view.backed && stage !== "redirected";
 
-  // Once stored, reloading resumes this Interview instead of starting afresh.
+  // Once stored, reloading comes back to this Interview instead of starting afresh.
+  const storedId = view?.id;
   useEffect(() => {
-    if (view && window.location.search) window.history.replaceState(null, "", "/interview");
-  }, [view]);
+    if (storedId) window.history.replaceState(null, "", openInterviewPath(storedId));
+  }, [storedId]);
 
   const end = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -98,7 +97,14 @@ export function InterviewChat({
         </p>
       )}
 
-      {!sending && !paused && (stage === "why" || stage === "know" || stage === "success") && (
+      {stopped && (
+        <p className={styles.error} role="alert">
+          This Interview no longer has a Course credit behind it (it was
+          refunded), so it can’t go on.
+        </p>
+      )}
+
+      {!sending && !stopped && (stage === "why" || stage === "know" || stage === "success") && (
         <form
           action={send}
           onSubmit={() => setSent(draft)}
@@ -134,7 +140,7 @@ export function InterviewChat({
         </form>
       )}
 
-      {!sending && stage === "sitting" && (
+      {!sending && !stopped && stage === "sitting" && (
         <form action={send} className={styles.sitting}>
           <span className="visually-hidden">Minutes per sitting</span>
           {SITTING_CHIPS.map((minutes) => (
@@ -153,9 +159,9 @@ export function InterviewChat({
         </form>
       )}
 
-      {stage === "complete" && <WriteCourse signedIn={signedIn} />}
+      {!stopped && stage === "complete" && view && <WriteCourse interviewId={view.id} />}
 
-      {(stage === "redirected" || paused) && (
+      {(stage === "redirected" || stopped) && (
         <Link href="/" className={styles.homeLink}>
           Back to the home page
         </Link>
@@ -177,16 +183,16 @@ function Bubble({ message }: { message: InterviewMessage }) {
   );
 }
 
-function WriteCourse({ signedIn }: { signedIn: boolean }) {
+function WriteCourse({ interviewId }: { interviewId: string }) {
   const [state, write, writing] = useActionState(writeMyCourse, { error: null });
 
   return (
     <form action={write} className={`sticky-note ${styles.write}`}>
+      <input type="hidden" name="interviewId" value={interviewId} />
       <p className={styles.writeTitle}>Thank you. That’s everything I need.</p>
       <p className={styles.writeNote}>
-        {signedIn
-          ? "Your teacher will write your Mission, then start preparing your course."
-          : "You’ll sign in first, so your course is kept. Your answers are saved while you do."}
+        Your teacher will write your Mission, then start preparing your course.
+        This uses your Course credit.
       </p>
       <button type="submit" className="button-ink" disabled={writing}>
         {writing ? "Writing your Mission…" : "Write my course"}

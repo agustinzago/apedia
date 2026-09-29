@@ -13,7 +13,7 @@ export default function PrivacyPage() {
       <h1 className={styles.title}>
         <span className="highlight">Privacy</span>
       </h1>
-      <p className={styles.updated}>Last updated 28 September 2026</p>
+      <p className={styles.updated}>Last updated 29 September 2026</p>
       <p className={styles.lede}>
         Apedia keeps only what it needs to teach you. This page says what that
         is, who helps us look after it, and how to remove it. Apedia is run by{" "}
@@ -38,9 +38,8 @@ export default function PrivacyPage() {
           <li>The questions you ask the Teacher in a Lesson, and its answers.</li>
         </ul>
         <p>
-          Apedia sets only the cookies it needs to work: one keeps you signed
-          in, and one remembers an Interview you started before signing in.
-          There are no advertising or tracking cookies.
+          Apedia sets only the cookies it needs to keep you signed in. There
+          are no advertising or tracking cookies.
         </p>
         <p>
           To see how many people visit, Apedia counts page views with Vercel

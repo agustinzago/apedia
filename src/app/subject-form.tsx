@@ -4,7 +4,11 @@ import styles from "./home.module.css";
 
 const SUGGESTIONS = ["Music theory", "Chess", "Astronomy", "Spanish", "Drawing"];
 
-/** Begin, or a suggestion chip, starts the Interview on that subject. */
+/**
+ * Begin, or a suggestion chip, heads for the Interview on that subject. The
+ * Interview page sends a visitor to sign in, and a Learner with no Course
+ * credit free to buy a Course, first; the subject rides along in the URL.
+ */
 export function SubjectForm() {
   return (
     <Form action="/interview" className={styles.form}>

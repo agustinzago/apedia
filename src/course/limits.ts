@@ -1,5 +1,6 @@
-import { and, count, eq, exists, gte, ne, not, sql, type SQL } from "drizzle-orm";
+import { and, count, eq, gte, ne, not, type SQL } from "drizzle-orm";
 import { schema, type Db } from "@/db";
+import { creationFailedEmpty } from "./course-creation";
 
 /**
  * Per-Learner daily caps, which keep one Learner from running up large
@@ -76,30 +77,7 @@ export function createDailyCaps({
           eq(schema.course.learnerId, learnerId),
           eq(schema.course.isExample, false),
           gte(schema.course.createdAt, since),
-          not(
-            and(
-              exists(
-                db
-                  .select({ one: sql`1` })
-                  .from(schema.job)
-                  .where(
-                    and(
-                      eq(schema.job.courseId, schema.course.id),
-                      eq(schema.job.kind, "course_creation"),
-                      eq(schema.job.status, "failed"),
-                    ),
-                  ),
-              ),
-              not(
-                exists(
-                  db
-                    .select({ one: sql`1` })
-                    .from(schema.resource)
-                    .where(eq(schema.resource.courseId, schema.course.id)),
-                ),
-              ),
-            )!,
-          ),
+          not(creationFailedEmpty(db, schema.course.id)),
         ];
         if (except) conditions.push(ne(schema.course.id, except));
         return one(

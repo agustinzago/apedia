@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { safeNext } from "@/auth";
 import { Mascot } from "@/components/mascot";
+import { subjectIn } from "@/app/interview/subject";
 import { auth } from "@/server/auth";
 import { SignInPanel } from "./sign-in-form";
 import styles from "./sign-in.module.css";
@@ -13,6 +14,8 @@ export default async function SignInPage({ searchParams }: PageProps<"/sign-in">
   const next = safeNext(params.next);
   if (session?.user) redirect(next);
   const { error } = params;
+  // The subject typed on the home page, riding along to the Interview.
+  const subject = subjectIn(next);
 
   return (
     <main className={styles.main}>
@@ -21,8 +24,8 @@ export default async function SignInPage({ searchParams }: PageProps<"/sign-in">
         <span className="highlight">Sign in</span>
       </h1>
       <p className={styles.lede}>
-        {next === "/interview"
-          ? "Sign in and your teacher will write your course. Your answers are kept while you do."
+        {subject
+          ? `Sign in first, so your course on ${subject} is kept for you. We’ll email you a link that brings you back to it.`
           : "We’ll email you a link. Open it and you’re in: no password to remember."}
       </p>
       {error && (
