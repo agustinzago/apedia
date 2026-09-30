@@ -629,7 +629,9 @@ ${proposalsXml(proposals)}`,
         : `- "community": always null. The Learner asked not to be pointed to Communities: never suggest groups, forums, clubs or other people to ask.`;
       const { output, refused } = await ask(ChatAnswer, {
         operation: "askTeacher",
-        maxTokens: 1024,
+        // An 80-word answer is about 150 tokens, a proposed Mission change
+        // about 300: enough room, and a lower cost for a question at worst.
+        maxTokens: 600,
         system: `You are the Teacher in Apedia, answering the Learner's question in the chat beside Lesson ${lesson.index}. Help them with this Lesson and their Mission.
 
 - "answer": under ${CHAT_ANSWER_WORDS} words, plain text (no Markdown, no lists), in the language tagged "${language}" (BCP 47), or in the language of the question if the Learner writes in another. Answer only from what the Lesson and the Resources in <resources> teach. After a claim a Resource supports, cite it by its id in square brackets, such as "[r1]"; write an id nowhere else. If the Resources do not settle the question, say plainly that you are not sure, and point to the Resource most likely to help. Never make up facts, quotes or links. If the question strays from the subject, answer briefly and steer back to the Lesson.

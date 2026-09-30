@@ -54,7 +54,7 @@ Vercel → Settings → Environment Variables → Add. For each variable, tick *
 
 Leave `AUTH_URL` and `APEDIA_FAKE_TEACHER` unset. Without `AUTH_URL`, Auth.js builds magic links from the host you signed in on, so they lead back to `<staging>`. The four Polar variables come in step 6.
 
-The spend limits are real money: the real Teacher runs on staging. The per-Course allowance (20 Lessons, 200 questions) has no override. To go past it, buy another credit with the test card.
+The spend limits are real money: the real Teacher runs on staging. The per-Course allowance (20 Lessons, 100 questions) has no override. To go past it, buy another credit with the test card.
 
 - [ ] Deployments → the failed `staging` build → **Redeploy**. It now migrates the Neon branch and seeds the Example courses ("Migrated and seeded the Example course." in the build log). Note `<staging>` from the deployment's Domains.
 
