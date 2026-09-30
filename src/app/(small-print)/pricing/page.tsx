@@ -3,7 +3,10 @@ import Link from "next/link";
 import { COURSE_CREDIT } from "@/course";
 import styles from "../small-print.module.css";
 
-export const metadata: Metadata = { title: "Pricing · Apedia" };
+export const metadata: Metadata = {
+  title: "Pricing · Apedia",
+  description: `A personal AI course costs US$${COURSE_CREDIT.priceUsd}, paid once, priced at cost. No subscription.`,
+};
 
 /**
  * What a Course costs and what it includes, before anyone signs in. Every

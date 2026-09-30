@@ -9,6 +9,20 @@ import { openInterviewPath } from "./interview/subject";
 import { BuyCourse } from "./purchase/buy-course";
 import { creditsLine } from "./purchase/credits-line";
 import styles from "./home.module.css";
+import { SITE_URL } from "./site-url";
+
+/** Tells search engines what Apedia is and what a Course costs. */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  name: "Apedia",
+  url: SITE_URL,
+  applicationCategory: "EducationalApplication",
+  operatingSystem: "Web",
+  description:
+    "A personal AI teacher for anything. Tell it what you want to learn and why, and get a short online course: Lessons that fit one sitting, sources that really exist, and a Reference sheet that grows as you go.",
+  offers: { "@type": "Offer", price: COURSE_CREDIT.priceUsd, priceCurrency: "USD" },
+};
 
 /**
  * The landing page: what Apedia is, the Example courses to look inside for
@@ -26,6 +40,10 @@ export default async function Home() {
 
   return (
     <main className={styles.main}>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }}
+      />
       <section className={styles.hero}>
         <div className={styles.heroText}>
           <span className={`kicker ${styles.heroKicker}`}>A teacher for anything</span>

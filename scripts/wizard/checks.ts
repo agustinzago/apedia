@@ -107,7 +107,7 @@ export function parseSiteUrl(value: string): { origin: string } | { problem: str
   try {
     url = new URL(value);
   } catch {
-    return { problem: "That is not a URL. Use the address Learners will open, e.g. https://apedia.app." };
+    return { problem: "That is not a URL. Use the address Learners will open, e.g. https://apedia.study." };
   }
   if (url.protocol !== "https:") return { problem: "The live site must use https://." };
   if (url.pathname !== "/" || url.search || url.hash) {

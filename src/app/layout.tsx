@@ -4,6 +4,7 @@ import { Kalam, Patrick_Hand } from "next/font/google";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import "./globals.css";
+import { SITE_URL } from "./site-url";
 
 const kalam = Kalam({
   variable: "--font-kalam",
@@ -17,10 +18,18 @@ const patrickHand = Patrick_Hand({
   subsets: ["latin"],
 });
 
+// Search wording on purpose: people look for "AI teacher" and "online course".
+const description =
+  "Learn anything with a personal AI teacher. Say what you want to learn and why, and get a short online course built around you: bite-size lessons, real sources, quizzes.";
+
 export const metadata: Metadata = {
-  title: "Apedia",
-  description:
-    "Learn anything. Tell your teacher why it matters to you and get a short course built around that reason.",
+  metadataBase: new URL(SITE_URL),
+  title: "Apedia: learn anything with a personal AI teacher",
+  description,
+  applicationName: "Apedia",
+  alternates: { canonical: "./" },
+  openGraph: { type: "website", siteName: "Apedia", locale: "en_US", url: "./" },
+  twitter: { card: "summary_large_image" },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
