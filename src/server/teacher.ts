@@ -5,8 +5,9 @@ import { createFakeUrlFetcher } from "@/url-fetcher/fake";
 
 /**
  * The app's Teacher: Claude when ANTHROPIC_API_KEY is set. Outside production
- * (and in the e2e smoke test, via APEDIA_FAKE_TEACHER=1) it falls back to the
- * fake Teacher so the app runs without a key.
+ * (and in the e2e smoke test, via APEDIA_FAKE_TEACHER=1, which Vercel's
+ * Production ignores) it falls back to the fake Teacher so the app runs
+ * without a key.
  *
  * The choice is made on the first call, not at startup: in production without
  * a key only what needs the Teacher (the Interview) fails; the rest of the
@@ -45,13 +46,24 @@ export function createAppUrlFetcher(): UrlFetcher {
   };
 }
 
+/**
+ * APEDIA_FAKE_TEACHER=1, honoured everywhere but Vercel's Production, where a
+ * stray flag would hand paying Learners the stand-in.
+ */
+function fakeTeacherAsked(): boolean {
+  if (process.env.APEDIA_FAKE_TEACHER !== "1") return false;
+  if (process.env.VERCEL_ENV !== "production") return true;
+  console.error("APEDIA_FAKE_TEACHER is ignored in production.");
+  return false;
+}
+
 function usesStandInTeacher(): boolean {
-  if (process.env.APEDIA_FAKE_TEACHER === "1") return true;
+  if (fakeTeacherAsked()) return true;
   return !process.env.ANTHROPIC_API_KEY && process.env.NODE_ENV !== "production";
 }
 
 function chooseTeacher(recordCall: TeacherCallRecorder | undefined): Teacher {
-  if (process.env.APEDIA_FAKE_TEACHER === "1") return createFakeTeacher();
+  if (fakeTeacherAsked()) return createFakeTeacher();
   if (process.env.ANTHROPIC_API_KEY) return createClaudeTeacher({ recordCall });
   if (process.env.NODE_ENV !== "production") {
     console.warn(
