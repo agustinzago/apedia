@@ -84,6 +84,11 @@ export type WriteCourseResult =
   | { ok: false; reason: "not-found" | "not-yours" | "not-finished" }
   /** "Write my course" was pressed again while the Course is being written. */
   | Busy
+  /**
+   * A later answer turned the Interview harmful: it is redirected with this
+   * kind message, and its Course credit is free again.
+   */
+  | { ok: false; reason: "redirected"; message: string }
   /** The credit backing the Interview is no longer available, say it was refunded. */
   | NoCourseCredit
   /** The Teacher is paused for the day; the Interview keeps for later. */
@@ -280,6 +285,26 @@ export function createInterviewOperations({
     if (creditId === null || !(await isBacked(row))) return NO_CREDIT;
     const paused = await spend.teacherCall();
     if (paused) return paused;
+
+    // The Interview's start was screened on its first answer alone; the
+    // rest is screened before a Mission is written from it.
+    const safety = await teacher.checkSafety({
+      subject: row.subject,
+      why: row.why ?? "",
+      laterAnswers: [row.know ?? "", row.success ?? ""],
+    });
+    if (safety.verdict === "redirect") {
+      await db
+        .update(schema.interview)
+        .set({
+          stage: "redirected",
+          // A redirected subject uses no credit.
+          courseCreditId: null,
+          messages: [...row.messages, { from: "teacher", text: safety.message }],
+        })
+        .where(eq(schema.interview.id, row.id));
+      return { ok: false, reason: "redirected", message: safety.message };
+    }
 
     const mission = await teacher.writeMission({
       subject: row.subject,

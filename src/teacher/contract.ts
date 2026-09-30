@@ -11,7 +11,12 @@ export const SafetyVerdict = z.object({
 });
 export type SafetyVerdict = z.infer<typeof SafetyVerdict>;
 
-export type SafetyCheckInput = { subject: string; why: string };
+export type SafetyCheckInput = {
+  subject: string;
+  why: string;
+  /** The Interview's other answers, when it is screened as a whole before its Course is written. */
+  laterAnswers?: string[];
+};
 
 export const InterviewReply = z.object({
   /** One short follow-up question, only when the answer was empty or vague. */

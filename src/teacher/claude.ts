@@ -195,13 +195,13 @@ export function createClaudeTeacher({
   }
 
   return {
-    async checkSafety({ subject, why }) {
+    async checkSafety({ subject, why, laterAnswers = [] }) {
       const { output } = await ask(SafetyVerdict, {
         operation: "checkSafety",
         maxTokens: 1024,
         system: `You screen subjects for Apedia, a web app where a Teacher writes a short course around why someone wants to learn something.
 
-Given the subject and the visitor's reason for learning it, choose a verdict:
+Given the subject and the visitor's reason for learning it (and, once their Interview is done, their other answers), choose a verdict:
 - "allow": nearly everything people want to learn, including sensitive but legitimate subjects studied for safety, health, history, art, work or understanding (first aid, the history of a war, how drugs affect the brain, how scams work so you can spot them).
 - "redirect": learning it as asked would mainly help cause serious harm, as set out in the safety rules.
 
@@ -214,7 +214,10 @@ ${TONE}`,
         user: xml`${DATA_NOTE}
 
 <subject>${subject}</subject>
-<why>${why}</why>`,
+<why>${why}</why>${laterAnswers.length > 0 ? xml`
+<other_answers>
+${laterAnswers.map((a) => xml`<answer>${a}</answer>`)}
+</other_answers>` : ""}`,
       });
       if (output === null) {
         return { verdict: "redirect", language: "en", message: REFUSAL_MESSAGE };
