@@ -131,7 +131,8 @@ export async function writeMyCourse(_previous: WriteState, form: FormData): Prom
 
 /**
  * Lets go of the Learner's open Interview, for good, so its Course credit
- * can back an Interview on the new subject instead.
+ * can back an Interview on the new subject instead: with no subject, the
+ * Learner picks one on /start.
  */
 export async function startOverOn(interviewId: string, subject: string): Promise<DeleteState> {
   const [course, viewer] = await Promise.all([getCourse(), getViewer()]);
@@ -140,5 +141,5 @@ export async function startOverOn(interviewId: string, subject: string): Promise
   const discarded = await course.discardInterview(interviewId, viewer.learnerId);
   if (!discarded.ok) return { error: "That Interview isn’t yours, or it already became a Course." };
   const typed = typedSubject(subject);
-  redirect(typed ? interviewPath(typed) : "/");
+  redirect(typed ? interviewPath(typed) : "/start");
 }

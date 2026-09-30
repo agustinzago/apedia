@@ -9,10 +9,16 @@
 
 .header {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 16px;
   padding-bottom: 18px;
   border-bottom: 2px dashed var(--rule);
+}
+
+/* "start over", asking first: the question takes its own line. */
+.header > form {
+  flex-basis: 100%;
 }
 
 .headerText {

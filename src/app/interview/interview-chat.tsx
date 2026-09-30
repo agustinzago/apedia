@@ -4,8 +4,9 @@ import Link from "next/link";
 import { useActionState, useEffect, useRef, useState } from "react";
 import type { InterviewMessage, InterviewView } from "@/course";
 import { shortSubject } from "@/course/short-subject";
+import { ConfirmDelete } from "@/components/confirm-delete";
 import { Mascot } from "@/components/mascot";
-import { sendAnswer, writeMyCourse, type InterviewState } from "./actions";
+import { sendAnswer, startOverOn, writeMyCourse, type InterviewState } from "./actions";
 import { answerPlaceholder } from "./placeholders";
 import { openInterviewPath } from "./subject";
 import styles from "./interview.module.css";
@@ -64,9 +65,18 @@ export function InterviewChat({
           <span className={styles.teacher}>Your teacher</span>
           <span className={styles.subtitle}>Setting up a course on {shortSubject(subject)}</span>
         </div>
-        <Link href="/start" className={styles.startOver}>
-          start over
-        </Link>
+        {storedId ? (
+          <ConfirmDelete
+            label="start over"
+            warning={`Your answers about ${shortSubject(subject)} go for good, and its Course credit is free for a new Interview.`}
+            confirmLabel="Yes, start over"
+            action={startOverOn.bind(null, storedId, "")}
+          />
+        ) : (
+          <Link href="/start" className={styles.startOver}>
+            start over
+          </Link>
+        )}
       </header>
 
       <ol className={styles.messages} aria-live="polite">
