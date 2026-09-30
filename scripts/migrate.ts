@@ -3,8 +3,9 @@
  * In dev without DATABASE_URL the app migrates its local PGlite database itself.
  *
  * With --on-deploy (run by `npm run build`) it acts only in a Vercel
- * Production build, so every deploy to Production migrates before the new
- * code serves; local builds, previews and the smoke test are left alone.
+ * Production build and in a Preview build of the `staging` branch, so every
+ * deploy to either migrates before the new code serves; local builds, other
+ * previews and the smoke test are left alone.
  */
 import { Pool } from "@neondatabase/serverless";
 import { drizzle } from "drizzle-orm/neon-serverless";
@@ -13,8 +14,11 @@ import { ensureExampleCourse } from "@/course";
 import { MIGRATIONS_FOLDER, schema } from "@/db";
 
 const url = process.env.DATABASE_URL;
-if (process.argv.includes("--on-deploy") && process.env.VERCEL_ENV !== "production") {
-  console.log("Not a Vercel Production build: skipping migrations.");
+const { VERCEL_ENV, VERCEL_GIT_COMMIT_REF } = process.env;
+const deploys =
+  VERCEL_ENV === "production" || (VERCEL_ENV === "preview" && VERCEL_GIT_COMMIT_REF === "staging");
+if (process.argv.includes("--on-deploy") && !deploys) {
+  console.log("Not a Vercel Production or staging build: skipping migrations.");
   process.exit(0);
 }
 if (!url) {

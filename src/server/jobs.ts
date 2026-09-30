@@ -25,7 +25,9 @@ export async function requestOrigin(): Promise<string> {
 /**
  * Asks for the job's next step to run in its own invocation; waits only for
  * the request to be accepted. A failure is logged, not thrown: the progress
- * screen notices a job left waiting and starts it again.
+ * screen notices a job left waiting and starts it again. On a protected
+ * Preview, such as staging, the request carries Vercel's Protection Bypass
+ * for Automation secret, or Deployment Protection would turn it away.
  */
 export async function startJobStep(jobId: string, origin: string): Promise<void> {
   const secret = authSecret();
@@ -33,11 +35,15 @@ export async function startJobStep(jobId: string, origin: string): Promise<void>
     console.error(`Could not start job ${jobId}: AUTH_SECRET is not set.`);
     return;
   }
+  const bypass = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
   try {
     const response = await fetch(`${origin}/api/jobs/${encodeURIComponent(jobId)}`, {
       method: "POST",
       cache: "no-store",
-      headers: jobStartHeaders(jobId, secret),
+      headers: {
+        ...jobStartHeaders(jobId, secret),
+        ...(bypass && { "x-vercel-protection-bypass": bypass }),
+      },
     });
     if (!response.ok) {
       console.error(`Starting job ${jobId} answered ${response.status}.`);
