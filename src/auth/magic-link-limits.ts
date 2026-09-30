@@ -1,5 +1,5 @@
 import { createHmac } from "node:crypto";
-import { and, count, eq, gt, gte, lt, type SQL } from "drizzle-orm";
+import { and, count, eq, gt, gte, lt, sql, type SQL } from "drizzle-orm";
 import { schema, type Db } from "@/db";
 
 /**
@@ -57,9 +57,6 @@ export function createMagicLinkLimiter({
 }) {
   const t = schema.magicLinkRequest;
 
-  const sent = async (...conditions: SQL[]) =>
-    (await db.select({ n: count() }).from(t).where(and(...conditions)))[0]?.n ?? 0;
-
   return {
     /**
      * Records a magic link about to be sent to `email`, unless that would
@@ -81,20 +78,33 @@ export function createMagicLinkLimiter({
         .update(email.trim().toLowerCase())
         .digest("hex");
 
-      const [emailHour, emailDay, ipHour] = await Promise.all([
-        sent(eq(t.emailHash, emailHash), gt(t.createdAt, hourAgo)),
-        sent(eq(t.emailHash, emailHash), gte(t.createdAt, dayStart)),
-        ip === null ? 0 : sent(eq(t.ip, ip), gt(t.createdAt, hourAgo)),
-      ]);
-      if (
-        emailHour >= limits.perEmailPerHour ||
-        emailDay >= limits.perEmailPerDay ||
-        ipHour >= limits.perIpPerHour
-      ) {
-        return { ok: false, reason: "too-many-links" };
-      }
-
-      await db.insert(t).values({ emailHash, ip, createdAt: at });
+      // Requests for the same address or from the same IP take turns, so a
+      // burst sent at once can't all count before any of them is recorded.
+      // Locked in a fixed order, so two requests never wait on each other.
+      const locks = [
+        `magic-link:email:${emailHash}`,
+        ...(ip === null ? [] : [`magic-link:ip:${ip}`]),
+      ].sort();
+      const allowed = await db.transaction(async (tx) => {
+        for (const key of locks) {
+          await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${key}, 0))`);
+        }
+        const sent = async (...conditions: SQL[]) =>
+          (await tx.select({ n: count() }).from(t).where(and(...conditions)))[0]?.n ?? 0;
+        const emailHour = await sent(eq(t.emailHash, emailHash), gt(t.createdAt, hourAgo));
+        const emailDay = await sent(eq(t.emailHash, emailHash), gte(t.createdAt, dayStart));
+        const ipHour = ip === null ? 0 : await sent(eq(t.ip, ip), gt(t.createdAt, hourAgo));
+        if (
+          emailHour >= limits.perEmailPerHour ||
+          emailDay >= limits.perEmailPerDay ||
+          ipHour >= limits.perIpPerHour
+        ) {
+          return false;
+        }
+        await tx.insert(t).values({ emailHash, ip, createdAt: at });
+        return true;
+      });
+      if (!allowed) return { ok: false, reason: "too-many-links" };
       // No window is longer than a day, so older rows only take up room.
       await db.delete(t).where(lt(t.createdAt, new Date(at.getTime() - DAY_MS)));
       return { ok: true };
