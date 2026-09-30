@@ -1,6 +1,7 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { describe, expect, it, vi } from "vitest";
 import { createClaudeTeacher, SEARCH_MAX_USES, TeacherError } from "./claude";
+import { withDeadline } from "./deadline";
 import type { TeacherCall } from "./contract";
 import chatFixture from "./fixtures/chat-music-theory.json";
 import finishFixture from "./fixtures/finish-music-theory.json";
@@ -292,6 +293,49 @@ describe("teacher: talking to Claude", () => {
     };
     expect(search.output_config.effort).toBe("low");
     expect(search.max_tokens).toBeLessThanOrEqual(8000);
+  });
+
+  describe("time limits", () => {
+    it("gives a call inside a job step only the step's time left, without SDK retries", async () => {
+      const { client, parse } = clientReturning({ stop_reason: "end_turn", parsed_output: lessonFixture });
+
+      await withDeadline(Date.now() + 100_000, () =>
+        createClaudeTeacher({ client }).writeLesson(writeLessonInput),
+      );
+
+      const options = parse.mock.calls[0][1];
+      expect(options.maxRetries).toBe(0);
+      expect(options.timeout).toBeGreaterThan(90_000);
+      expect(options.timeout).toBeLessThanOrEqual(100_000);
+    });
+
+    it("fails at once when a step has too little time left for another call", async () => {
+      const { client, parse } = clientReturning({ stop_reason: "end_turn", parsed_output: lessonFixture });
+
+      await expect(
+        withDeadline(Date.now() + 2_000, () => createClaudeTeacher({ client }).writeLesson(writeLessonInput)),
+      ).rejects.toThrow(TeacherError);
+      expect(parse).not.toHaveBeenCalled();
+    });
+
+    it("limits a call outside a step to a minute, with one retry", async () => {
+      const { client, parse } = clientReturning({ stop_reason: "end_turn", parsed_output: safetyRedirect });
+
+      await createClaudeTeacher({ client }).checkSafety({ subject: "Chess", why: "To win" });
+
+      expect(parse.mock.calls[0][1]).toEqual({ timeout: 60_000, maxRetries: 1 });
+    });
+
+    it("ends research by the step's deadline when it comes before the search's own", async () => {
+      const { client, stream } = clientStreaming([null]);
+
+      const findings = await withDeadline(Date.now() + 5_300, () =>
+        createClaudeTeacher({ client }).researchSearch({ subject: "Music theory", language: "en", mission }),
+      );
+
+      expect(findings.results).toEqual([]);
+      expect(stream).toHaveBeenCalledOnce();
+    }, 10_000);
   });
 
   it("sets no effort for Haiku, which takes none", async () => {

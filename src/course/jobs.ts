@@ -1,6 +1,7 @@
 import { and, eq, like, lt, or, sql } from "drizzle-orm";
 import { schema, type Db } from "@/db";
 import type { JobProgressMessage } from "@/db/schema";
+import { withDeadline } from "@/teacher/deadline";
 import type { SpendPaused } from "./spend";
 
 /**
@@ -11,6 +12,11 @@ import type { SpendPaused } from "./spend";
 
 /** Longer than any step may run (300 s): a running job older than this lost its runner. */
 export const STEP_LIMIT_MS = 330_000;
+/**
+ * A step's calls to Claude must end this long after it is claimed, leaving
+ * the rest of its function's 300 s to record what they returned.
+ */
+export const STEP_DEADLINE_MS = 280_000;
 /** A pending job no runner has picked up for this long lost its start signal. */
 export const STALLED_AFTER_MS = 15_000;
 
@@ -183,7 +189,7 @@ export async function runJobStep(
       await run.pause(stopped);
       return "stop";
     }
-    return await runners[job.kind](job, run);
+    return await withDeadline(now.getTime() + STEP_DEADLINE_MS, () => runners[job.kind](job, run));
   } catch (error) {
     if (error instanceof LostJobError) return "stop";
     console.error(`Job ${job.id} (${job.kind}) failed at ${job.step}.`, error);

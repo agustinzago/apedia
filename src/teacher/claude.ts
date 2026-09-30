@@ -17,9 +17,29 @@ import {
   type Teacher,
   type TeacherCallRecorder,
 } from "./contract";
+import { timeLeft } from "./deadline";
 import { costUsd, HAIKU, SONNET, type Model } from "./pricing";
 
 /** The only file that talks to Claude. The API key stays on the server. */
+
+/** A call outside a job step (the Interview, the chat) gets this long, and one retry. */
+export const CALL_TIMEOUT_MS = 60_000;
+
+/** Less time than this left in a step, and a call is not started. */
+const MIN_CALL_MS = 5_000;
+
+/**
+ * How long the next call may take. Inside a job step, only the time left
+ * before its deadline and no SDK retries: the step retries in code, and the
+ * Learner can try again. The SDK's own defaults (10 minutes, two retries)
+ * could run a step past its function's 300 s.
+ */
+function callLimits(): { timeout: number; maxRetries: number } {
+  const left = timeLeft();
+  if (left === null) return { timeout: CALL_TIMEOUT_MS, maxRetries: 1 };
+  if (left < MIN_CALL_MS) throw new TeacherError("The step ran out of time for another call to Claude.");
+  return { timeout: left, maxRetries: 0 };
+}
 
 /** Research search limits (ADR 0004): the step must fit one 300 s function run. */
 export const SEARCH_MAX_USES = 8;
@@ -155,28 +175,32 @@ export function createClaudeTeacher({
     request: Request,
   ): Promise<{ output: T | null; refused: boolean }> {
     const model = request.model ?? HAIKU;
-    const response = await client.messages.parse({
-      model,
-      max_tokens: request.maxTokens,
-      system: request.system,
-      messages: [
-        {
-          role: "user",
-          content:
-            request.cachedPrefix === undefined
-              ? request.user.text
-              : [
-                  {
-                    type: "text",
-                    text: request.cachedPrefix.text,
-                    cache_control: { type: "ephemeral" },
-                  },
-                  { type: "text", text: request.user.text },
-                ],
-        },
-      ],
-      output_config: { ...effortFor(model), format: zodOutputFormat(schema) },
-    });
+    const limits = callLimits();
+    const response = await client.messages.parse(
+      {
+        model,
+        max_tokens: request.maxTokens,
+        system: request.system,
+        messages: [
+          {
+            role: "user",
+            content:
+              request.cachedPrefix === undefined
+                ? request.user.text
+                : [
+                    {
+                      type: "text",
+                      text: request.cachedPrefix.text,
+                      cache_control: { type: "ephemeral" },
+                    },
+                    { type: "text", text: request.user.text },
+                  ],
+          },
+        ],
+        output_config: { ...effortFor(model), format: zodOutputFormat(schema) },
+      },
+      limits,
+    );
     // Refused or malformed, the tokens were still spent.
     await record(request.operation, model, response.usage);
     if (response.stop_reason === "refusal") return { output: null, refused: true };
@@ -306,27 +330,32 @@ ${missionXml(mission)}`.text,
       ];
 
       // Streamed so that a run cut off at the deadline keeps what it found.
-      const deadline = Date.now() + searchDeadlineMs;
+      // The step's own deadline wins when it comes first.
+      const limits = callLimits();
+      const deadline = Date.now() + Math.min(searchDeadlineMs, limits.timeout);
       const content: Anthropic.ContentBlock[] = [];
       let searches = 0;
       while (searches < SEARCH_MAX_USES && Date.now() < deadline) {
-        const stream = client.messages.stream({
-          model: SONNET,
-          max_tokens: 8000,
-          output_config: effortFor(SONNET),
-          system,
-          messages,
-          tools: [
-            {
-              type: "web_search_20260209",
-              name: "web_search",
-              max_uses: SEARCH_MAX_USES - searches,
-              // Called directly rather than from code, so every result
-              // reaches the response in full: the URL check relies on them.
-              allowed_callers: ["direct"],
-            },
-          ],
-        });
+        const stream = client.messages.stream(
+          {
+            model: SONNET,
+            max_tokens: 8000,
+            output_config: effortFor(SONNET),
+            system,
+            messages,
+            tools: [
+              {
+                type: "web_search_20260209",
+                name: "web_search",
+                max_uses: SEARCH_MAX_USES - searches,
+                // Called directly rather than from code, so every result
+                // reaches the response in full: the URL check relies on them.
+                allowed_callers: ["direct"],
+              },
+            ],
+          },
+          { maxRetries: limits.maxRetries },
+        );
         let timedOut = false;
         const timer = setTimeout(() => {
           timedOut = true;
