@@ -9,6 +9,7 @@ Throughout, `<staging>` is the staging branch's URL on Vercel, `https://<project
 Once this PR is merged, every build of the `staging` branch migrates whatever `DATABASE_URL` it gets.
 
 - [ ] Vercel → Project → Settings → Environment Variables: `DATABASE_URL` and `AUTH_URL` are set for **Production** only. Neither may be set for Preview (all branches). If one is, remove it from Preview. Otherwise a `DATABASE_URL` there would let staging migrate that database, and an `AUTH_URL` there would send staging's magic links to Production.
+- [ ] If Neon's Vercel integration is installed, connect it to **Production** only, with no database branch per deployment. Vercel → Storage → the Neon database → its connection to this project: untick **Preview** (and Development) under both the environments and the per-deployment branching. Left on, it creates a `preview/<git branch>` Neon branch for every preview, copied from Production's data. It would do the same for `staging`, overriding the database you create in step 2. Then, in Neon → Branches, delete the `preview/*` branches it already made, to free room under the plan's branch limit.
 - [ ] Settings → Environment Variables → **Automatically expose System Environment Variables** is on (the default). The build reads `VERCEL_ENV` and `VERCEL_GIT_COMMIT_REF` from it.
 - [ ] Settings → Git → **Production Branch** is `master`. Staging must stay a Preview.
 
