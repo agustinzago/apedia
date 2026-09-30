@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { COURSE_CREDIT, openingMessages, type OpenInterview } from "@/course";
+import { shortSubject } from "@/course/short-subject";
 import { BuyCourse } from "@/app/purchase/buy-course";
 import { ConfirmDelete } from "@/components/confirm-delete";
 import { Mascot } from "@/components/mascot";
@@ -76,6 +77,8 @@ function BuyFirst({
   openInterviews: OpenInterview[];
 }) {
   const [holding] = openInterviews;
+  const wanted = shortSubject(subject);
+  const held = holding && shortSubject(holding.subject);
 
   return (
     <main className={purchase.main}>
@@ -84,7 +87,7 @@ function BuyFirst({
         First, a <span className="highlight">Course</span>
       </h1>
       <p className={purchase.lede}>
-        Your teacher is ready to ask you about {subject}. A Course costs US$
+        Your teacher is ready to ask you about {wanted}. A Course costs US$
         {COURSE_CREDIT.priceUsd}: the Interview, your Mission and up to{" "}
         {COURSE_CREDIT.lessons} Lessons written for you.
       </p>
@@ -92,19 +95,19 @@ function BuyFirst({
       {holding && (
         <section className={`sticky-note ${styles.holding}`} aria-labelledby="holding">
           <h2 id="holding" className={styles.holdingTitle}>
-            Your Interview on {holding.subject} is waiting
+            Your Interview on {held} is waiting
           </h2>
           <p>
             Your Course credit is keeping it for you. Come back to it, or let
-            it go and use the credit for {subject} instead.
+            it go and use the credit for {wanted} instead.
           </p>
           <Link href={openInterviewPath(holding.id)} className="button-ink">
-            Continue the Interview on {holding.subject}
+            Continue the Interview on {held}
           </Link>
           <ConfirmDelete
-            label={`Start on ${subject} instead`}
-            warning={`Your answers about ${holding.subject} go for good, and its Course credit starts an Interview on ${subject}.`}
-            confirmLabel={`Yes, start on ${subject}`}
+            label={`Start on ${wanted} instead`}
+            warning={`Your answers about ${held} go for good, and its Course credit starts an Interview on ${wanted}.`}
+            confirmLabel={`Yes, start on ${wanted}`}
             action={startOverOn.bind(null, holding.id, subject)}
           />
         </section>

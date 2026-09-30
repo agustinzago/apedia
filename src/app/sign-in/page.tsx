@@ -6,6 +6,7 @@ import { subjectIn } from "@/app/interview/subject";
 import { auth } from "@/server/auth";
 import { SignInPanel } from "./sign-in-form";
 import styles from "./sign-in.module.css";
+import { shortSubject } from "@/course/short-subject";
 
 export const metadata: Metadata = { title: "Sign in · Apedia" };
 
@@ -25,7 +26,7 @@ export default async function SignInPage({ searchParams }: PageProps<"/sign-in">
       </h1>
       <p className={styles.lede}>
         {subject
-          ? `Sign in first, so your course on ${subject} is kept for you. We’ll email you a link that brings you back to it.`
+          ? `Sign in first, so your course on ${shortSubject(subject)} is kept for you. We’ll email you a link that brings you back to it.`
           : "We’ll email you a link. Open it and you’re in: no password to remember."}
       </p>
       {error && (

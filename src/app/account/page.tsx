@@ -4,7 +4,7 @@ import { ConfirmDelete } from "@/components/confirm-delete";
 import { BuyCourse } from "@/app/purchase/buy-course";
 import { creditsLine } from "@/app/purchase/credits-line";
 import { auth } from "@/server/auth";
-import { loadCourseCredits } from "@/server/course";
+import { loadCourseCredits, loadInterviewStart } from "@/server/course";
 import { deleteAccount } from "./actions";
 import styles from "./account.module.css";
 
@@ -14,7 +14,7 @@ export default async function AccountPage() {
   const session = await auth();
   const email = session?.user?.email;
   if (!email) redirect("/sign-in?next=/account");
-  const credits = await loadCourseCredits();
+  const [credits, start] = await Promise.all([loadCourseCredits(), loadInterviewStart()]);
 
   return (
     <main className={styles.main}>
@@ -28,7 +28,7 @@ export default async function AccountPage() {
         <h2 id="course-credits" className={styles.sectionTitle}>
           Course credits
         </h2>
-        <p className={styles.lede}>{creditsLine(credits?.available ?? 0)}</p>
+        <p className={styles.lede}>{creditsLine(credits?.available ?? 0, start?.openInterviews.length)}</p>
         <BuyCourse from="/account" />
       </section>
       <section aria-labelledby="delete-account" className={styles.section}>

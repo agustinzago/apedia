@@ -1,8 +1,16 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import type { CommunityEntry } from "@/course";
 import { loadCommunities, loadCoursePath } from "@/server/course";
 import styles from "../course.module.css";
 import { NotForMe } from "./not-for-me";
+
+export async function generateMetadata({
+  params,
+}: PageProps<"/courses/[courseId]/communities">): Promise<Metadata> {
+  const course = await loadCoursePath((await params).courseId);
+  return course ? { title: `Communities · ${course.title} · Apedia` } : {};
+}
 
 export default async function CommunitiesTab({
   params,

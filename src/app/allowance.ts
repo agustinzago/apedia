@@ -6,7 +6,7 @@
 /** Chat shows how many questions are left once fewer than this remain. */
 export const SHOW_QUESTIONS_LEFT_BELOW = 20;
 
-/** All the Course's Lessons are written: Up next stays, but won't be written here. */
+/** All the Course’s Lessons are written: the path no longer shows an Up next. */
 export function lessonsUsedUpNote(allowance: number): string {
   return `That’s all ${allowance} Lessons this Course came with. Everything you’ve done stays here: your Lessons, Reference sheet and Learning records. To keep going, buy another Course and start it on a new Mission.`;
 }

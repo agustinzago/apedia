@@ -1,6 +1,7 @@
 import { and, eq, like, lt, or, sql } from "drizzle-orm";
 import { schema, type Db } from "@/db";
 import type { JobProgressMessage } from "@/db/schema";
+import { claudeUnavailable } from "@/teacher";
 import { withDeadline } from "@/teacher/deadline";
 import type { SpendPaused } from "./spend";
 
@@ -48,6 +49,13 @@ export class LostJobError extends Error {}
  * retry resumes it; its error is this, followed by when it may resume.
  */
 const PAUSED = "Paused by the daily spend stop until ";
+
+/**
+ * A step that failed because Claude was unavailable (overloaded, rate
+ * limited, down, out of credit) is failed with this error first, so a retry
+ * does not count it: a short outage must not use up a paid Course's attempts.
+ */
+const CLAUDE_UNAVAILABLE = "Claude was unavailable. ";
 
 /** When a job the spend stop paused may resume; null for any other job. */
 function pausedUntil(job: JobRow): Date | null {
@@ -119,6 +127,7 @@ function runOf(db: Db, job: JobRow, runId: string) {
           startedAt: null,
           // The next step gets its own "Try again"s.
           retries: next ? 0 : job.retries,
+          freeRetries: next ? 0 : job.freeRetries,
           updatedAt: now,
           finishedAt: next ? null : now,
         })
@@ -193,7 +202,7 @@ export async function runJobStep(
   } catch (error) {
     if (error instanceof LostJobError) return "stop";
     console.error(`Job ${job.id} (${job.kind}) failed at ${job.step}.`, error);
-    await run.fail(error);
+    await run.fail(claudeUnavailable(error) ? `${CLAUDE_UNAVAILABLE}${error}` : error);
     return "stop";
   }
 }
@@ -201,9 +210,18 @@ export async function runJobStep(
 /**
  * Runs a step gets, its first included, so a step that keeps failing,
  * perhaps on purpose, can't rerun costly calls without end. Resuming a step
- * the spend stop paused uses none.
+ * the spend stop paused uses none; nor does resuming one that failed because
+ * Claude was unavailable, or whose runner was cut off, up to
+ * MAX_FREE_RETRIES_PER_STEP times.
  */
 export const MAX_ATTEMPTS_PER_STEP = 3;
+
+/**
+ * Resumes a step gets for free when it was not at fault. Capped, since
+ * those runs were likely paid for too: a long Claude incident, or a step
+ * that always overruns, must not rerun costly calls without end.
+ */
+export const MAX_FREE_RETRIES_PER_STEP = 10;
 
 /** "Try again"s a step gets after its first run. */
 const MAX_RETRIES_PER_STEP = MAX_ATTEMPTS_PER_STEP - 1;
@@ -212,22 +230,35 @@ const MAX_RETRIES_PER_STEP = MAX_ATTEMPTS_PER_STEP - 1;
 export type RetriesUsedUp = { ok: false; reason: "retries-used-up" };
 export const RETRIES_USED_UP: RetriesUsedUp = { ok: false, reason: "retries-used-up" };
 
+/** Which stopped jobs may resume, and which of those resume for free. */
+function stoppedJobs() {
+  const cutOff = and(
+    eq(schema.job.status, "running"),
+    lt(schema.job.startedAt, new Date(Date.now() - STEP_LIMIT_MS)),
+  );
+  const stopped = or(eq(schema.job.status, "failed"), cutOff);
+  const paused = and(eq(schema.job.status, "failed"), like(schema.job.error, `${PAUSED}%`));
+  const notItsFault = or(
+    and(eq(schema.job.status, "failed"), like(schema.job.error, `${CLAUDE_UNAVAILABLE}%`)),
+    cutOff,
+  );
+  const freeRetry = and(notItsFault, lt(schema.job.freeRetries, MAX_FREE_RETRIES_PER_STEP));
+  return { stopped, freeRetry, free: or(paused, freeRetry) };
+}
+
 /**
  * Makes a failed job, or one whose runner was cut off, pending again at the
- * step where it stopped, unless that step has used its "Try again"s. Any
- * other job is left as it is.
+ * step where it stopped, unless that step has used its "Try again"s. A step
+ * the spend stop paused always resumes, and the retry is not counted; nor is
+ * it for one that failed because Claude was unavailable, or was cut off,
+ * until it has had MAX_FREE_RETRIES_PER_STEP. Any other job is left as it is.
  */
 export async function resumeJob(
   db: Db,
   jobId: string,
   text: string,
 ): Promise<"resumed" | RetriesUsedUp> {
-  const cutOffBefore = new Date(Date.now() - STEP_LIMIT_MS);
-  const stopped = or(
-    eq(schema.job.status, "failed"),
-    and(eq(schema.job.status, "running"), lt(schema.job.startedAt, cutOffBefore)),
-  );
-  const paused = and(eq(schema.job.status, "failed"), like(schema.job.error, `${PAUSED}%`));
+  const { stopped, freeRetry, free } = stoppedJobs();
   const [resumed] = await db
     .update(schema.job)
     .set({
@@ -235,14 +266,15 @@ export async function resumeJob(
       runId: null,
       startedAt: null,
       error: null,
-      retries: sql`case when ${paused} then ${schema.job.retries} else ${schema.job.retries} + 1 end`,
+      retries: sql`case when ${free} then ${schema.job.retries} else ${schema.job.retries} + 1 end`,
+      freeRetries: sql`case when ${freeRetry} then ${schema.job.freeRetries} + 1 else ${schema.job.freeRetries} end`,
       updatedAt: new Date(),
       progress: withProgress(text),
     })
     .where(
       and(
         eq(schema.job.id, jobId),
-        or(paused, and(stopped, lt(schema.job.retries, MAX_RETRIES_PER_STEP))),
+        or(free, and(stopped, lt(schema.job.retries, MAX_RETRIES_PER_STEP))),
       ),
     )
     .returning({ id: schema.job.id });
@@ -254,4 +286,19 @@ export async function resumeJob(
     .where(and(eq(schema.job.id, jobId), stopped));
   // Pending, running or done: nothing to reset; starting it again is harmless.
   return usedUp ? RETRIES_USED_UP : "resumed";
+}
+
+/**
+ * Jobs that stopped through no fault of their own (Claude was unavailable,
+ * or the runner was cut off) and may still resume for free: for the cron to
+ * resume without waiting for the Learner's "Try again". Oldest first.
+ */
+export async function stuckJobIds(db: Db, limit = 20): Promise<string[]> {
+  const rows = await db
+    .select({ id: schema.job.id })
+    .from(schema.job)
+    .where(stoppedJobs().freeRetry)
+    .orderBy(schema.job.updatedAt)
+    .limit(limit);
+  return rows.map((r) => r.id);
 }

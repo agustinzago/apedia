@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { COURSE_CREDIT, EXAMPLE_COURSE_CARDS, type CourseSummary, type ExampleCourseCard } from "@/course";
+import { shortSubject } from "@/course/short-subject";
 import { Mascot } from "@/components/mascot";
 import { FORWARD } from "@/components/page-transition";
 import { loadCourseCredits, loadInterviewStart, loadYourCourses } from "@/server/course";
@@ -51,7 +52,7 @@ export default async function Home() {
 
       {start?.openInterviews.map((open) => (
         <Link key={open.id} href={openInterviewPath(open.id)} className={styles.openInterview}>
-          Your Interview on {open.subject} is waiting: continue it
+          Your Interview on {shortSubject(open.subject)} is waiting: continue it
         </Link>
       ))}
 
@@ -62,7 +63,9 @@ export default async function Home() {
               Your courses
             </h2>
             {credits !== null && (
-              <p className={styles.creditCount}>{creditsLine(credits.available)}</p>
+              <p className={styles.creditCount}>
+                {creditsLine(credits.available, start?.openInterviews.length)}
+              </p>
             )}
           </div>
           <YourCourses courses={yourCourses} />

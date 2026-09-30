@@ -50,11 +50,13 @@ export function AskTeacher({
   const [draft, setDraft] = useState("");
   const [asking, setAsking] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const end = useRef<HTMLLIElement>(null);
+  const log = useRef<HTMLOListElement>(null);
 
+  // Scrolls the chat panel itself: scrollIntoView on an element inside it
+  // may scroll only the page, leaving a new reply out of sight.
   useEffect(() => {
     if (asking !== null || messages.length > initial.length) {
-      end.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+      log.current?.scrollTo({ top: log.current.scrollHeight, behavior: "smooth" });
     }
   }, [asking, messages.length, initial.length]);
 
@@ -101,7 +103,7 @@ export function AskTeacher({
     <section data-noprint aria-labelledby="ask-heading" className={styles.ask}>
       <AskHeading />
       {(messages.length > 0 || asking !== null) && (
-        <ol className={styles.chat} role="log" aria-live="polite">
+        <ol ref={log} className={styles.chat} role="log" aria-live="polite">
           {messages.map((m, i) => (
             <li key={i} className={styles.chatRow} data-from={m.from}>
               <Message message={m} />
@@ -119,7 +121,6 @@ export function AskTeacher({
               </li>
             </>
           )}
-          <li ref={end} aria-hidden className={styles.chatEnd} />
         </ol>
       )}
       {proposals.map((proposal) => (

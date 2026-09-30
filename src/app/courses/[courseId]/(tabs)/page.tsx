@@ -43,7 +43,8 @@ export default async function PathTab({
                 lesson={lesson}
               />
             ))}
-            {course.upNext && (
+            {/* Past the allowance, an Up next could only be written in another Course. */}
+            {course.upNext && !course.lessonsUsedUp && (
               <UpNextItem
                 courseId={course.id}
                 lesson={course.upNext}
@@ -96,7 +97,7 @@ function DoneNote({ doneAt }: { doneAt: Date }) {
   );
 }
 
-/** The Course's Lessons are all written: Up next stays shown, and another Course keeps them going. */
+/** The Course's Lessons are all written: another Course keeps them going. */
 function UsedUpNote({ lessons }: { lessons: number }) {
   return (
     <div data-noprint className={`sketchy ${styles.usedUpNote}`}>

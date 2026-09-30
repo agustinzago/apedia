@@ -1,7 +1,15 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import type { LessonResource } from "@/course";
 import { loadCoursePath, loadResources } from "@/server/course";
 import styles from "../course.module.css";
+
+export async function generateMetadata({
+  params,
+}: PageProps<"/courses/[courseId]/resources">): Promise<Metadata> {
+  const course = await loadCoursePath((await params).courseId);
+  return course ? { title: `Resources · ${course.title} · Apedia` } : {};
+}
 
 export default async function ResourcesTab({
   params,

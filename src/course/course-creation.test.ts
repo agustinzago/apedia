@@ -1,7 +1,12 @@
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import { schema, type Db } from "@/db";
-import { createFakeTeacher, type FakeTeacher, type FakeTeacherReplies } from "@/teacher/fake";
+import {
+  CLAUDE_OUTAGES,
+  createFakeTeacher,
+  type FakeTeacher,
+  type FakeTeacherReplies,
+} from "@/teacher/fake";
 import missionMusicTheory from "@/teacher/fixtures/mission-music-theory.json";
 import researchSearch from "@/teacher/fixtures/research-search-music-theory.json";
 import researchStructure from "@/teacher/fixtures/research-structure-music-theory.json";
@@ -11,6 +16,7 @@ import { createTestDb } from "@/test/db";
 import type { UrlCheck } from "@/url-fetcher";
 import { createFakeUrlFetcher, type FakeUrlFetcher } from "@/url-fetcher/fake";
 import { createCourseModule, type CourseModule } from ".";
+import { MAX_FREE_RETRIES_PER_STEP } from "./jobs";
 
 describe("course: the Course creation job, from research to Up next", () => {
   let db: Db;
@@ -394,6 +400,76 @@ describe("course: the Course creation job, from research to Up next", () => {
       expect(await course.retryCourseCreation(courseId, "ana")).toMatchObject({ ok: true });
       await runToEnd(jobId);
       expect(await course.retryCourseCreation(courseId, "ana")).toMatchObject({ ok: true });
+    });
+
+    it("does not count a step that failed because Claude was unavailable", async () => {
+      let searches = 0;
+      await setUp({
+        researchSearch: () => {
+          const outage = CLAUDE_OUTAGES[searches++];
+          if (outage) throw outage;
+          return researchSearch;
+        },
+      });
+      const { courseId, jobId } = await writeCourse();
+      await runToEnd(jobId);
+
+      for (let retry = 1; retry <= CLAUDE_OUTAGES.length; retry++) {
+        expect(await course.retryCourseCreation(courseId, "ana")).toEqual({ ok: true, jobId });
+        await runToEnd(jobId);
+      }
+      expect(await readJob(jobId)).toMatchObject({ status: "done" });
+    });
+
+    it("counts retries after Claude was unavailable once the free ones are used", async () => {
+      await setUp({
+        researchSearch: () => {
+          throw CLAUDE_OUTAGES[0];
+        },
+      });
+      const { courseId, jobId } = await writeCourse();
+      await runToEnd(jobId);
+
+      for (let retry = 1; retry <= MAX_FREE_RETRIES_PER_STEP + 2; retry++) {
+        expect(await course.retryCourseCreation(courseId, "ana")).toEqual({ ok: true, jobId });
+        await runToEnd(jobId);
+      }
+      expect(await course.retryCourseCreation(courseId, "ana")).toMatchObject({
+        reason: "retries-used-up",
+      });
+      expect(calls("researchSearch")).toHaveLength(MAX_FREE_RETRIES_PER_STEP + 3);
+    });
+
+    it("resumes, unasked, a job that was cut off or that Claude being unavailable failed", async () => {
+      let searches = 0;
+      await setUp({
+        researchSearch: () => {
+          if (searches++ === 0) throw CLAUDE_OUTAGES[1];
+          return researchSearch;
+        },
+      });
+      const { jobId } = await writeCourse();
+      await runToEnd(jobId);
+      expect(await course.resumeStuckJobs()).toEqual([jobId]);
+      await course.runJobStep(jobId);
+      expect(await readJob(jobId)).toMatchObject({ status: "pending", step: "structure" });
+
+      // A runner claimed the structure step ten minutes ago and never returned.
+      await db
+        .update(schema.job)
+        .set({ status: "running", runId: "gone", startedAt: new Date(Date.now() - 600_000) })
+        .where(eq(schema.job.id, jobId));
+      expect(await course.resumeStuckJobs()).toEqual([jobId]);
+      await runToEnd(jobId);
+      expect(await readJob(jobId)).toMatchObject({ status: "done", retries: 0 });
+      expect(await course.resumeStuckJobs()).toEqual([]);
+    });
+
+    it("leaves a job that failed on its own for the Learner's Try again", async () => {
+      await setUp({ researchSearch: failingSearch });
+      const { jobId } = await writeCourse();
+      await runToEnd(jobId);
+      expect(await course.resumeStuckJobs()).toEqual([]);
     });
   });
 

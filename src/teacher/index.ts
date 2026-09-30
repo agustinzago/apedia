@@ -4,4 +4,4 @@
  * tests swap in the fake from `@/teacher/fake`.
  */
 export * from "./contract";
-export { createClaudeTeacher } from "./claude";
+export { claudeUnavailable, createClaudeTeacher } from "./claude";
