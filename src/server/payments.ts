@@ -42,7 +42,7 @@ export async function receivePaymentWebhook(
   if (verified.kind === "ignored") return new Response(null, { status: 202 });
 
   const outcome = await course.recordPayment(verified);
-  if (outcome === "unknown-learner" || outcome === "unknown-payment") {
+  if (outcome === "unknown-learner" || outcome === "unknown-payment" || outcome === "free") {
     console.warn(
       `Payment webhook: ${verified.kind} ${verified.provider} payment ${verified.paymentId} recorded nothing (${outcome}).`,
     );

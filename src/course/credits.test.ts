@@ -120,9 +120,22 @@ describe("course: Course credits from verified payments", () => {
     expect(await db.select().from(schema.courseCredit)).toEqual([]);
   });
 
-  it("records nothing for a refund of a payment it never saw", async () => {
+  it("records no credit for a refund of a payment it never saw", async () => {
     expect(await deliver(payments.webhook(refunded("order-9")))).toBe("unknown-payment");
     expect(await db.select().from(schema.courseCredit)).toEqual([]);
+  });
+
+  it("remembers a refund that arrives before its payment, so the payment grants no usable credit", async () => {
+    await deliver(payments.webhook(refunded("order-9")));
+
+    expect(await deliver(payments.webhook(paid("order-9")))).toBe("refunded");
+    expect(await course.readCourseCredits("ana")).toEqual({ available: 0, used: 0, refunded: 1 });
+    expect(await deliver(payments.webhook(paid("order-9")))).toBe("duplicate");
+  });
+
+  it("grants nothing for a payment of nothing", async () => {
+    expect(await deliver(payments.webhook({ ...paid("order-free"), amountCents: 0 }))).toBe("free");
+    expect(await course.readCourseCredits("ana")).toEqual({ available: 0, used: 0, refunded: 0 });
   });
 
   it("deletes the Learner's credits with their account", async () => {

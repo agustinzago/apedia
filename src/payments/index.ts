@@ -23,7 +23,7 @@ export type PaymentEvent =
       currency: string;
     }
   | {
-      /** The whole payment was refunded. A partial refund is not one. */
+      /** The whole payment was refunded, or voided. A partial refund is not one. */
       kind: "refunded";
       provider: string;
       paymentId: string;

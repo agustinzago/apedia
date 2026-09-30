@@ -344,8 +344,8 @@ where you left off.`);
     "2. Settings → Developers → New token, with the checkouts:read and",
     "   checkouts:write scopes.",
     `3. Settings → Webhooks → Add endpoint: URL ${origin}/api/payments/webhook,`,
-    "   format Raw, API version 2026-04 if asked, events order.paid and",
-    "   order.refunded. Copy its secret.",
+    "   format Raw, API version 2026-04 if asked, events order.paid,",
+    "   order.refunded and order.updated. Copy its secret.",
   ]);
   await obtain("POLAR_SERVER", "production or sandbox", { problem: polarServerProblem });
   await obtain("POLAR_ACCESS_TOKEN", "Polar access token", { problem: polarAccessTokenProblem });

@@ -640,3 +640,16 @@ export const lease = pgTable("lease", {
   holder: text("holder").notNull(),
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
 });
+
+// A full refund (or void) that arrived before its payment: webhooks may come
+// in any order. When the payment arrives, its Course credit is recorded
+// already refunded, so it never backs an Interview.
+export const paymentReversal = pgTable(
+  "payment_reversal",
+  {
+    provider: text("provider").notNull(),
+    providerPaymentId: text("provider_payment_id").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [primaryKey({ columns: [t.provider, t.providerPaymentId] })],
+);
