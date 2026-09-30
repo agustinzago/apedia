@@ -1,4 +1,6 @@
 import { headers } from "next/headers";
+import { authSecret } from "@/auth";
+import { jobStartHeaders } from "./job-start";
 
 /**
  * Job steps run one per function invocation (ADR 0004): starting a step is a
@@ -26,10 +28,16 @@ export async function requestOrigin(): Promise<string> {
  * screen notices a job left waiting and starts it again.
  */
 export async function startJobStep(jobId: string, origin: string): Promise<void> {
+  const secret = authSecret();
+  if (!secret) {
+    console.error(`Could not start job ${jobId}: AUTH_SECRET is not set.`);
+    return;
+  }
   try {
     const response = await fetch(`${origin}/api/jobs/${encodeURIComponent(jobId)}`, {
       method: "POST",
       cache: "no-store",
+      headers: jobStartHeaders(jobId, secret),
     });
     if (!response.ok) {
       console.error(`Starting job ${jobId} answered ${response.status}.`);
