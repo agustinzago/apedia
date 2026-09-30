@@ -47,7 +47,7 @@ Vercel → Settings → Environment Variables → Add. For each variable, tick *
 | `APEDIA_OPERATOR_EMAIL` | your address (staging's spend alarm goes there) |
 | `APEDIA_DAILY_INTERVIEWS` | e.g. `50` (default 5) |
 | `APEDIA_DAILY_LESSONS` | e.g. `200` (default 40) |
-| `APEDIA_DAILY_CHAT_MESSAGES` | e.g. `1000` (default 400) |
+| `APEDIA_DAILY_CHAT_MESSAGES` | e.g. `1000` (default 200) |
 | `APEDIA_SPEND_ALARM_USD` | e.g. `50` (default 20) |
 | `APEDIA_SPEND_STOP_USD` | e.g. `100` (default twice the alarm) |
 | `APEDIA_MAGIC_LINKS_PER_EMAIL_PER_HOUR` | optional, e.g. `20` (default 3), if you sign in a lot |
@@ -76,7 +76,7 @@ At sandbox.polar.sh, which is separate from Polar's live dashboard, with its own
 - [ ] Settings → Developers → New token, with scopes `checkouts:read` and `checkouts:write`. This is `POLAR_ACCESS_TOKEN`.
 - [ ] Settings → Webhooks → Add endpoint:
   - URL: `<staging>/api/payments/webhook?x-vercel-protection-bypass=<secret from step 5>`
-  - Format: **Raw**; events `order.paid` and `order.refunded`; API version 2026-04 if asked.
+  - Format: **Raw**; events `order.paid`, `order.refunded` and `order.updated`; API version 2026-04 if asked.
   - Copy its secret. This is `POLAR_WEBHOOK_SECRET`.
 
   Polar can't add headers to a webhook, so the bypass rides in the query string, the way Vercel documents for third-party webhooks. Polar's signature covers the body and its `webhook-*` headers, not the URL, and the app ignores the query string.
