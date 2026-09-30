@@ -30,7 +30,7 @@ export default async function Home() {
         <div className={styles.heroText}>
           <span className={`kicker ${styles.heroKicker}`}>A teacher for anything</span>
           <h1 className={styles.title}>
-            Learn anything, taught around <span className="highlight">why</span> you want it.
+            Learn anything, your way, for <span className="highlight">your reasons</span>.
           </h1>
           <p className={styles.lede}>
             Tell your teacher what you want to learn and why. You get short
