@@ -1,7 +1,15 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { loadCoursePath } from "@/server/course";
 import { CourseTabs } from "./course-tabs";
 import styles from "./course.module.css";
+
+export async function generateMetadata({
+  params,
+}: LayoutProps<"/courses/[courseId]">): Promise<Metadata> {
+  const course = await loadCoursePath((await params).courseId);
+  return course ? { title: `${course.title} · Apedia` } : {};
+}
 
 export default async function CourseLayout({
   children,

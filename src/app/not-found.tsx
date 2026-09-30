@@ -1,5 +1,8 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import styles from "./home.module.css";
+
+export const metadata: Metadata = { title: "Page not found · Apedia" };
 
 export default function NotFound() {
   return (

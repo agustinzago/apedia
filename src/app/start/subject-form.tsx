@@ -20,6 +20,9 @@ export function SubjectForm() {
           id="subject"
           name="subject"
           required
+          // Spaces alone are no subject: the browser says so, rather than the page quietly clearing it.
+          pattern=".*\S.*"
+          title="Type what you’d like to learn."
           maxLength={120}
           placeholder="bread baking, chess, the French revolution…"
           autoComplete="off"

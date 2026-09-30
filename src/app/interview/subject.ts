@@ -4,11 +4,17 @@ const MAX_SUBJECT = 120;
 /**
  * The subject a visitor typed on the home page, as it rides along in URLs
  * through sign-in and checkout: untrusted text, so control characters are
- * dropped and it is cut to length. Empty when there is none.
+ * dropped, a word repeated in a row is kept once ("chess chess chess" is
+ * "chess"), and it is cut to length. Empty when there is none.
  */
 export function typedSubject(value: unknown): string {
   if (typeof value !== "string") return "";
-  return value.replace(/[\x00-\x1f\x7f]/g, " ").trim().slice(0, MAX_SUBJECT).trim();
+  return value
+    .replace(/[\x00-\x1f\x7f]/g, " ")
+    .replace(/(?<!\p{L})(\p{L}+)(?:\s+\1(?!\p{L}))+/giu, "$1")
+    .trim()
+    .slice(0, MAX_SUBJECT)
+    .trim();
 }
 
 /** Where a new Interview on the subject starts; sign-in and checkout come back here. */

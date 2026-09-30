@@ -481,10 +481,6 @@
   background: var(--blue-tint);
 }
 
-.chatEnd {
-  height: 0;
-}
-
 .chatCommunity {
   display: flex;
   flex-direction: column;

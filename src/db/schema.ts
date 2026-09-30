@@ -537,6 +537,9 @@ export const job = pgTable(
     error: text("error"),
     // "Try again"s used at `step`; back to 0 when the job moves on.
     retries: integer("retries").notNull().default(0),
+    // Resumes at `step` that did not count as "Try again"s (Claude was
+    // unavailable, or the runner was cut off), capped; back to 0 likewise.
+    freeRetries: integer("free_retries").notNull().default(0),
     // Set when a runner claims the job; only that runner may advance it.
     runId: text("run_id"),
     startedAt: timestamp("started_at", { withTimezone: true }),

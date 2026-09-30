@@ -1,0 +1,1 @@
+ALTER TABLE "job" ADD COLUMN "free_retries" integer DEFAULT 0 NOT NULL;

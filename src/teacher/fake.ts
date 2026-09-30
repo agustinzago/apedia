@@ -1,3 +1,4 @@
+import Anthropic from "@anthropic-ai/sdk";
 import {
   ChatAnswer,
   FinishDraft,
@@ -32,6 +33,20 @@ import {
  * It also stands in for the real Teacher in local development and the e2e
  * smoke test, where there is no API key.
  */
+
+/** What the SDK throws while Claude is unavailable: for a fake reply to throw. */
+export const CLAUDE_OUTAGES: Error[] = [
+  new Anthropic.InternalServerError(529, undefined, "Overloaded", new Headers(), "overloaded_error"),
+  new Anthropic.RateLimitError(429, undefined, "Rate limited", new Headers(), "rate_limit_error"),
+  new Anthropic.BadRequestError(
+    400,
+    undefined,
+    "Your credit balance is too low to access the Anthropic API.",
+    new Headers(),
+    "invalid_request_error",
+  ),
+  new Anthropic.APIConnectionError({ message: "Connection error." }),
+];
 
 /** Fixture JSON, or a function of the input returning it (a thrown error fails the call). Validated when used. */
 type Json = Record<string, unknown>;

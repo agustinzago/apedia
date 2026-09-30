@@ -141,6 +141,13 @@
       "when": 1790782393154,
       "tag": "0019_payment_reversal",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1790800423860,
+      "tag": "0020_free_retries",
+      "breakpoints": true
     }
   ]
 }
