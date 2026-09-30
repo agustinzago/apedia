@@ -460,6 +460,7 @@ describe("teacher: talking to Claude", () => {
       expect(answer).toEqual(chatFixture);
       const request = parse.mock.calls[0][0];
       expect(request.model).toBe("claude-haiku-4-5-20251001");
+      expect(request.max_tokens).toBeLessThanOrEqual(600);
       expect(request.output_config.format.type).toBe("json_schema");
       expect(request.system).toContain("under 80 words");
       expect(request.system).toContain('language tagged "es"');

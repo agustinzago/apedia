@@ -303,13 +303,15 @@ describe("course: asking your teacher", () => {
       expect(await db.select().from(schema.chatMessage)).toEqual([]);
     });
 
-    it("takes no empty or overlong question", async () => {
+    it("takes no empty question, nor one over 500 characters", async () => {
+      expect(MAX_QUESTION_LENGTH).toBe(500);
       expect(await course.askTeacher("c1", 1, "   ", "ana")).toEqual({ ok: false, reason: "invalid" });
-      expect(await course.askTeacher("c1", 1, "?".repeat(MAX_QUESTION_LENGTH + 1), "ana")).toEqual({
+      expect(await course.askTeacher("c1", 1, "?".repeat(501), "ana")).toEqual({
         ok: false,
         reason: "invalid",
       });
       expect(askInputs()).toHaveLength(0);
+      expect(await course.askTeacher("c1", 1, "?".repeat(500), "ana")).toMatchObject({ ok: true });
     });
 
     it("saves nothing when the Teacher cannot answer, after trying twice", async () => {

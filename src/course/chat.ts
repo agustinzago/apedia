@@ -29,7 +29,7 @@ import type { Spend, SpendPaused } from "./spend";
  */
 
 /** The longest question the chat takes, in characters. */
-export const MAX_QUESTION_LENGTH = 1000;
+export const MAX_QUESTION_LENGTH = 500;
 
 export type AskTeacherResult =
   | {

@@ -154,13 +154,13 @@ describe("course: a Course's allowance", () => {
     vi.restoreAllMocks();
   });
 
-  it("is what a Course credit buys: 20 Lessons and 200 questions", async () => {
-    expect(COURSE_CREDIT).toMatchObject({ lessons: 20, chatQuestions: 200 });
+  it("is what a Course credit buys: 20 Lessons and 100 questions", async () => {
+    expect(COURSE_CREDIT).toMatchObject({ lessons: 20, chatQuestions: 100 });
     expect(await course.readCoursePath("c1", ana)).toMatchObject({
       lessonAllowance: { lessons: 20, written: 1 },
       lessonsUsedUp: false,
     });
-    expect((await course.readLesson("c1", 1, ana))?.questionsLeft).toBe(200);
+    expect((await course.readLesson("c1", 1, ana))?.questionsLeft).toBe(100);
   });
 
   describe("Lessons", () => {
@@ -249,17 +249,17 @@ describe("course: a Course's allowance", () => {
     it("are taken up to the allowance across the Course's Lessons, then refused", async () => {
       await finishedUpTo(1);
       await openAndWrite(2);
-      // 198 asked in Lesson 1; Ana's questions in another Course don't count.
-      await asked((await lessonRow(1)).id, 198);
+      // 98 asked in Lesson 1; Ana's questions in another Course don't count.
+      await asked((await lessonRow(1)).id, 98);
       await asked((await lessonRow(1, "c2")).id, 5);
       expect((await course.readLesson("c1", 2, ana))?.questionsLeft).toBe(2);
 
-      // Under the allowance: the 199th.
+      // Under the allowance: the 99th.
       expect(await course.askTeacher("c1", 2, "Why G?", "ana")).toMatchObject({
         ok: true,
         questionsLeft: 1,
       });
-      // At it: the 200th.
+      // At it: the 100th.
       expect(await course.askTeacher("c1", 2, "And D?", "ana")).toMatchObject({
         ok: true,
         questionsLeft: 0,
@@ -268,7 +268,7 @@ describe("course: a Course's allowance", () => {
       expect(await course.askTeacher("c1", 2, "And C?", "ana")).toEqual({
         ok: false,
         reason: "questions-used-up",
-        allowance: 200,
+        allowance: 100,
       });
       expect(calls("askTeacher")).toHaveLength(2);
 
@@ -276,7 +276,7 @@ describe("course: a Course's allowance", () => {
       expect(lesson?.questionsLeft).toBe(0);
       expect(lesson?.chat).toHaveLength(4);
       // The other Course still has its own.
-      expect((await course.readLesson("c2", 1, ana))?.questionsLeft).toBe(195);
+      expect((await course.readLesson("c2", 1, ana))?.questionsLeft).toBe(95);
     });
   });
 

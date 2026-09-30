@@ -13,7 +13,7 @@ export const COURSE_CREDIT = {
   /** The Lessons one Course may have written. */
   lessons: 20,
   /** The questions the Learner may ask the Teacher across the Course's Lessons. */
-  chatQuestions: 200,
+  chatQuestions: 100,
   /** Days after purchase in which a credit whose Course was never written is refunded on request. */
   refundDays: 14,
 } as const;

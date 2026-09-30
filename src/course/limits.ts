@@ -28,7 +28,7 @@ export type DailyLimits = {
  */
 export const DEFAULT_DAILY_LIMITS: DailyLimits = {
   lessonGenerations: 40,
-  chatMessages: 400,
+  chatMessages: 200,
   interviews: 5,
 };
 

@@ -11,7 +11,7 @@ import type { PolarSettings } from "@/payments";
 
 /**
  * Configuration from the environment. Cost protection: unset values fall
- * back to the defaults: an abuse guard of 40 Lessons and 400 chat questions
+ * back to the defaults: an abuse guard of 40 Lessons and 200 chat questions
  * per Learner per day, and a spend alarm at $20 a day, which pauses sales,
  * with the Teacher stopping at twice the alarm. A Course's own allowance is
  * not configured here: it is what its credit buys, `COURSE_CREDIT`, which

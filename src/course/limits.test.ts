@@ -113,7 +113,7 @@ describe("course: daily limits and the spend alarm", () => {
   });
 
   it("are configuration, set by default to two Courses' allowances of Lessons and chat, and 5 Interview starts", () => {
-    expect(DEFAULT_DAILY_LIMITS).toEqual({ lessonGenerations: 40, chatMessages: 400, interviews: 5 });
+    expect(DEFAULT_DAILY_LIMITS).toEqual({ lessonGenerations: 40, chatMessages: 200, interviews: 5 });
   });
 
   describe("new Courses", () => {
