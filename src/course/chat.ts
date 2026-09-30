@@ -1,6 +1,6 @@
 import { and, asc, eq, max } from "drizzle-orm";
 import { schema, type Db } from "@/db";
-import type { AskTeacherInput, ChatAnswer, Teacher } from "@/teacher";
+import { claudeUnavailable, type AskTeacherInput, type ChatAnswer, type Teacher } from "@/teacher";
 import type { ChatMessage, ChatPart, CommunityEntry, LessonResource } from ".";
 import { missionOf } from "./course-creation";
 import { LessonContent } from "./lesson-content";
@@ -197,7 +197,10 @@ export function createChatOperations({
      * The Learner asks a question in a Lesson's chat, within the Course's
      * allowance, their daily limit and the spend stop. The question is saved,
      * and counts, before the Teacher is asked; the answer once it comes. If
-     * the Teacher cannot answer, the question is taken back.
+     * Claude was unavailable, the question is taken back. A reply Claude
+     * wrote but that could not be used (cut off, malformed, empty) was paid
+     * for, so the question still counts, unanswered: otherwise a question
+     * built to break the reply could be asked again and again for free.
      */
     async askTeacher(
       courseId: string,
@@ -298,13 +301,12 @@ export function createChatOperations({
         });
       } catch (error) {
         console.warn(`Lesson ${lesson.id}: the Teacher could not answer a chat question.`, error);
-        await takeBackQuestion();
+        if (claudeUnavailable(error)) await takeBackQuestion();
         return { ok: false, reason: "unavailable" };
       }
       const text = reply.answer.trim();
       if (text === "") {
         console.warn(`Lesson ${lesson.id}: the Teacher's chat answer was empty.`);
-        await takeBackQuestion();
         return { ok: false, reason: "unavailable" };
       }
       // Only a Community the Learner has not opted out of, and one that exists.

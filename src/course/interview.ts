@@ -8,6 +8,7 @@ import type { Tx } from "./jobs";
 import type { DailyCaps, DailyLimitReached } from "./limits";
 import { lockLearner, withLease, type Busy } from "./locks";
 import type { Spend, SpendPaused } from "./spend";
+import { shortSubject } from "./short-subject";
 
 export type { InterviewMessage } from "@/db/schema";
 
@@ -24,7 +25,7 @@ const ORDER: QuestionKey[] = ["why", "know", "success", "sitting"];
 function question(key: QuestionKey, subject: string): string {
   switch (key) {
     case "why":
-      return `Why do you want to learn ${subject}? The real reason helps me shape every lesson.`;
+      return `Why do you want to learn ${shortSubject(subject)}? The real reason helps me shape every lesson.`;
     case "know":
       return "What do you already know about it? “Nothing yet” is a perfectly good answer.";
     case "success":

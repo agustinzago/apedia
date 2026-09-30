@@ -7,6 +7,7 @@ import { operatorFromEnv } from "@/server/config";
 import { loadInterviewStart } from "@/server/course";
 import { RefreshWhileWaiting } from "./refresh-while-waiting";
 import styles from "../purchase.module.css";
+import { shortSubject } from "@/course/short-subject";
 
 export const metadata: Metadata = { title: "Thanks · Apedia" };
 
@@ -35,7 +36,7 @@ export default async function ThanksPage({ searchParams }: PageProps<"/purchase/
             Your Course credit is here. Your receipt is on its way by email.
           </p>
           <Link href={subject ? next : "/start"} className={`button-ink ${styles.start}`}>
-            {subject ? `Start your course on ${subject}` : "Choose what to learn"}
+            {subject ? `Start your course on ${shortSubject(subject)}` : "Choose what to learn"}
           </Link>
         </>
       ) : (

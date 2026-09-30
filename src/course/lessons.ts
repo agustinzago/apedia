@@ -49,7 +49,7 @@ export type OpenLessonResult =
   | { ok: false; reason: "done" }
   /**
    * The Lesson is unwritten and the Course has had all the Lessons its
-   * allowance holds written. Up next stays shown; nothing else changes.
+   * allowance holds written. The path hides Up next; nothing else changes.
    */
   | LessonsUsedUp
   /** The Lesson is unwritten and the Learner has had today's Lessons written. */
@@ -88,6 +88,10 @@ export type AnswerQuestionResult =
 
 export type LessonRow = typeof schema.lesson.$inferSelect;
 
+/** Whether a number could be a Lesson's index: anything else, such as one past Postgres's integer, finds none. */
+export const isLessonIndex = (index: number) =>
+  Number.isInteger(index) && index >= 1 && index <= 2_147_483_647;
+
 /** The Learner's own Lesson with its Course, or why they may not change it. */
 export async function findOwnLessonIn(
   db: Db,
@@ -98,6 +102,7 @@ export async function findOwnLessonIn(
   | { ok: true; lesson: LessonRow; course: typeof schema.course.$inferSelect }
   | { ok: false; reason: "not-found" | "read-only" }
 > {
+  if (!isLessonIndex(lessonIndex)) return { ok: false, reason: "not-found" };
   const [row] = await db
     .select({ lesson: schema.lesson, course: schema.course })
     .from(schema.lesson)

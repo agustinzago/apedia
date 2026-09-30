@@ -14,8 +14,16 @@ import { createCreditOperations } from "./credits";
 import { seedExampleCourses } from "./example-course";
 import { createFinishOperations } from "./finish";
 import { createInterviewOperations } from "./interview";
-import { runJobStep, viewOf, type JobKind, type JobStepResult, type JobView } from "./jobs";
-import { createLessonOperations } from "./lessons";
+import {
+  resumeJob,
+  runJobStep,
+  stuckJobIds,
+  viewOf,
+  type JobKind,
+  type JobStepResult,
+  type JobView,
+} from "./jobs";
+import { createLessonOperations, isLessonIndex } from "./lessons";
 import { createProposalOperations, readOpenProposals, type ProposalView } from "./proposals";
 import { createDailyCaps, DEFAULT_DAILY_LIMITS, type DailyLimits } from "./limits";
 import {
@@ -430,6 +438,20 @@ export function createCourseModule({
     },
 
     /**
+     * Resumes the jobs that stopped through no fault of their own (Claude
+     * was unavailable, or the runner was cut off), for free and up to a cap:
+     * the ids to start. None past the spend stop. See `stuckJobIds`.
+     */
+    async resumeStuckJobs(): Promise<string[]> {
+      if (await spend.teacherCall()) return [];
+      const resumed: string[] = [];
+      for (const id of await stuckJobIds(db)) {
+        if ((await resumeJob(db, id, "Picking up where I left off.")) === "resumed") resumed.push(id);
+      }
+      return resumed;
+    },
+
+    /**
      * Once a job that picks Up next (Course creation or Finish) is done,
      * starts writing that Lesson in the background. The Lesson generation
      * job to start, or null. See `writeUpNextAhead` in ./lessons.
@@ -795,6 +817,7 @@ export function createCourseModule({
       lessonIndex: number,
       viewer: Viewer,
     ): Promise<LessonView | null> {
+      if (!isLessonIndex(lessonIndex)) return null;
       const course = await findReadableCourse(courseId, viewer);
       if (!course) return null;
 

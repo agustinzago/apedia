@@ -209,6 +209,8 @@ describe("course: reading an Example course Lesson", () => {
   it("returns null for a Lesson that does not exist", async () => {
     expect(await course.readLesson(EXAMPLE_COURSE_ID, 99, visitor)).toBeNull();
     expect(await course.readLesson("no-such-course", 1, visitor)).toBeNull();
+    // Past Postgres's integer: not found, rather than a database error.
+    expect(await course.readLesson(EXAMPLE_COURSE_ID, 2_147_483_648, visitor)).toBeNull();
   });
 
   it("seeds Resources into an Example course seeded before they existed", async () => {

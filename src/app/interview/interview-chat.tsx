@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useActionState, useEffect, useRef, useState } from "react";
 import type { InterviewMessage, InterviewView } from "@/course";
+import { shortSubject } from "@/course/short-subject";
 import { Mascot } from "@/components/mascot";
 import { sendAnswer, writeMyCourse, type InterviewState } from "./actions";
 import { answerPlaceholder } from "./placeholders";
@@ -61,9 +62,9 @@ export function InterviewChat({
         <Mascot size={60} />
         <div className={styles.headerText}>
           <span className={styles.teacher}>Your teacher</span>
-          <span className={styles.subtitle}>Setting up a course on {subject}</span>
+          <span className={styles.subtitle}>Setting up a course on {shortSubject(subject)}</span>
         </div>
-        <Link href="/" className={styles.startOver}>
+        <Link href="/start" className={styles.startOver}>
           start over
         </Link>
       </header>

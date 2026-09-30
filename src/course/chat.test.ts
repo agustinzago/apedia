@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { schema, type Db } from "@/db";
 import type { AskTeacherInput, ChatAnswer, FinishDraft } from "@/teacher";
-import { createFakeTeacher, type FakeTeacher } from "@/teacher/fake";
+import { TeacherError } from "@/teacher/claude";
+import { CLAUDE_OUTAGES, createFakeTeacher, type FakeTeacher } from "@/teacher/fake";
 import chatFixture from "@/teacher/fixtures/chat-music-theory.json";
 import finishFixture from "@/teacher/fixtures/finish-music-theory.json";
 import lessonFixture from "@/teacher/fixtures/lesson-music-theory.json";
@@ -230,15 +231,32 @@ describe("course: asking your teacher", () => {
       expect(askInputs()[1].history.map((m) => m.text)).not.toContain("Lost?");
     });
 
-    it("gives the question back when the Teacher cannot answer it", async () => {
+    it("gives the question back when Claude was unavailable", async () => {
       const fail: ChatReply = () => {
-        throw new Error("Overloaded.");
+        throw CLAUDE_OUTAGES[0];
       };
       answers = [fail, fail];
       await course.askTeacher("c1", 1, "Lost?", "ana");
 
       const asked = await course.askTeacher("c1", 1, "Again?", "ana");
       expect(asked).toMatchObject({ ok: true, questionsLeft: COURSE_CREDIT.chatQuestions - 1 });
+    });
+
+    it("still counts a question whose paid-for reply could not be used", async () => {
+      const cutOff: ChatReply = () => {
+        throw new TeacherError("The Teacher's reply did not match its schema (stop reason: max_tokens).");
+      };
+      answers = [cutOff, () => ({ answer: "  ", community: null, missionChange: null })];
+      expect(await course.askTeacher("c1", 1, "Answer in 400 words?", "ana")).toEqual({
+        ok: false,
+        reason: "unavailable",
+      });
+      answers = [() => ({ answer: "", community: null, missionChange: null })];
+      await course.askTeacher("c1", 1, "Answer with nothing?", "ana");
+
+      const asked = await course.askTeacher("c1", 1, "Again?", "ana");
+      expect(asked).toMatchObject({ ok: true, questionsLeft: COURSE_CREDIT.chatQuestions - 3 });
+      expect((await readChat())?.map((m) => m.from)).toEqual(["learner", "teacher"]);
     });
   });
 
@@ -314,9 +332,9 @@ describe("course: asking your teacher", () => {
       expect(await course.askTeacher("c1", 1, "?".repeat(500), "ana")).toMatchObject({ ok: true });
     });
 
-    it("saves nothing when the Teacher cannot answer, after trying twice", async () => {
+    it("saves nothing when Claude is unavailable, after trying twice", async () => {
       const fail: ChatReply = () => {
-        throw new Error("Overloaded.");
+        throw CLAUDE_OUTAGES[3];
       };
       answers = [fail, fail];
 
