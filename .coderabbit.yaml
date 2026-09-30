@@ -1,0 +1,8 @@
+# CodeRabbit is off for this repo: no automatic reviews, no status check,
+# no replies in PR threads. Delete this file to turn it back on.
+reviews:
+  auto_review:
+    enabled: false
+  commit_status: false
+chat:
+  auto_reply: false
