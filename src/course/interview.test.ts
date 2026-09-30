@@ -22,6 +22,7 @@ import {
   type InterviewView,
   type NoCourseCredit,
   type SpendPaused,
+  openingMessages,
 } from ".";
 
 /** The Interview itself, not a refusal: these Learners hold a credit, start few and spend nothing. */
@@ -821,5 +822,102 @@ describe("course: the Interview's one follow-up", () => {
     const started = await start(course, { subject: "Chess", why: "Beat my brother" });
 
     expect(started).toMatchObject({ stage: "know" });
+  });
+});
+
+describe("course: changing the last answer", () => {
+  let db: Db;
+  let teacher: FakeTeacher;
+  let course: CourseModule;
+
+  const setUp = async (replies: FakeTeacherReplies = {}) => {
+    db = await createTestDb();
+    teacher = createFakeTeacher(replies);
+    course = createCourseModule({ db, teacher, fetchUrl: createFakeUrlFetcher() });
+    await db.insert(schema.learner).values({ id: "ana", email: "ana@example.com" });
+    await buyCourse(course, "ana");
+  };
+
+  const change = async (interviewId: string, learnerId = "ana") =>
+    going(await course.changeLastAnswer(interviewId, learnerId));
+
+  it("asks the question again, one answer at a time, and up to three times", async () => {
+    await setUp();
+    const started = await start(course, { subject: "Chess", why: "Beat my brother" });
+    expect(started).toMatchObject({ stage: "know", answerChangesLeft: 3 });
+    const known = await answer(course, started.id, "The moves");
+
+    const back = await change(started.id);
+    expect(back).toMatchObject({ stage: "know", questionNumber: 2, answerChangesLeft: 0 });
+    expect(back?.messages).toEqual(started.messages);
+    // Only the last answer: the one before stays until this is answered again.
+    expect(await change(started.id)).toEqual(back);
+
+    expect(await answer(course, started.id, "The moves and castling")).toEqual({
+      ...known,
+      messages: [...started.messages, { from: "learner", text: "The moves and castling" }, known!.messages.at(-1)],
+      answerChangesLeft: 2,
+    });
+
+    await change(started.id);
+    await answer(course, started.id, "Openings");
+    await change(started.id);
+    const last = await answer(course, started.id, "Openings and endgames");
+    expect(last).toMatchObject({ stage: "success", answerChangesLeft: 0 });
+    expect(await change(started.id)).toEqual(last);
+  });
+
+  it("takes back the first answer, to \"why\"", async () => {
+    await setUp();
+    const started = await start(course, { subject: "Chess", why: "Beat my brother" });
+
+    const why = await change(started.id);
+    expect(why).toMatchObject({ stage: "why", questionNumber: 1, answerChangesLeft: 0 });
+    expect(why?.messages).toEqual(openingMessages("Chess"));
+    expect(await answer(course, started.id, "Teach my daughter")).toMatchObject({
+      stage: "know",
+      answerChangesLeft: 2,
+    });
+    expect(await course.readInterviewStart("ana")).toMatchObject({ creditsToStart: 0 });
+  });
+
+  it("lets the Teacher ask the follow-up again once the answer that used it is taken back", async () => {
+    await setUp({
+      interviewFollowUp: (input) => ({ followUp: "Could you tell me a little more?", nextQuestion: input.nextQuestion }),
+    });
+    const started = await start(course, { subject: "Chess", why: "fun" });
+    expect(started).toMatchObject({ stage: "why" });
+
+    await change(started.id);
+    await answer(course, started.id, "Beat my brother");
+
+    expect(
+      teacher.calls.filter((c) => c.op === "interviewFollowUp").map((c) => c.input.mayFollowUp),
+    ).toEqual([true, true]);
+  });
+
+  it("takes back the sitting length, and nothing once the Course is written", async () => {
+    await setUp();
+    const started = await start(course, { subject: "Chess", why: "Beat my brother" });
+    await answer(course, started.id, "The moves");
+    await answer(course, started.id, "Win one game against him");
+    await course.chooseSittingLength(started.id, 10, "ana");
+
+    expect(await change(started.id)).toMatchObject({ stage: "sitting", answerChangesLeft: 0 });
+    const done = await course.chooseSittingLength(started.id, 20, "ana");
+    expect(done).toMatchObject({ stage: "complete", answerChangesLeft: 2 });
+
+    const written = await course.writeCourse(started.id, "ana");
+    expect(written).toMatchObject({ ok: true });
+    expect(await change(started.id)).toMatchObject({ stage: "complete", answerChangesLeft: 0 });
+  });
+
+  it("is the Learner's own", async () => {
+    await setUp();
+    await db.insert(schema.learner).values({ id: "ben", email: "ben@example.com" });
+    const started = await start(course, { subject: "Chess", why: "Beat my brother" });
+
+    expect(await course.changeLastAnswer(started.id, "ben")).toBeNull();
+    expect(await course.readInterview(started.id, "ana")).toMatchObject({ stage: "know" });
   });
 });

@@ -115,6 +115,18 @@ export const interviewStage = pgEnum("interview_stage", [
 
 export type InterviewMessage = { from: "teacher" | "learner"; text: string };
 
+// The Interview as it stood before the Learner's last answer: putting it
+// back takes that answer back. `messageCount` is how many messages it had.
+export type InterviewBeforeAnswer = {
+  stage: "why" | "know" | "success" | "sitting";
+  why: string | null;
+  know: string | null;
+  success: string | null;
+  followUpAsked: boolean;
+  awaitingFollowUp: boolean;
+  messageCount: number;
+};
+
 // An Interview is held by a signed-in Learner and backed by one of their
 // Course credits (ADR 0007): only its Learner may continue it.
 export const interview = pgTable(
@@ -147,6 +159,12 @@ export const interview = pgTable(
     awaitingFollowUp: boolean("awaiting_follow_up").notNull().default(false),
     // The conversation as shown, in order.
     messages: jsonb("messages").$type<InterviewMessage[]>().notNull(),
+    // Null when there is no answer to take back: none given yet, or the last
+    // one was just taken back.
+    beforeLastAnswer: jsonb("before_last_answer").$type<InterviewBeforeAnswer>(),
+    // How many answers the Learner took back to change; each new answer
+    // calls the Teacher again, so it is capped.
+    answersChanged: integer("answers_changed").notNull().default(0),
     // When an anonymous Interview was claimed at sign-in, before ADR 0007.
     // No longer written.
     claimedAt: timestamp("claimed_at", { withTimezone: true }),

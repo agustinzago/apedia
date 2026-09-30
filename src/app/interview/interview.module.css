@@ -45,6 +45,17 @@
   text-underline-offset: 4px;
 }
 
+.changeAnswer {
+  padding: 0;
+  background: none;
+  border: none;
+  color: var(--ink-muted);
+  font-size: 17px;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  cursor: pointer;
+}
+
 .messages {
   list-style: none;
   margin: 0;

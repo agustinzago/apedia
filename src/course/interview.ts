@@ -1,7 +1,7 @@
 import { and, asc, count, desc, eq, notExists, sql } from "drizzle-orm";
 import { z } from "zod";
 import { schema, type Db } from "@/db";
-import type { InterviewMessage } from "@/db/schema";
+import type { InterviewBeforeAnswer, InterviewMessage } from "@/db/schema";
 import type { Teacher } from "@/teacher";
 import { insertCourseCreationJob } from "./course-creation";
 import type { Tx } from "./jobs";
@@ -17,6 +17,9 @@ export const SITTING_MINUTES = [5, 10, 20, 30] as const;
 export type SittingMinutes = (typeof SITTING_MINUTES)[number];
 
 export type InterviewStage = (typeof schema.interviewStage.enumValues)[number];
+
+/** How many answers a Learner may take back to change: each new answer calls the Teacher again. */
+export const ANSWER_CHANGES = 3;
 
 type QuestionKey = "why" | "know" | "success" | "sitting";
 const ORDER: QuestionKey[] = ["why", "know", "success", "sitting"];
@@ -54,6 +57,8 @@ export type InterviewView = {
   questionNumber: number | null;
   /** Set once a Course has been written from this Interview. */
   courseId: string | null;
+  /** How many more answers the Learner may take back to change; 0 when none can be. */
+  answerChangesLeft: number;
   /**
    * Whether a Course credit backs the Interview: available while it is
    * open, used once its Course is written. False once the credit of an
@@ -179,6 +184,8 @@ export function createInterviewOperations({
       .from(schema.course)
       .where(eq(schema.course.interviewId, row.id));
     const index = ORDER.indexOf(row.stage as QuestionKey);
+    const backed = course !== undefined || (await isBacked(row));
+    const changeable = backed && course === undefined && row.beforeLastAnswer !== null;
     return {
       id: row.id,
       subject: row.subject,
@@ -186,7 +193,21 @@ export function createInterviewOperations({
       messages: row.messages,
       questionNumber: index === -1 ? null : index + 1,
       courseId: course?.id ?? null,
-      backed: course !== undefined || (await isBacked(row)),
+      answerChangesLeft: changeable ? Math.max(0, ANSWER_CHANGES - row.answersChanged) : 0,
+      backed,
+    };
+  }
+
+  /** The Interview as it stands, kept before an answer so the answer can be taken back. */
+  function beforeAnswer(row: InterviewRow): InterviewBeforeAnswer {
+    return {
+      stage: row.stage as QuestionKey,
+      why: row.why,
+      know: row.know,
+      success: row.success,
+      followUpAsked: row.followUpAsked,
+      awaitingFollowUp: row.awaitingFollowUp,
+      messageCount: row.messages.length,
     };
   }
 
@@ -248,6 +269,7 @@ export function createInterviewOperations({
       : answer;
     const messages: InterviewMessage[] = [...row.messages, { from: "learner", text: answer }];
     const followUp = mayFollowUp ? reply.followUp : null;
+    const beforeLastAnswer = beforeAnswer(row);
 
     const [updated] = await db
       .update(schema.interview)
@@ -255,12 +277,14 @@ export function createInterviewOperations({
         followUp
           ? {
               [stage]: combined,
+              beforeLastAnswer,
               followUpAsked: true,
               awaitingFollowUp: true,
               messages: [...messages, { from: "teacher", text: followUp }],
             }
           : {
               [stage]: combined,
+              beforeLastAnswer,
               stage: next,
               awaitingFollowUp: false,
               messages: [...messages, { from: "teacher", text: reply.nextQuestion }],
@@ -427,6 +451,16 @@ export function createInterviewOperations({
         return toView(row);
       }
 
+      // Taking back the first answer asks "why" again.
+      const beforeLastAnswer: InterviewBeforeAnswer = {
+        stage: "why",
+        why: null,
+        know: null,
+        success: null,
+        followUpAsked: false,
+        awaitingFollowUp: false,
+        messageCount: openingMessages(subject).length,
+      };
       const reply = await teacher.interviewFollowUp({
         subject,
         language,
@@ -442,6 +476,7 @@ export function createInterviewOperations({
             language,
             stage: "why",
             why,
+            beforeLastAnswer,
             followUpAsked: true,
             awaitingFollowUp: true,
             messages: [...messages, { from: "teacher", text: reply.followUp }],
@@ -452,6 +487,7 @@ export function createInterviewOperations({
             language,
             stage: "know",
             why,
+            beforeLastAnswer,
             messages: [...messages, { from: "teacher", text: reply.nextQuestion }],
           };
 
@@ -514,11 +550,61 @@ export function createInterviewOperations({
         .set({
           stage: "complete",
           sittingMinutes: minutes,
+          beforeLastAnswer: beforeAnswer(row),
           messages: [...row.messages, { from: "learner", text: `${minutes} minutes` }],
         })
         .where(and(eq(schema.interview.id, row.id), eq(schema.interview.stage, "sitting")))
         .returning();
       return toView(updated ?? (await findRow(interviewId))!);
+    },
+
+    /**
+     * Takes back the Learner's last answer, so its question is asked again,
+     * and puts back any follow-up the answer used. At most ANSWER_CHANGES
+     * times per Interview, one answer at a time, while no Course is written
+     * from it and its Course credit is available. Null if the Interview is
+     * not found or not the Learner's; otherwise unchanged if no answer may
+     * be taken back.
+     */
+    async changeLastAnswer(
+      interviewId: string,
+      learnerId: string,
+    ): Promise<InterviewView | Busy | null> {
+      const found = await findRow(interviewId);
+      if (!found || !mayUse(found, learnerId)) return null;
+      // Takes turns with answering, so an answer in flight is not taken back half-given.
+      return withLease(db, `interview-answer:${interviewId}`, async () => {
+        const row = await findRow(interviewId);
+        if (!row) return null;
+        const view = await toView(row);
+        if (view.answerChangesLeft === 0) return view;
+
+        const { messageCount, ...kept } = row.beforeLastAnswer!;
+        await db
+          .update(schema.interview)
+          .set({
+            ...kept,
+            sittingMinutes: null,
+            messages: row.messages.slice(0, messageCount),
+            beforeLastAnswer: null,
+            answersChanged: row.answersChanged + 1,
+          })
+          .where(
+            and(
+              eq(schema.interview.id, row.id),
+              // Not if a sitting length or "Write my course" got in first.
+              eq(schema.interview.stage, row.stage),
+              notExists(
+                db
+                  .select({ one: sql`1` })
+                  .from(schema.course)
+                  .where(eq(schema.course.interviewId, schema.interview.id)),
+              ),
+            ),
+          );
+        const now = await findRow(interviewId);
+        return now ? toView(now) : null;
+      });
     },
 
     /** The Interview as its screen shows it. Null if not found or not the viewer's. */

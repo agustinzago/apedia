@@ -27,7 +27,7 @@ const NO_CREDIT = {
 
 /**
  * Sends one answer: starts the Interview on the first, then answers each
- * question in turn. Only a signed-in Learner holding a Course credit gets
+ * question in turn. Or takes back the last answer, to change it. Only a signed-in Learner holding a Course credit gets
  * this far; `course` refuses anyone else.
  */
 export async function sendAnswer(
@@ -47,6 +47,8 @@ export async function sendAnswer(
   try {
     if (previous.view === null) {
       view = await course.startInterview({ subject, why: answer }, learnerId);
+    } else if (form.get("change") !== null) {
+      view = await course.changeLastAnswer(previous.view.id, learnerId);
     } else if (minutes !== null) {
       view = await course.chooseSittingLength(previous.view.id, Number(minutes), learnerId);
     } else {

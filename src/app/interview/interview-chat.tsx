@@ -29,14 +29,18 @@ export function InterviewChat({
     error: null,
   } satisfies InterviewState);
   const [draft, setDraft] = useState("");
-  // What the Learner just sent, shown while the Teacher replies.
-  const [sent, setSent] = useState("");
+  // What the Learner just sent, shown while the Teacher replies; null while taking an answer back.
+  const [sent, setSent] = useState<string | null>(null);
 
   // Clear the box once an answer has gone through; keep it if it failed.
+  // An answer taken back goes back in the box, to change.
   const [settled, setSettled] = useState(state);
   if (settled !== state) {
+    const before = settled.view?.messages ?? [];
+    const after = state.view?.messages ?? [];
     setSettled(state);
-    if (!state.error) setDraft("");
+    if (after.length < before.length) setDraft(before[after.length].text);
+    else if (!state.error) setDraft("");
   }
 
   const view = state.view;
@@ -83,7 +87,7 @@ export function InterviewChat({
         {messages.map((message, i) => (
           <Bubble key={i} message={message} />
         ))}
-        {sending && (
+        {sending && sent !== null && (
           <>
             <Bubble message={{ from: "learner", text: sent }} />
             <li className={styles.row} data-from="teacher">
@@ -167,6 +171,14 @@ export function InterviewChat({
       )}
 
       {!stopped && stage === "complete" && view && <WriteCourse interviewId={view.id} />}
+
+      {!sending && !stopped && view && view.answerChangesLeft > 0 && (
+        <form action={send} onSubmit={() => setSent(null)}>
+          <button type="submit" name="change" value="1" className={styles.changeAnswer}>
+            change my last answer ({view.answerChangesLeft} left)
+          </button>
+        </form>
+      )}
 
       {(stage === "redirected" || stopped) && (
         <Link href="/" className={styles.homeLink}>
