@@ -27,8 +27,10 @@ export type RecordPaymentResult =
   | "duplicate"
   /** No such Learner, say a deleted account: nothing recorded. */
   | "unknown-learner"
-  /** A refund for a payment with no Course credit: nothing recorded. */
-  | "unknown-payment";
+  /** A refund for a payment with no Course credit yet: remembered, so the payment grants no usable credit if it comes. */
+  | "unknown-payment"
+  /** Paid nothing, as with a full discount: no credit. */
+  | "free";
 
 /**
  * Times one credit comes back from Courses given up on. Each such Course ran
@@ -41,8 +43,10 @@ export function createCreditOperations({ db, now }: { db: Db; now: () => Date })
   return {
     /**
      * Records a verified payment event. Paid grants one Course credit per
-     * payment. A full refund marks an unused credit refunded; a credit
-     * already used keeps its status, with the refund's time recorded.
+     * payment, unless it paid nothing. A full refund marks an unused credit
+     * refunded; a credit already used keeps its status, with the refund's
+     * time recorded. A refund may arrive before its payment: it is
+     * remembered, and the payment then records its credit refunded.
      */
     async recordPayment(event: PaymentEvent): Promise<RecordPaymentResult> {
       const at = now();
@@ -50,50 +54,75 @@ export function createCreditOperations({ db, now }: { db: Db; now: () => Date })
         eq(schema.courseCredit.provider, event.provider),
         eq(schema.courseCredit.providerPaymentId, event.paymentId),
       );
+      // A payment's events take turns: a refund delivered alongside its
+      // payment must see the credit, or leave word for it.
+      return db.transaction(async (tx) => {
+        await tx.execute(
+          sql`select pg_advisory_xact_lock(hashtextextended(${`payment:${event.provider}:${event.paymentId}`}, 0))`,
+        );
 
-      if (event.kind === "paid") {
-        const [learner] = await db
-          .select({ id: schema.learner.id })
-          .from(schema.learner)
-          .where(eq(schema.learner.id, event.learnerId));
-        if (!learner) return "unknown-learner";
+        if (event.kind === "paid") {
+          if (event.amountCents <= 0) return "free";
+          const [learner] = await tx
+            .select({ id: schema.learner.id })
+            .from(schema.learner)
+            .where(eq(schema.learner.id, event.learnerId));
+          if (!learner) return "unknown-learner";
 
-        const [granted] = await db
-          .insert(schema.courseCredit)
-          .values({
-            learnerId: event.learnerId,
-            provider: event.provider,
-            providerPaymentId: event.paymentId,
-            amountCents: event.amountCents,
-            currency: event.currency,
-            createdAt: at,
+          const [reversed] = await tx
+            .select({ at: schema.paymentReversal.createdAt })
+            .from(schema.paymentReversal)
+            .where(
+              and(
+                eq(schema.paymentReversal.provider, event.provider),
+                eq(schema.paymentReversal.providerPaymentId, event.paymentId),
+              ),
+            );
+          const [granted] = await tx
+            .insert(schema.courseCredit)
+            .values({
+              learnerId: event.learnerId,
+              provider: event.provider,
+              providerPaymentId: event.paymentId,
+              amountCents: event.amountCents,
+              currency: event.currency,
+              // Refunded before it arrived: recorded, never usable.
+              ...(reversed ? { status: "refunded" as const, refundedAt: reversed.at } : {}),
+              createdAt: at,
+              updatedAt: at,
+            })
+            .onConflictDoNothing({
+              target: [schema.courseCredit.provider, schema.courseCredit.providerPaymentId],
+            })
+            .returning({ id: schema.courseCredit.id });
+          if (!granted) return "duplicate";
+          return reversed ? "refunded" : "granted";
+        }
+
+        const status = schema.courseCredit.status;
+        const [refunded] = await tx
+          .update(schema.courseCredit)
+          .set({
+            refundedAt: at,
             updatedAt: at,
+            // A used credit already started its Course; it stays "used".
+            status: sql`case when ${status} = 'available' then 'refunded'::course_credit_status else ${status} end`,
           })
-          .onConflictDoNothing({
-            target: [schema.courseCredit.provider, schema.courseCredit.providerPaymentId],
-          })
+          .where(and(payment, isNull(schema.courseCredit.refundedAt)))
           .returning({ id: schema.courseCredit.id });
-        return granted ? "granted" : "duplicate";
-      }
+        if (refunded) return "refunded";
 
-      const status = schema.courseCredit.status;
-      const [refunded] = await db
-        .update(schema.courseCredit)
-        .set({
-          refundedAt: at,
-          updatedAt: at,
-          // A used credit already started its Course; it stays "used".
-          status: sql`case when ${status} = 'available' then 'refunded'::course_credit_status else ${status} end`,
-        })
-        .where(and(payment, isNull(schema.courseCredit.refundedAt)))
-        .returning({ id: schema.courseCredit.id });
-      if (refunded) return "refunded";
-
-      const [known] = await db
-        .select({ id: schema.courseCredit.id })
-        .from(schema.courseCredit)
-        .where(payment);
-      return known ? "duplicate" : "unknown-payment";
+        const [known] = await tx
+          .select({ id: schema.courseCredit.id })
+          .from(schema.courseCredit)
+          .where(payment);
+        if (known) return "duplicate";
+        await tx
+          .insert(schema.paymentReversal)
+          .values({ provider: event.provider, providerPaymentId: event.paymentId, createdAt: at })
+          .onConflictDoNothing();
+        return "unknown-payment";
+      });
     },
 
     /**

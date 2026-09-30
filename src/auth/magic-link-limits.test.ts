@@ -53,6 +53,20 @@ describe("auth: limiting magic-link emails", () => {
     expect(await db.select().from(schema.magicLinkRequest)).toHaveLength(3);
   });
 
+  it("holds requests sent all at once to the limit, for an address and for an IP", async () => {
+    const toAna = await Promise.all(
+      Array.from({ length: 10 }, (_, i) =>
+        limiter.allow({ email: "ana@example.com", ip: `198.51.100.${i}` }),
+      ),
+    );
+    expect(toAna.filter((r) => r.ok)).toHaveLength(3);
+
+    const fromOneIp = await Promise.all(
+      Array.from({ length: 30 }, (_, i) => limiter.allow({ email: `n${i}@example.com`, ip: "203.0.113.9" })),
+    );
+    expect(fromOneIp.filter((r) => r.ok)).toHaveLength(20);
+  });
+
   it("counts an address however it is typed", async () => {
     await ask(3, "ana@example.com");
 

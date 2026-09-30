@@ -4,9 +4,11 @@ import { schema, type Db } from "@/db";
 import type { LessonDraft, QuestionDraft } from "@/teacher";
 import { createFakeTeacher, type FakeTeacher, type FakeTeacherReplies } from "@/teacher/fake";
 import lessonFixture from "@/teacher/fixtures/lesson-music-theory.json";
+import { timeLeft } from "@/teacher/deadline";
 import { createTestDb } from "@/test/db";
 import { createFakeUrlFetcher } from "@/url-fetcher/fake";
 import { createCourseModule, DEFAULT_DAILY_LIMITS, EXAMPLE_COURSE_ID, type CourseModule } from ".";
+import { STEP_DEADLINE_MS } from "./jobs";
 
 const lesson = lessonFixture as LessonDraft;
 const ana = { learnerId: "ana" };
@@ -377,6 +379,20 @@ describe("course: writing the Up next Lesson and answering its quiz", () => {
       expect((await readJob(jobId)).status).toBe("done");
       expect((await course.readLesson("c1", 1, ana))?.content?.keyIdea).toBe(lesson.keyIdea);
     });
+  });
+
+  it("writes the Lesson against the step's deadline, inside its function's 300 s", async () => {
+    let left: number | null = null;
+    await setUp({
+      writeLesson: () => {
+        left = timeLeft();
+        return lessonFixture;
+      },
+    });
+    await openAndWrite();
+
+    expect(left).toBeGreaterThan(250_000);
+    expect(left).toBeLessThanOrEqual(STEP_DEADLINE_MS);
   });
 
   it("stops offering Try again after three attempts at writing a Lesson", async () => {

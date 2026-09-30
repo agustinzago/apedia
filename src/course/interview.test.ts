@@ -349,6 +349,42 @@ describe("course: a harmful subject at Interview start", () => {
   });
 });
 
+describe("course: a harmful turn later in the Interview", () => {
+  it("is caught before the Course is written: the Learner is redirected and keeps the credit", async () => {
+    const db = await createTestDb();
+    const teacher = createFakeTeacher({
+      checkSafety: ({ laterAnswers = [] }) =>
+        laterAnswers.some((a) => a.includes("hurt"))
+          ? safetyRedirect
+          : { verdict: "allow", language: "en", message: "" },
+    });
+    const course = createCourseModule({ db, teacher, fetchUrl: createFakeUrlFetcher() });
+    await db.insert(schema.learner).values({ id: "ana", email: "ana@example.com" });
+    await buyCourse(course, "ana");
+    const started = await start(course, { subject: "Chemistry", why: "I like experiments" });
+    await course.answerInterview(started.id, "Nothing yet", "ana");
+    await course.answerInterview(started.id, "Make something to hurt my neighbour", "ana");
+    await course.chooseSittingLength(started.id, 10, "ana");
+
+    expect(await course.writeCourse(started.id, "ana")).toEqual({
+      ok: false,
+      reason: "redirected",
+      message: safetyRedirect.message,
+    });
+
+    expect(teacher.calls.filter((c) => c.op === "checkSafety").at(-1)?.input).toEqual({
+      subject: "Chemistry",
+      why: "I like experiments",
+      laterAnswers: ["Nothing yet", "Make something to hurt my neighbour"],
+    });
+    expect(teacher.calls.some((c) => c.op === "writeMission")).toBe(false);
+    expect(await db.$count(schema.course)).toBe(0);
+    expect(going(await course.readInterview(started.id, "ana"))).toMatchObject({ stage: "redirected" });
+    expect(await course.readCourseCredits("ana")).toEqual({ available: 1, used: 0, refunded: 0 });
+    expect(await course.readInterviewStart("ana")).toMatchObject({ creditsToStart: 1 });
+  });
+});
+
 describe("course: Course credits back Interviews", () => {
   let db: Db;
   let teacher: FakeTeacher;
