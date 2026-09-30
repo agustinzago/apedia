@@ -274,13 +274,19 @@ export function createInterviewOperations({
   }
 
   /** "Write my course", once no other press of it is being handled. */
-  async function writeOnce(
-    row: InterviewRow,
-    sittingMinutes: number,
-    learnerId: string,
-  ): Promise<WriteCourseResult> {
-    const existing = await findCourseFor(row.id);
+  async function writeOnce(interviewId: string, learnerId: string): Promise<WriteCourseResult> {
+    const existing = await findCourseFor(interviewId);
     if (existing) return { ok: true, ...existing };
+    // Read again inside the lease: an earlier press may have redirected it.
+    const row = await findRow(interviewId);
+    if (!row) return { ok: false, reason: "not-found" };
+    if (row.stage === "redirected") {
+      return { ok: false, reason: "redirected", message: lastTeacherMessage(row.messages) };
+    }
+    const sittingMinutes = row.sittingMinutes;
+    if (row.stage !== "complete" || sittingMinutes === null) {
+      return { ok: false, reason: "not-finished" };
+    }
     const creditId = row.courseCreditId;
     if (creditId === null || !(await isBacked(row))) return NO_CREDIT;
     const paused = await spend.teacherCall();
@@ -603,8 +609,7 @@ export function createInterviewOperations({
       }
       // Pressed again while the Mission is being written, that press is
       // told so rather than asking the Teacher again.
-      const sittingMinutes = row.sittingMinutes;
-      return withLease(db, `write-course:${row.id}`, () => writeOnce(row, sittingMinutes, learnerId));
+      return withLease(db, `write-course:${row.id}`, () => writeOnce(row.id, learnerId));
     },
   };
 }

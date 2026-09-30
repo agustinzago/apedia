@@ -250,7 +250,7 @@ describe("teacher: talking to Claude", () => {
     const request = parse.mock.calls[0][0];
     expect(request.system).toContain("All three questions check this Lesson.");
     expect(request.messages[0].content).toContain(
-      'Your previous Lesson was rejected: "r9" is not a Resource of this Course.',
+      "Your previous Lesson was rejected: &quot;r9&quot; is not a Resource of this Course.",
     );
   });
 

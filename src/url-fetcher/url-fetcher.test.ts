@@ -100,6 +100,12 @@ describe("url-fetcher: which addresses are public", () => {
       "fc00::1",
       "fe80::1",
       "::ffff:127.0.0.1",
+      "198.18.0.1",
+      "224.0.0.251",
+      "240.0.0.1",
+      "255.255.255.255",
+      "64:ff9b::a9fe:a9fe",
+      "ff02::1",
     ]) {
       expect(isPublicAddress(address), address).toBe(false);
     }

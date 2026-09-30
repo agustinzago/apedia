@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { securityHeaders } from "./security-headers";
 
-const byKey = (dev: boolean) =>
-  Object.fromEntries(securityHeaders({ dev }).map((h) => [h.key, h.value]));
+const byKey = (dev: boolean, preview = false) =>
+  Object.fromEntries(securityHeaders({ dev, preview }).map((h) => [h.key, h.value]));
 
 describe("server: security headers", () => {
   it("keeps other sites from framing any page", () => {
@@ -20,8 +20,18 @@ describe("server: security headers", () => {
     expect(csp).not.toMatch(/\n/);
   });
 
-  it("allows eval only in development, where React needs it", () => {
-    expect(byKey(true)["Content-Security-Policy"]).toContain("'unsafe-eval'");
+  it("allows eval, and Analytics' debug script, only in development", () => {
+    const dev = byKey(true)["Content-Security-Policy"];
+    expect(dev).toContain("'unsafe-eval'");
+    expect(dev).toContain("https://va.vercel-scripts.com");
+    expect(byKey(false)["Content-Security-Policy"]).not.toContain("va.vercel-scripts.com");
+  });
+
+  it("lets Vercel's toolbar run on Preview deployments only", () => {
+    const preview = byKey(false, true)["Content-Security-Policy"];
+    expect(preview).toMatch(/script-src [^;]*https:\/\/vercel\.live/);
+    expect(preview).toMatch(/frame-src [^;]*https:\/\/vercel\.live/);
+    expect(byKey(false)["Content-Security-Policy"]).not.toContain("vercel.live");
   });
 
   it("stops MIME sniffing and keeps full URLs from leaving the site", () => {

@@ -96,34 +96,37 @@ export async function writeMyCourse(_previous: WriteState, form: FormData): Prom
     redirect(`/sign-in?${new URLSearchParams({ next: openInterviewPath(interviewId) })}`);
   }
 
-  let courseId: string;
+  let next: string;
   try {
     const written = await course.writeCourse(interviewId, viewer.learnerId);
     if (!written.ok) {
       if (written.reason === "not-found" || written.reason === "not-yours") {
         return { error: "These answers aren’t yours. Start a new course from the home page." };
       }
-      return {
-        error:
-          written.reason === "paused"
-            ? `Apedia is taking a breather today. Your answers are saved: come back ${untilReset(written.resumesAt)} and press “Write my course” again.`
-            : written.reason === "redirected"
-              ? written.message
+      if (written.reason !== "redirected") {
+        return {
+          error:
+            written.reason === "paused"
+              ? `Apedia is taking a breather today. Your answers are saved: come back ${untilReset(written.resumesAt)} and press “Write my course” again.`
               : written.reason === "no-credit"
                 ? NO_CREDIT.goOn
                 : written.reason === "busy"
                   ? "Your teacher is already writing your course. Reload the page in a moment to open it."
                   : "Answer every question first, then your teacher can write your course.",
-      };
+        };
+      }
+      // The Interview now shows the Teacher's redirect, and no Write button.
+      next = openInterviewPath(interviewId);
+    } else {
+      next = `/courses/${written.courseId}`;
+      if (written.jobId) await startJobStep(written.jobId, await requestOrigin());
     }
-    courseId = written.courseId;
-    if (written.jobId) await startJobStep(written.jobId, await requestOrigin());
   } catch (error) {
     console.error(error);
     return { error: "Your teacher couldn’t write your course just now. Please try again." };
   }
 
-  redirect(`/courses/${courseId}`);
+  redirect(next);
 }
 
 /**
