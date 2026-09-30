@@ -106,6 +106,8 @@ describe("payments: Polar", () => {
       customer_email: "ana@example.com",
       success_url: "https://apedia.app/purchase/thanks",
       return_url: "https://apedia.app/",
+      // A leaked or mistaken code must not make a Course credit free.
+      allow_discount_codes: false,
     });
   });
 
@@ -133,6 +135,19 @@ describe("payments: Polar", () => {
       paymentId: "order-1",
     });
     expect(await payments.verifyWebhook(signed(event("order.refunded", partial)))).toMatchObject({
+      kind: "ignored",
+    });
+  });
+
+  it("reads a voided order, as after a lost chargeback, as taking the payment back", async () => {
+    const payments = createPolarPayments(settings);
+
+    expect(await payments.verifyWebhook(signed(event("order.updated", order({ status: "void" }))))).toEqual({
+      kind: "refunded",
+      provider: "polar",
+      paymentId: "order-1",
+    });
+    expect(await payments.verifyWebhook(signed(event("order.updated", order())))).toMatchObject({
       kind: "ignored",
     });
   });

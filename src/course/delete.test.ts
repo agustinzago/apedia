@@ -13,9 +13,16 @@ const tables = Object.values(schema as Record<string, unknown>).filter((value): 
 /**
  * Tables not tied to any Learner or Course: the org-wide spend records, the
  * magic links sent, which hold only a keyed hash of the address and are
- * pruned after a day, and leases, which last only while a request runs.
+ * pruned after a day, leases, which last only while a request runs, and
+ * refunds that arrived before their payment, which name only the payment.
  */
-const unowned = new Set(["teacher_call", "spend_alarm", "magic_link_request", "lease"]);
+const unowned = new Set([
+  "teacher_call",
+  "spend_alarm",
+  "magic_link_request",
+  "lease",
+  "payment_reversal",
+]);
 
 /** Every row of every table, keyed by table name, in a stable order. */
 async function snapshot(db: Db): Promise<Record<string, string[]>> {

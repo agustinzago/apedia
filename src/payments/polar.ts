@@ -45,6 +45,8 @@ export function createPolarPayments(settings: PolarSettings): Payments {
         customer_email: email,
         success_url: successUrl,
         return_url: returnUrl,
+        // A leaked or mistaken discount code must not make a Course credit free.
+        allow_discount_codes: false,
       });
       return { ok: true, url: checkout.url };
     },
@@ -75,12 +77,26 @@ export function createPolarPayments(settings: PolarSettings): Payments {
         throw error;
       }
 
-      if (payload.type !== "order.paid" && payload.type !== "order.refunded") {
+      if (
+        payload.type !== "order.paid" &&
+        payload.type !== "order.refunded" &&
+        payload.type !== "order.updated"
+      ) {
         return { kind: "ignored", reason: `event ${payload.type}` };
       }
       const order = payload.data;
       if (order.product_id !== settings.productId) {
         return { kind: "ignored", reason: `${payload.type} for product ${order.product_id}` };
+      }
+
+      if (payload.type === "order.updated") {
+        // Polar sends no dispute webhook. A chargeback it heads off arrives
+        // as a refund; one that voids the order arrives as this update, and
+        // takes the payment back like a full refund.
+        if (order.status !== "void") {
+          return { kind: "ignored", reason: `order ${order.id} updated to ${order.status}` };
+        }
+        return { kind: "refunded", provider: PROVIDER, paymentId: order.id };
       }
 
       if (payload.type === "order.refunded") {

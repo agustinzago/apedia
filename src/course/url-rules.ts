@@ -24,6 +24,8 @@ export function verdictFor(check: UrlCheck): UrlVerdict {
       return { keep: false, reason: "it timed out" };
     case "network":
       return { keep: false, reason: "it could not be reached" };
+    case "blocked":
+      return { keep: false, reason: "it leads to an address that is not public" };
   }
 }
 

@@ -84,6 +84,11 @@ export type WriteCourseResult =
   | { ok: false; reason: "not-found" | "not-yours" | "not-finished" }
   /** "Write my course" was pressed again while the Course is being written. */
   | Busy
+  /**
+   * A later answer turned the Interview harmful: it is redirected with this
+   * kind message, and its Course credit is free again.
+   */
+  | { ok: false; reason: "redirected"; message: string }
   /** The credit backing the Interview is no longer available, say it was refunded. */
   | NoCourseCredit
   /** The Teacher is paused for the day; the Interview keeps for later. */
@@ -269,17 +274,43 @@ export function createInterviewOperations({
   }
 
   /** "Write my course", once no other press of it is being handled. */
-  async function writeOnce(
-    row: InterviewRow,
-    sittingMinutes: number,
-    learnerId: string,
-  ): Promise<WriteCourseResult> {
-    const existing = await findCourseFor(row.id);
+  async function writeOnce(interviewId: string, learnerId: string): Promise<WriteCourseResult> {
+    const existing = await findCourseFor(interviewId);
     if (existing) return { ok: true, ...existing };
+    // Read again inside the lease: an earlier press may have redirected it.
+    const row = await findRow(interviewId);
+    if (!row) return { ok: false, reason: "not-found" };
+    if (row.stage === "redirected") {
+      return { ok: false, reason: "redirected", message: lastTeacherMessage(row.messages) };
+    }
+    const sittingMinutes = row.sittingMinutes;
+    if (row.stage !== "complete" || sittingMinutes === null) {
+      return { ok: false, reason: "not-finished" };
+    }
     const creditId = row.courseCreditId;
     if (creditId === null || !(await isBacked(row))) return NO_CREDIT;
     const paused = await spend.teacherCall();
     if (paused) return paused;
+
+    // The Interview's start was screened on its first answer alone; the
+    // rest is screened before a Mission is written from it.
+    const safety = await teacher.checkSafety({
+      subject: row.subject,
+      why: row.why ?? "",
+      laterAnswers: [row.know ?? "", row.success ?? ""],
+    });
+    if (safety.verdict === "redirect") {
+      await db
+        .update(schema.interview)
+        .set({
+          stage: "redirected",
+          // A redirected subject uses no credit.
+          courseCreditId: null,
+          messages: [...row.messages, { from: "teacher", text: safety.message }],
+        })
+        .where(eq(schema.interview.id, row.id));
+      return { ok: false, reason: "redirected", message: safety.message };
+    }
 
     const mission = await teacher.writeMission({
       subject: row.subject,
@@ -578,8 +609,7 @@ export function createInterviewOperations({
       }
       // Pressed again while the Mission is being written, that press is
       // told so rather than asking the Teacher again.
-      const sittingMinutes = row.sittingMinutes;
-      return withLease(db, `write-course:${row.id}`, () => writeOnce(row, sittingMinutes, learnerId));
+      return withLease(db, `write-course:${row.id}`, () => writeOnce(row.id, learnerId));
     },
   };
 }
