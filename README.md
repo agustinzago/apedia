@@ -47,7 +47,7 @@ Magic links are limited to 3 an hour and 10 a UTC day per address, and 20 an hou
 
 ## Teacher
 
-Every Claude call lives in `src/teacher/` (an ESLint rule keeps the SDK out of every other module). In production set `ANTHROPIC_API_KEY`; it is only read on the server. `APEDIA_FAKE_TEACHER=1` forces the stand-in Teacher, as the e2e smoke test does. Alongside the stand-in Teacher, Resource URLs are not fetched (its Resources are made up).
+Every Claude call lives in `src/teacher/` (an ESLint rule keeps the SDK out of every other module). In production set `ANTHROPIC_API_KEY`; it is only read on the server. `APEDIA_FAKE_TEACHER=1` forces the stand-in Teacher, as the e2e smoke test does; Vercel's Production ignores it. Alongside the stand-in Teacher, Resource URLs are not fetched (its Resources are made up).
 
 ## Landing page and Lessons
 
@@ -91,7 +91,7 @@ Set, server-side only:
 - `POLAR_ACCESS_TOKEN`: an organization access token (Settings → Developers) with the `checkouts:read` and `checkouts:write` scopes.
 - `POLAR_PRODUCT_ID`: the Course credit product, a one-time product priced at US$5. Its price is what Learners are charged; the "$5" Apedia shows comes from `COURSE_CREDIT.priceUsd` in `src/course/course-credit.ts`. Keep the two the same.
 - `POLAR_WEBHOOK_SECRET`: the webhook endpoint's secret. Register `https://<your site>/api/payments/webhook` under Settings → Webhooks, format Raw, subscribed to `order.paid`, `order.refunded` and `order.updated` (API version 2026-04, the one `src/payments/polar.ts` reads, if Polar asks).
-- `POLAR_SERVER`: `sandbox` (the default) or `production`. The sandbox (sandbox.polar.sh) takes test cards and moves no money; it has its own organization, product, token and webhook. Use it in development and on preview deployments (set the sandbox values in Vercel's Preview environment), and `production` only in Production.
+- `POLAR_SERVER`: `sandbox` (the default) or `production`. The sandbox (sandbox.polar.sh) takes test cards and moves no money; it has its own organization, product, token and webhook. Use it in development and on preview deployments (set the sandbox values in Vercel's Preview environment), and `production` only in Production. On Vercel's Production anything but `production` turns buying off, so test cards can't buy real credits.
 
 Without the three keys nothing can be bought: "Buy a Course" says buying isn't set up yet, the webhook rejects every request, and in production the server logs an error. Tests use the fake in `src/payments/fake.ts`; the app never does.
 

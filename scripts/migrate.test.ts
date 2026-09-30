@@ -17,7 +17,9 @@ function buildMigration(env: Record<string, string>) {
   return migrates ? "migrates" : "skips";
 }
 
-describe("scripts: migrations on deploy", () => {
+// Each case starts tsx in a child process, about a second apiece: longer
+// than the default 5 s once the whole suite is running alongside.
+describe("scripts: migrations on deploy", { timeout: 30_000 }, () => {
   it("migrates on a Preview build of the staging branch", () => {
     expect(buildMigration({ VERCEL_ENV: "preview", VERCEL_GIT_COMMIT_REF: "staging" })).toBe(
       "migrates",
