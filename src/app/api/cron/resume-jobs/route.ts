@@ -2,7 +2,7 @@ import { getCourse } from "@/server/course";
 import { requestOrigin, startJobStep } from "@/server/jobs";
 
 /**
- * Vercel Cron (vercel.json): resumes jobs that stopped through no fault of
+ * Vercel Cron (vercel.json, daily: the Hobby plan allows no more): resumes jobs that stopped through no fault of
  * their own, such as a step whose function was killed at 300 s, so a
  * Learner who paid is not left waiting on a job nothing will pick up again.
  * Vercel sends CRON_SECRET as a bearer token; without it, nothing runs.
