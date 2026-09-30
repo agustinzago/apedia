@@ -25,7 +25,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${kalam.variable} ${patrickHand.variable}`}>
+    <html lang="en" data-scroll-behavior="smooth" className={`${kalam.variable} ${patrickHand.variable}`}>
       <body>
         <SiteHeader />
         {children}
