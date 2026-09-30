@@ -151,7 +151,9 @@ export function operatorFromEnv(env: Env = process.env): Operator {
  * and POLAR_PRODUCT_ID, all server-side only, and POLAR_SERVER, "sandbox"
  * (the default, for development and previews) or "production". Null while
  * any of the three is unset: buying is not set up, and in production the
- * server logs an error.
+ * server logs an error. Null too on Vercel's Production (VERCEL_ENV) unless
+ * POLAR_SERVER is "production": the sandbox's test cards would buy real
+ * Course credits.
  */
 export function polarFromEnv(env: Env = process.env): Omit<PolarSettings, "baseUrl"> | null {
   const accessToken = env.POLAR_ACCESS_TOKEN?.trim();
@@ -167,6 +169,12 @@ export function polarFromEnv(env: Env = process.env): Omit<PolarSettings, "baseU
   }
 
   const raw = env.POLAR_SERVER?.trim() || "sandbox";
+  if (env.VERCEL_ENV === "production" && raw !== "production") {
+    console.error(
+      `POLAR_SERVER is ${raw}, not production: Learners can't buy a Course, lest the sandbox's test cards buy real credits.`,
+    );
+    return null;
+  }
   const server = raw === "production" ? "production" : "sandbox";
   if (raw !== server) console.warn(`POLAR_SERVER must be sandbox or production; using sandbox.`);
   return { accessToken, webhookSecret, productId, server };

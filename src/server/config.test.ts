@@ -193,6 +193,25 @@ describe("server: Polar from the environment", () => {
     expect(warn).toHaveBeenCalledOnce();
   });
 
+  it("is not set up on Vercel's Production unless POLAR_SERVER is production", () => {
+    // The sandbox takes Polar's free test card: real Course credits for nothing.
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const production = { VERCEL_ENV: "production", ...keys };
+
+    expect(polarFromEnv(production)).toBeNull();
+    expect(polarFromEnv({ ...production, POLAR_SERVER: "sandbox" })).toBeNull();
+    expect(polarFromEnv({ ...production, POLAR_SERVER: "live" })).toBeNull();
+    expect(error).toHaveBeenCalledTimes(3);
+    expect(error.mock.calls[0][0]).toContain("POLAR_SERVER");
+
+    expect(polarFromEnv({ ...production, POLAR_SERVER: " production " })).toMatchObject({
+      server: "production",
+    });
+    expect(polarFromEnv({ VERCEL_ENV: "preview", ...keys })).toMatchObject({ server: "sandbox" });
+    expect(error).toHaveBeenCalledTimes(3);
+  });
+
   it("is not set up while any key is missing, and complains only in production", () => {
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
 
