@@ -34,8 +34,12 @@
   line-height: 1.04;
 }
 
+/* The tight line height lets a full-height highlight cover the line above's descenders. */
 .title :global(.highlight) {
   padding: 0 10px;
+  background-size: 100% 72%;
+  background-position: 0 85%;
+  background-repeat: no-repeat;
 }
 
 .lede {
