@@ -31,7 +31,7 @@ The smoke test builds the app and serves it on port 3100 with a fresh in-memory 
 ## Database
 
 - Schema: `src/db/schema.ts`. After changing it, run `npm run db:generate` and commit the new file in `drizzle/`.
-- Production (Neon): migrations are applied by the Production build on Vercel; `DATABASE_URL=… npm run db:migrate` applies them by hand and seeds the Example courses.
+- Production and staging (Neon): migrations are applied by their builds on Vercel; `DATABASE_URL=… npm run db:migrate` applies them by hand and seeds the Example courses.
 
 ## Sign-in
 
@@ -115,7 +115,17 @@ npm run wizard
 
 The wizard walks through Neon, Anthropic, Resend, the operator's name and contact address, the spend alarm, the Auth.js secret, the site URL and Polar, checking each value against its service as you enter it. It migrates Neon, links the Vercel project, sets every variable in Vercel's Production environment, deploys, and checks that the live site offers sign-in. Values are recorded in `.env.wizard` (gitignored; Next.js never loads it, so local builds and the smoke test keep using PGlite). Re-run it to pick up where you left off or to change a value.
 
-Production variables: `DATABASE_URL`, `ANTHROPIC_API_KEY`, `AUTH_RESEND_KEY`, `AUTH_EMAIL_FROM`, `AUTH_SECRET`, `AUTH_URL` (the site's origin, set for Production only so preview deployments build links from their own URL), `APEDIA_OPERATOR_NAME`, `APEDIA_CONTACT_EMAIL`, `APEDIA_OPERATOR_EMAIL`, `APEDIA_SPEND_ALARM_USD`, `APEDIA_SPEND_STOP_USD`, `POLAR_ACCESS_TOKEN`, `POLAR_WEBHOOK_SECRET`, `POLAR_PRODUCT_ID` and `POLAR_SERVER` (`production`). Every push to `master` deploys to Production, and the Production build applies pending migrations to Neon (and seeds the Example courses) before `next build`, so a deploy never runs ahead of its schema. Preview and local builds skip that step. `DATABASE_URL=… npm run db:migrate` still applies them by hand.
+Production variables: `DATABASE_URL`, `ANTHROPIC_API_KEY`, `AUTH_RESEND_KEY`, `AUTH_EMAIL_FROM`, `AUTH_SECRET`, `AUTH_URL` (the site's origin, set for Production only so preview deployments build links from their own URL), `APEDIA_OPERATOR_NAME`, `APEDIA_CONTACT_EMAIL`, `APEDIA_OPERATOR_EMAIL`, `APEDIA_SPEND_ALARM_USD`, `APEDIA_SPEND_STOP_USD`, `POLAR_ACCESS_TOKEN`, `POLAR_WEBHOOK_SECRET`, `POLAR_PRODUCT_ID` and `POLAR_SERVER` (`production`). Every push to `master` deploys to Production, and the Production build applies pending migrations to Neon (and seeds the Example courses) before `next build`, so a deploy never runs ahead of its schema. So does a build of the `staging` branch, against its own database (see Staging); every other preview and local build skips that step. `DATABASE_URL=… npm run db:migrate` still applies them by hand.
+
+## Staging
+
+Staging runs the whole product the way Production does, but with test money: magic links through Resend, Polar's sandbox with a real checkout and webhook (test card 4242 4242 4242 4242), and the real Teacher. It is the long-lived `staging` branch, which Vercel builds as a Preview, never Production. It lives at the branch's fixed URL, `<project>-git-staging-<team>.vercel.app`.
+
+- Its variables are scoped in Vercel to Preview and the `staging` branch only: its own Neon database (a branch or a project, never Production's), sandbox Polar values with `POLAR_SERVER=sandbox`, its own `AUTH_SECRET` and keys, and higher `APEDIA_DAILY_*` and `APEDIA_SPEND_*` limits. `AUTH_URL` and `APEDIA_FAKE_TEACHER` stay unset, so magic links lead back to the staging URL and the real Teacher answers.
+- A build of `staging` (`VERCEL_ENV=preview`, `VERCEL_GIT_COMMIT_REF=staging`) migrates and seeds its database, as Production's build does. No other preview migrates (`scripts/migrate.test.ts`).
+- Vercel Authentication still guards it. Polar's webhook gets through with the project's Protection Bypass for Automation secret in its URL. The job steps that write Courses and Lessons send the same secret as a header, from `VERCEL_AUTOMATION_BYPASS_SECRET`, which Vercel sets.
+
+To set it up, or to bring it up to date (`git push origin origin/master:staging`), follow `docs/staging.md`.
 
 ## Layout
 
